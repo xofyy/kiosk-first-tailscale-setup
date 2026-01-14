@@ -262,8 +262,8 @@ setup_nvidia() {
     fi
     
     # NVIDIA durumunu kontrol et
-    check_nvidia_status
-    local nvidia_status=$?
+    local nvidia_status=0
+    check_nvidia_status || nvidia_status=$?
     
     case $nvidia_status in
         0)
