@@ -62,7 +62,7 @@ HEADSCALE_SERVER="https://headscale.xofyy.com"
 
 ```bash
 # Kiosk makinesinde çalıştırın
-git clone https://github.com/xofyarg/kiosk-first-tailscale-setup.git
+git clone https://github.com/xofyy/kiosk-first-tailscale-setup.git
 cd kiosk-first-tailscale-setup
 sudo bash install.sh
 sudo reboot

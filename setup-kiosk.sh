@@ -3,6 +3,7 @@
 # Kiosk Tailscale Setup Script
 # Bu script açılışta çalışır ve tailscale kurulumunu zorunlu kılar
 # Merkezi enrollment sistemi ile güvenli cihaz kaydı sağlar
+# NVIDIA sürücü kurulumu ve MOK yönetimi dahil
 #
 
 set -e
@@ -20,9 +21,15 @@ CONFIG_DIR="/etc/kiosk-setup"
 ID_FILE="${CONFIG_DIR}/kiosk-id"
 HARDWARE_ID_FILE="${CONFIG_DIR}/hardware-id"
 SETUP_COMPLETE_FLAG="${CONFIG_DIR}/.setup-complete"
+NVIDIA_INSTALLED_FLAG="${CONFIG_DIR}/.nvidia-installed"
+NVIDIA_MOK_PENDING_FLAG="${CONFIG_DIR}/.nvidia-mok-pending"
 HEADSCALE_SERVER="https://headscale.xofyy.com"
 ENROLLMENT_SERVER="https://enrollment.xofyy.com"
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+
+# NVIDIA Konfigürasyonu
+NVIDIA_DRIVER_VERSION="535"
+MOK_PASSWORD="12345678"  # Basit şifre - US klavye uyumlu
 
 # Log fonksiyonu
 log() {
@@ -42,7 +49,6 @@ info() {
 }
 
 # JSON'dan değer çıkar (Python3 ile güvenli parsing)
-# Kullanım: json_get "$json" "key" veya json_get "$json" "nested.key"
 json_get() {
     local json="$1"
     local key="$2"
@@ -58,7 +64,6 @@ try:
         else:
             val = None
             break
-    # None için boş string, diğer falsy değerler (False, 0) korunur
     print('' if val is None else val)
 except:
     print('')
@@ -80,6 +85,231 @@ banner() {
     echo ""
 }
 
+# ═══════════════════════════════════════════════════════════════════════════════
+# NVIDIA SÜRÜCÜ FONKSİYONLARI
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# Secure Boot durumunu kontrol et
+check_secure_boot() {
+    if command -v mokutil &>/dev/null; then
+        local sb_state=$(mokutil --sb-state 2>/dev/null | head -1)
+        if [[ "$sb_state" == *"enabled"* ]]; then
+            return 0  # Secure Boot açık
+        fi
+    fi
+    return 1  # Secure Boot kapalı veya kontrol edilemedi
+}
+
+# NVIDIA durumunu kontrol et
+# Return: 0=çalışıyor, 1=kurulu değil, 2=MOK onayı bekliyor
+check_nvidia_status() {
+    log "NVIDIA durumu kontrol ediliyor..."
+    
+    # NVIDIA paketi kurulu mu?
+    if ! dpkg -l | grep -q "nvidia-driver-${NVIDIA_DRIVER_VERSION}"; then
+        info "NVIDIA sürücüsü kurulu değil"
+        return 1
+    fi
+    
+    # NVIDIA modülü yüklü mü?
+    if lsmod | grep -q "^nvidia "; then
+        log "NVIDIA sürücüsü çalışıyor ✓"
+        # nvidia-smi ile doğrula
+        if nvidia-smi &>/dev/null; then
+            return 0
+        fi
+    fi
+    
+    # Modül yüklenmemişse, Secure Boot ve MOK durumunu kontrol et
+    if check_secure_boot; then
+        # Secure Boot açık ve modül yüklenememiş = MOK onayı gerekli
+        if [[ -f "$NVIDIA_MOK_PENDING_FLAG" ]]; then
+            warn "NVIDIA kurulu ama MOK onayı bekleniyor"
+            return 2
+        fi
+    fi
+    
+    # Diğer durumlar (modül yüklenememiş ama sebep belirsiz)
+    warn "NVIDIA kurulu ama modül yüklenememiş"
+    return 2
+}
+
+# NVIDIA sürücüsünü kur
+install_nvidia_driver() {
+    log "NVIDIA sürücüsü kuruluyor..."
+    
+    # Sistemi güncelle
+    log "Paket listesi güncelleniyor..."
+    apt update
+    
+    # NVIDIA sürücüsünü kur (non-interactive)
+    log "NVIDIA driver ${NVIDIA_DRIVER_VERSION} kuruluyor..."
+    DEBIAN_FRONTEND=noninteractive apt install -y "nvidia-driver-${NVIDIA_DRIVER_VERSION}"
+    
+    if [[ $? -ne 0 ]]; then
+        error "NVIDIA sürücü kurulumu başarısız!"
+        return 1
+    fi
+    
+    # Kurulum flag'ini oluştur
+    touch "$NVIDIA_INSTALLED_FLAG"
+    
+    log "NVIDIA sürücüsü kuruldu ✓"
+    return 0
+}
+
+# MOK anahtarını kaydet
+setup_nvidia_mok() {
+    log "MOK anahtarı ayarlanıyor..."
+    
+    # MOK anahtar dosyasını bul
+    local mok_der=""
+    if [[ -f "/var/lib/shim-signed/mok/MOK.der" ]]; then
+        mok_der="/var/lib/shim-signed/mok/MOK.der"
+    elif [[ -f "/var/lib/dkms/mok.pub" ]]; then
+        mok_der="/var/lib/dkms/mok.pub"
+    else
+        # DKMS ile MOK oluşturmayı dene
+        log "MOK anahtarı oluşturuluyor..."
+        update-secureboot-policy --new-key 2>/dev/null || true
+        
+        if [[ -f "/var/lib/shim-signed/mok/MOK.der" ]]; then
+            mok_der="/var/lib/shim-signed/mok/MOK.der"
+        fi
+    fi
+    
+    if [[ -z "$mok_der" ]] || [[ ! -f "$mok_der" ]]; then
+        error "MOK anahtar dosyası bulunamadı!"
+        return 1
+    fi
+    
+    # MOK'u kaydet
+    log "MOK anahtarı UEFI'ye kaydediliyor..."
+    echo -e "${MOK_PASSWORD}\n${MOK_PASSWORD}" | mokutil --import "$mok_der"
+    
+    if [[ $? -ne 0 ]]; then
+        error "MOK kaydı başarısız!"
+        return 1
+    fi
+    
+    # MOK pending flag'ini oluştur
+    touch "$NVIDIA_MOK_PENDING_FLAG"
+    
+    log "MOK anahtarı kaydedildi ✓"
+    return 0
+}
+
+# MOK onay ekranı bilgisi göster
+show_mok_instructions() {
+    echo ""
+    echo -e "${YELLOW}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${YELLOW}║                                                            ║${NC}"
+    echo -e "${YELLOW}║              MOK ONAYI GEREKLİ (NVIDIA)                    ║${NC}"
+    echo -e "${YELLOW}║                                                            ║${NC}"
+    echo -e "${YELLOW}║   Sistem şimdi yeniden başlatılacak.                       ║${NC}"
+    echo -e "${YELLOW}║                                                            ║${NC}"
+    echo -e "${YELLOW}║   MAVİ EKRANDA ŞUNLARI YAPIN:                              ║${NC}"
+    echo -e "${YELLOW}║                                                            ║${NC}"
+    echo -e "${YELLOW}║   1. 'Enroll MOK' seçin        → Enter                     ║${NC}"
+    echo -e "${YELLOW}║   2. 'Continue' seçin          → Enter                     ║${NC}"
+    echo -e "${YELLOW}║   3. 'Yes' seçin               → Enter                     ║${NC}"
+    echo -e "${YELLOW}║   4. Şifre girin: ${GREEN}${MOK_PASSWORD}${YELLOW}                              ║${NC}"
+    echo -e "${YELLOW}║   5. 'Reboot' seçin            → Enter                     ║${NC}"
+    echo -e "${YELLOW}║                                                            ║${NC}"
+    echo -e "${YELLOW}║   NOT: Şifre girerken ekranda karakter görünmez!           ║${NC}"
+    echo -e "${YELLOW}║                                                            ║${NC}"
+    echo -e "${YELLOW}╚════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+}
+
+# MOK onayı bekleme ekranı
+wait_for_mok_approval() {
+    echo ""
+    echo -e "${RED}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${RED}║                                                            ║${NC}"
+    echo -e "${RED}║              MOK ONAYI TAMAMLANMADI!                       ║${NC}"
+    echo -e "${RED}║                                                            ║${NC}"
+    echo -e "${RED}║   NVIDIA sürücüsü Secure Boot nedeniyle çalışamıyor.       ║${NC}"
+    echo -e "${RED}║                                                            ║${NC}"
+    echo -e "${RED}║   Lütfen sistemi yeniden başlatın ve MOK ekranında         ║${NC}"
+    echo -e "${RED}║   'Enroll MOK' seçerek onay verin.                         ║${NC}"
+    echo -e "${RED}║                                                            ║${NC}"
+    echo -e "${RED}║   Şifre: ${GREEN}${MOK_PASSWORD}${RED}                                          ║${NC}"
+    echo -e "${RED}║                                                            ║${NC}"
+    echo -e "${RED}╚════════════════════════════════════════════════════════════╝${NC}"
+    echo ""
+    
+    echo -ne "${YELLOW}Yeniden başlatmak için Enter'a basın...${NC}"
+    read -r
+    reboot
+}
+
+# NVIDIA kurulum ana fonksiyonu
+setup_nvidia() {
+    # GPU var mı kontrol et (opsiyonel - GPU yoksa atla)
+    if ! lspci | grep -qi nvidia; then
+        log "NVIDIA GPU tespit edilmedi, sürücü kurulumu atlanıyor"
+        return 0
+    fi
+    
+    log "NVIDIA GPU tespit edildi"
+    
+    # Secure Boot kontrolü
+    if ! check_secure_boot; then
+        log "Secure Boot kapalı, MOK gerekmeyecek"
+    else
+        log "Secure Boot açık, MOK gerekecek"
+    fi
+    
+    # NVIDIA durumunu kontrol et
+    check_nvidia_status
+    local nvidia_status=$?
+    
+    case $nvidia_status in
+        0)
+            # NVIDIA çalışıyor
+            log "NVIDIA sürücüsü hazır ✓"
+            # MOK pending flag'ini temizle
+            rm -f "$NVIDIA_MOK_PENDING_FLAG"
+            return 0
+            ;;
+        1)
+            # NVIDIA kurulu değil - kur
+            if ! install_nvidia_driver; then
+                error "NVIDIA kurulumu başarısız!"
+                return 1
+            fi
+            
+            # Secure Boot açıksa MOK ayarla
+            if check_secure_boot; then
+                if ! setup_nvidia_mok; then
+                    error "MOK ayarlanamadı!"
+                    return 1
+                fi
+                
+                show_mok_instructions
+                
+                log "Sistem 10 saniye içinde yeniden başlatılacak..."
+                sleep 10
+                reboot
+            else
+                # Secure Boot kapalı, sadece reboot yeterli
+                log "Sistem yeniden başlatılıyor..."
+                sleep 3
+                reboot
+            fi
+            ;;
+        2)
+            # MOK onayı bekliyor
+            wait_for_mok_approval
+            ;;
+    esac
+}
+
+# ═══════════════════════════════════════════════════════════════════════════════
+# MEVCUT FONKSİYONLAR (DEĞİŞMEDİ)
+# ═══════════════════════════════════════════════════════════════════════════════
+
 # Kurulum zaten tamamlandı mı kontrol et
 check_setup_complete() {
     if [[ -f "$SETUP_COMPLETE_FLAG" ]]; then
@@ -90,7 +320,6 @@ check_setup_complete() {
 
 # Tailscale zaten Headscale'e bağlı mı kontrol et
 check_tailscale_connected() {
-    # Tailscale yüklü değilse devam et
     if ! command -v tailscale &>/dev/null; then
         return 1
     fi
@@ -102,13 +331,11 @@ check_tailscale_connected() {
         return 1
     fi
     
-    # Python ile BackendState ve ControlURL/Tailnet kontrol et
     local result=$(echo "$status_json" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
     state = d.get('BackendState', '')
-    # CurrentControlURL boş olabilir, CurrentTailnet.Name'i de kontrol et
     url = d.get('CurrentControlURL', '') or d.get('CurrentTailnet', {}).get('Name', '')
     hostname = d.get('Self', {}).get('HostName', '')
     
@@ -162,14 +389,11 @@ check_dns() {
     fi
     
     warn "DNS çözümleme sorunu tespit edildi!"
-    warn "Ağ yapılandırmasını kontrol edin."
-    warn "Kurulum DNS olmadan devam edecek..."
     return 0
 }
 
 # Hardware ID üret
 get_hardware_id() {
-    # Eğer zaten hardware ID varsa kullan
     if [[ -f "$HARDWARE_ID_FILE" ]]; then
         HARDWARE_ID=$(cat "$HARDWARE_ID_FILE")
         log "Mevcut Hardware ID: $HARDWARE_ID"
@@ -178,15 +402,12 @@ get_hardware_id() {
     
     log "Hardware ID üretiliyor..."
     
-    # hardware-unique-id.sh script'ini kullan
-    # Önce kurulu konumu kontrol et, sonra script dizinini
     local hw_script="/usr/local/lib/kiosk/hardware-unique-id.sh"
     if [[ -f "$hw_script" ]]; then
         HARDWARE_ID=$(bash "$hw_script" --short 2>/dev/null)
     elif [[ -f "${SCRIPT_DIR}/hardware-unique-id.sh" ]]; then
         HARDWARE_ID=$(bash "${SCRIPT_DIR}/hardware-unique-id.sh" --short 2>/dev/null)
     else
-        # Fallback: basit hardware ID
         local uuid=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
         local mac=$(ip link show | grep -m1 ether | awk '{print $2}' | tr -d ':')
         HARDWARE_ID=$(echo -n "${uuid}${mac}" | sha256sum | cut -c1-16)
@@ -197,7 +418,6 @@ get_hardware_id() {
         return 1
     fi
     
-    # Kaydet
     mkdir -p "$CONFIG_DIR"
     echo "$HARDWARE_ID" > "$HARDWARE_ID_FILE"
     chmod 644 "$HARDWARE_ID_FILE"
@@ -208,7 +428,6 @@ get_hardware_id() {
 
 # Kiosk ID al
 get_kiosk_id() {
-    # Eğer zaten ID varsa kullan
     if [[ -f "$ID_FILE" ]]; then
         KIOSK_ID=$(cat "$ID_FILE")
         log "Mevcut Kiosk ID: $KIOSK_ID"
@@ -225,7 +444,6 @@ get_kiosk_id() {
         echo -ne "${BLUE}Kiosk ID giriniz (örn: 001, store-ankara, lobby-1): ${NC}"
         read -r input_id
         
-        # ID validasyonu - sadece BÜYÜK harf, rakam ve tire/alt çizgi
         if [[ -z "$input_id" ]]; then
             error "ID boş olamaz!"
             continue
@@ -243,8 +461,6 @@ get_kiosk_id() {
         
         echo ""
         echo -e "Girilen ID: ${GREEN}$input_id${NC}"
-        echo -e "Hostname olacak: ${GREEN}${input_id}${NC}"
-        echo ""
         echo -ne "Bu ID doğru mu? (e/h): "
         read -r confirm
         
@@ -265,11 +481,9 @@ enroll_device() {
     info "Hardware ID: $HARDWARE_ID"
     info "Hostname: $KIOSK_ID"
     
-    # Ek bilgiler
     local motherboard_uuid=$(cat /sys/class/dmi/id/product_uuid 2>/dev/null || echo "")
     local mac_addresses=$(ip link show | grep ether | awk '{print $2}' | tr '\n' ',' | sed 's/,$//')
     
-    # POST isteği gönder
     local response=$(curl -s -X POST "${ENROLLMENT_SERVER}/api/enroll" \
         -H "Content-Type: application/json" \
         -d "{
@@ -284,7 +498,6 @@ enroll_device() {
         return 1
     fi
     
-    # Response'u parse et (Python3 ile güvenli parsing)
     local status=$(json_get "$response" "data.status")
     
     if [[ "$status" == "approved" ]]; then
@@ -335,7 +548,6 @@ wait_for_approval() {
             continue
         fi
         
-        # Response'u parse et (Python3 ile güvenli parsing)
         local status=$(json_get "$response" "data.status")
         
         case "$status" in
@@ -381,7 +593,6 @@ install_tailscale() {
     
     log "Tailscale kuruluyor..."
     
-    # Tailscale resmi kurulum scripti
     curl -fsSL https://tailscale.com/install.sh | sh
     
     if [[ $? -ne 0 ]]; then
@@ -389,7 +600,6 @@ install_tailscale() {
         return 1
     fi
     
-    # Servisi etkinleştir
     systemctl enable --now tailscaled
     sleep 3
     
@@ -403,9 +613,7 @@ connect_tailscale() {
     
     local hostname="${KIOSK_ID}"
     
-    # Mevcut bağlantıyı kontrol et
     if tailscale status &>/dev/null 2>&1; then
-        # Tek python çağrısıyla BackendState ve HostName al
         local ts_info=$(tailscale status --json 2>/dev/null | python3 -c "
 import sys,json
 try:
@@ -421,7 +629,6 @@ except:
         local current_hostname=$(echo "$ts_info" | tail -1)
         
         if [[ "$current_status" == "Running" ]]; then
-            # Case-insensitive karşılaştırma (Tailscale hostname'leri lowercase yapar)
             if [[ "${current_hostname,,}" == "${hostname,,}" ]]; then
                 log "Tailscale zaten doğru ID ile bağlı: $hostname ✓"
                 return 0
@@ -432,20 +639,16 @@ except:
                 if [[ $? -eq 0 ]]; then
                     log "Hostname başarıyla değiştirildi: $hostname ✓"
                     return 0
-                else
-                    warn "Hostname değiştirilemedi, yeniden bağlantı deneniyor..."
                 fi
             fi
         fi
     fi
     
-    # Auth key kontrolü
     if [[ -z "$AUTH_KEY" ]]; then
         error "Auth key bulunamadı!"
         return 1
     fi
     
-    # Tailscale'i başlat
     tailscale up \
         --login-server "$HEADSCALE_SERVER" \
         --authkey "$AUTH_KEY" \
@@ -463,7 +666,6 @@ except:
     
     sleep 3
     
-    # Bağlantıyı doğrula
     if tailscale status &>/dev/null; then
         log "Tailscale başarıyla bağlandı ✓"
         echo ""
@@ -485,7 +687,10 @@ mark_setup_complete() {
     log "Kurulum tamamlandı olarak işaretlendi ✓"
 }
 
-# Ana fonksiyon
+# ═══════════════════════════════════════════════════════════════════════════════
+# ANA FONKSİYON
+# ═══════════════════════════════════════════════════════════════════════════════
+
 main() {
     # Root kontrolü
     if [[ $EUID -ne 0 ]]; then
@@ -493,11 +698,13 @@ main() {
         exit 1
     fi
     
-    # Kurulum zaten tamamlandı mı? (flag dosyası)
+    # Kurulum zaten tamamlandı mı?
     check_setup_complete
     
-    # Tailscale zaten Headscale'e bağlı mı?
+    # Tailscale zaten bağlı mı?
     if check_tailscale_connected; then
+        # NVIDIA kontrolü yap (bağlı olsa bile)
+        setup_nvidia
         mark_setup_complete
         log "Sistem zaten yapılandırılmış. Kurulum atlanıyor."
         exit 0
@@ -520,24 +727,28 @@ main() {
     # Adım 2: DNS kontrolü
     check_dns
     
-    # Adım 3: Hardware ID üret
+    # Adım 3: NVIDIA Kurulumu (Tailscale'den önce)
+    setup_nvidia
+    # Not: setup_nvidia içinde reboot olabilir, bu satırdan sonrası çalışmayabilir
+    
+    # Adım 4: Hardware ID üret
     if ! get_hardware_id; then
         error "Hardware ID üretilemedi! Yeniden deneniyor..."
         sleep 5
         exec "$0"
     fi
     
-    # Adım 4: Kiosk ID al
+    # Adım 5: Kiosk ID al
     get_kiosk_id
     
-    # Adım 5: Enrollment API'ye kayıt
+    # Adım 6: Enrollment API'ye kayıt
     if ! enroll_device; then
         error "Enrollment başarısız! Yeniden deneniyor..."
         sleep 5
         exec "$0"
     fi
     
-    # Adım 6: Eğer henüz auth key yoksa onay bekle
+    # Adım 7: Auth key yoksa onay bekle
     if [[ -z "$AUTH_KEY" ]]; then
         if ! wait_for_approval; then
             error "Onay alınamadı!"
@@ -546,14 +757,14 @@ main() {
         fi
     fi
     
-    # Adım 7: Tailscale kurulumu
+    # Adım 8: Tailscale kurulumu
     if ! install_tailscale; then
         error "Tailscale kurulumu başarısız! Yeniden deneniyor..."
         sleep 5
         exec "$0"
     fi
     
-    # Adım 8: Tailscale bağlantısı
+    # Adım 9: Tailscale bağlantısı
     if ! connect_tailscale; then
         error "Tailscale bağlantısı başarısız! Yeniden deneniyor..."
         sleep 5
@@ -570,6 +781,8 @@ main() {
     echo -e "${GREEN}║                                                            ║${NC}"
     echo -e "${GREEN}║   Hostname: ${KIOSK_ID}$(printf '%*s' $((41 - ${#KIOSK_ID})) '')║${NC}"
     echo -e "${GREEN}║   Hardware: ${HARDWARE_ID}                    ║${NC}"
+    echo -e "${GREEN}║   NVIDIA:   $(nvidia-smi --query-gpu=name --format=csv,noheader 2>/dev/null || echo "N/A")$(printf '%*s' $((41 - ${#gpu_name})) '')║${NC}"
+    echo -e "${GREEN}║                                                            ║${NC}"
     echo -e "${GREEN}║   Sistem 10 saniye içinde yeniden başlatılacak...          ║${NC}"
     echo -e "${GREEN}║                                                            ║${NC}"
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
