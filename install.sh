@@ -120,13 +120,15 @@ Before=getty@tty1.service
 
 [Service]
 Type=oneshot
-ExecStartPre=/bin/sleep 5
+ExecStartPre=/bin/sleep 3
 ExecStart=/usr/local/bin/setup-kiosk.sh
 StandardInput=tty
-StandardOutput=journal+console
+StandardOutput=tty
+StandardError=tty
 TTYPath=/dev/tty1
 TTYReset=yes
 TTYVHangup=yes
+TTYVTDisallocate=yes
 RemainAfterExit=yes
 
 [Install]

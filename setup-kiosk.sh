@@ -8,6 +8,40 @@
 
 set -e
 
+# ============================================================================
+# TTY İZOLASYONU VE LOG YÖNETİMİ
+# ============================================================================
+
+# Log dosyası
+LOG_FILE="/var/log/kiosk-setup.log"
+
+# Kernel mesajlarını sustur (sadece KERN_EMERG göster)
+# Script sonunda geri açılacak
+ORIGINAL_DMESG_LEVEL=$(cat /proc/sys/kernel/printk 2>/dev/null | awk '{print $1}' || echo "4")
+echo 1 > /proc/sys/kernel/printk 2>/dev/null || true
+
+# TTY'yi tamamen kontrol altına al
+exec < /dev/tty
+exec > /dev/tty 2>&1
+
+# Cleanup fonksiyonu (script sonunda veya hata durumunda)
+cleanup() {
+    # Kernel mesajlarını geri aç
+    echo "$ORIGINAL_DMESG_LEVEL" > /proc/sys/kernel/printk 2>/dev/null || true
+}
+trap cleanup EXIT
+
+# Ekranı tamamen temizle (scrollback dahil)
+clear_screen() {
+    clear
+    printf '\033[2J\033[H\033[3J'  # Clear + home + clear scrollback
+    stty sane 2>/dev/null || true
+}
+
+# ============================================================================
+# RENKLER VE LOG FONKSİYONLARI
+# ============================================================================
+
 # Renkler
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -31,21 +65,30 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 NVIDIA_DRIVER_VERSION="580"
 MOK_PASSWORD="12345678"  # Basit şifre - US klavye uyumlu
 
-# Log fonksiyonu
+# Dosyaya loglama (internal)
+_log_to_file() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE" 2>/dev/null || true
+}
+
+# Log fonksiyonları (hem ekrana hem dosyaya)
 log() {
-    echo -e "${GREEN}[$(date '+%Y-%m-%d %H:%M:%S')]${NC} $1"
+    echo -e "${GREEN}[✓]${NC} $1"
+    _log_to_file "[INFO] $1"
 }
 
 error() {
-    echo -e "${RED}[HATA]${NC} $1"
+    echo -e "${RED}[✗]${NC} $1"
+    _log_to_file "[ERROR] $1"
 }
 
 warn() {
-    echo -e "${YELLOW}[UYARI]${NC} $1"
+    echo -e "${YELLOW}[!]${NC} $1"
+    _log_to_file "[WARN] $1"
 }
 
 info() {
-    echo -e "${CYAN}[BİLGİ]${NC} $1"
+    echo -e "${CYAN}[i]${NC} $1"
+    _log_to_file "[INFO] $1"
 }
 
 # JSON'dan değer çıkar (Python3 ile güvenli parsing)
@@ -71,7 +114,7 @@ except:
 }
 
 banner() {
-    clear
+    clear_screen
     echo -e "${BLUE}"
     echo "╔════════════════════════════════════════════════════════════╗"
     echo "║                                                            ║"
@@ -693,9 +736,7 @@ mark_setup_complete() {
 
 main() {
     # TTY'yi temizle ve boot loglarını gizle
-    clear
-    printf '\033[2J\033[H'  # ANSI escape codes ile tam temizleme
-    stty sane 2>/dev/null || true  # Terminal ayarlarını sıfırla
+    clear_screen
     
     # Root kontrolü
     if [[ $EUID -ne 0 ]]; then
