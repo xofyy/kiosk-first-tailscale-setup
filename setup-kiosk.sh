@@ -28,7 +28,7 @@ ENROLLMENT_SERVER="https://enrollment.xofyy.com"
 SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
 
 # NVIDIA Konfigürasyonu
-NVIDIA_DRIVER_VERSION="535"
+NVIDIA_DRIVER_VERSION="580"
 MOK_PASSWORD="12345678"  # Basit şifre - US klavye uyumlu
 
 # Log fonksiyonu
@@ -692,6 +692,11 @@ mark_setup_complete() {
 # ═══════════════════════════════════════════════════════════════════════════════
 
 main() {
+    # TTY'yi temizle ve boot loglarını gizle
+    clear
+    printf '\033[2J\033[H'  # ANSI escape codes ile tam temizleme
+    stty sane 2>/dev/null || true  # Terminal ayarlarını sıfırla
+    
     # Root kontrolü
     if [[ $EUID -ne 0 ]]; then
         error "Bu script root olarak çalıştırılmalıdır!"
