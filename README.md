@@ -58,6 +58,18 @@ HEADSCALE_SERVER="https://headscale.xofyy.com"
 
 ## Kurulum
 
+### Yöntem 1: Git Clone (Önerilen)
+
+```bash
+# Kiosk makinesinde çalıştırın
+git clone https://github.com/xofyarg/kiosk-first-tailscale-setup.git
+cd kiosk-first-tailscale-setup
+sudo bash install.sh
+sudo reboot
+```
+
+### Yöntem 2: SCP ile Kopyalama
+
 ```bash
 # 1. Dosyaları kiosk makinesine kopyalayın
 scp -r kiosk-first-tailscale-setup/ user@kiosk:/tmp/
