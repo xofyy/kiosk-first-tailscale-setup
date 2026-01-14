@@ -114,12 +114,13 @@ echo -e "${YELLOW}[5/7]${NC} Systemd service oluşturuluyor..."
 cat > /etc/systemd/system/kiosk-setup.service << 'EOF'
 [Unit]
 Description=Kiosk First Boot Setup
-After=network-online.target
+After=network-online.target sysinit.target systemd-modules-load.service
 Wants=network-online.target
 Before=getty@tty1.service
 
 [Service]
 Type=oneshot
+ExecStartPre=/bin/sleep 5
 ExecStart=/usr/local/bin/setup-kiosk.sh
 StandardInput=tty
 StandardOutput=journal+console
