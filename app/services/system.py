@@ -110,10 +110,13 @@ class SystemService:
     def check_dns(self) -> bool:
         """DNS çözümleme kontrolü"""
         try:
+            socket.setdefaulttimeout(3)
             socket.gethostbyname("google.com")
             return True
-        except socket.error:
+        except (socket.error, socket.timeout):
             return False
+        finally:
+            socket.setdefaulttimeout(None)
     
     def get_uptime(self) -> str:
         """Sistem uptime'ını al"""
