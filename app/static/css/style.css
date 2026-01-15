@@ -309,6 +309,11 @@ body {
     color: var(--color-error);
 }
 
+.status-badge.info {
+    background: rgba(88, 166, 255, 0.15);
+    color: var(--color-primary);
+}
+
 /* =============================================================================
    Module Cards
    ============================================================================= */
@@ -433,6 +438,15 @@ body {
 }
 
 .btn-success:hover:not(:disabled) {
+    filter: brightness(1.1);
+}
+
+.btn-warning {
+    background: var(--color-warning);
+    color: var(--color-bg);
+}
+
+.btn-warning:hover:not(:disabled) {
     filter: brightness(1.1);
 }
 

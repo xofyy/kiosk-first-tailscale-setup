@@ -104,18 +104,50 @@ class Config:
     
     # === Modül Durumları ===
     
+    # Geçerli status değerleri
+    MODULE_STATUSES = [
+        'pending',          # Kurulum bekliyor
+        'installing',       # Kurulum devam ediyor
+        'completed',        # Tamamlandı
+        'failed',           # Başarısız
+        'reboot_required',  # Reboot gerekli
+        'mok_pending',      # MOK onayı bekliyor (NVIDIA - Secure Boot)
+    ]
+    
     def get_module_status(self, module: str) -> str:
         """Modül durumunu al"""
         return self.get(f'modules.{module}', 'pending')
     
     def set_module_status(self, module: str, status: str) -> None:
-        """Modül durumunu ayarla (pending, installing, completed, failed)"""
+        """
+        Modül durumunu ayarla
+        
+        Status değerleri:
+        - pending: Kurulum bekliyor
+        - installing: Kurulum devam ediyor
+        - completed: Tamamlandı
+        - failed: Başarısız
+        - reboot_required: Kurulum tamamlandı, reboot gerekli
+        - mok_pending: MOK onayı bekliyor (NVIDIA - Secure Boot)
+        """
         self.set(f'modules.{module}', status)
         self.save()
     
     def is_module_completed(self, module: str) -> bool:
         """Modül tamamlanmış mı?"""
         return self.get_module_status(module) == 'completed'
+    
+    def is_module_actionable(self, module: str) -> bool:
+        """Modül için aksiyon gerekiyor mu? (reboot veya MOK onayı)"""
+        return self.get_module_status(module) in ['reboot_required', 'mok_pending']
+    
+    def needs_reboot(self, module: str) -> bool:
+        """Modül reboot bekliyor mu?"""
+        return self.get_module_status(module) == 'reboot_required'
+    
+    def needs_mok_approval(self, module: str) -> bool:
+        """Modül MOK onayı bekliyor mu?"""
+        return self.get_module_status(module) == 'mok_pending'
     
     def get_all_module_statuses(self) -> Dict[str, str]:
         """Tüm modül durumlarını döndür"""

@@ -28,8 +28,15 @@ async function installModule(moduleName) {
     
     showToast(`${moduleName} kurulumu başlatıldı...`, 'info');
     
+    // Log sayfasını yeni tab'da aç (kurulum sürecini takip için)
+    window.open('/logs', '_blank');
+    
     try {
         const result = await api.post(`/modules/${moduleName}/install`);
+        
+        // Modül durumunu API'den tekrar al (en güncel status için)
+        const moduleStatus = await api.get(`/modules/${moduleName}/status`);
+        const newStatus = moduleStatus?.status || (result.success ? 'completed' : 'failed');
         
         if (result.success) {
             // Update UI - completed state
@@ -47,28 +54,9 @@ async function installModule(moduleName) {
             
             // Update progress
             updateProgress();
-            
-            // Check if needs reboot
-            if (result.message?.includes('reboot')) {
-                setTimeout(() => {
-                    if (confirm('Değişikliklerin uygulanması için yeniden başlatma gerekiyor. Şimdi yeniden başlatılsın mı?')) {
-                        rebootSystem();
-                    }
-                }, 1000);
-            }
         } else {
-            // Update UI - failed state
-            moduleCard.setAttribute('data-status', 'failed');
-            installBtn.className = 'btn btn-primary btn-install';
-            installBtn.disabled = false;
-            installBtn.textContent = 'Yeniden Dene';
-            
-            if (statusBadge) {
-                statusBadge.className = 'status-badge error';
-                statusBadge.textContent = '✗ Hata';
-            }
-            
-            showToast(result.error || 'Kurulum başarısız', 'error');
+            // Hata durumunda status'a göre UI güncelle
+            updateModuleUI(moduleCard, installBtn, statusBadge, newStatus, result.error);
         }
     } catch (error) {
         // Update UI - failed state
@@ -85,6 +73,103 @@ async function installModule(moduleName) {
         showToast('Kurulum hatası', 'error');
         console.error('Install error:', error);
     }
+}
+
+// =============================================================================
+// Update Module UI Based on Status
+// =============================================================================
+
+function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
+    moduleCard.setAttribute('data-status', status);
+    
+    switch (status) {
+        case 'completed':
+            installBtn.className = 'btn btn-secondary';
+            installBtn.disabled = true;
+            installBtn.textContent = 'Kuruldu';
+            if (statusBadge) {
+                statusBadge.className = 'status-badge success';
+                statusBadge.textContent = '✓ Tamamlandı';
+            }
+            showToast(message || 'Kurulum tamamlandı', 'success');
+            break;
+            
+        case 'reboot_required':
+            installBtn.className = 'btn btn-warning btn-reboot';
+            installBtn.disabled = false;
+            installBtn.textContent = 'Yeniden Başlat';
+            installBtn.onclick = rebootSystem;
+            if (statusBadge) {
+                statusBadge.className = 'status-badge info';
+                statusBadge.textContent = '↻ Reboot Gerekli';
+            }
+            showToast(message || 'Reboot gerekli', 'warning');
+            showRebootPrompt(message);
+            break;
+            
+        case 'mok_pending':
+            installBtn.className = 'btn btn-warning btn-reboot';
+            installBtn.disabled = false;
+            installBtn.textContent = 'Yeniden Başlat';
+            installBtn.onclick = rebootSystem;
+            if (statusBadge) {
+                statusBadge.className = 'status-badge info';
+                statusBadge.textContent = '🔐 MOK Onayı Bekliyor';
+            }
+            showToast(message || 'MOK onayı için reboot gerekli', 'warning');
+            showMokInstructions(message);
+            break;
+            
+        case 'failed':
+        default:
+            installBtn.className = 'btn btn-primary btn-install';
+            installBtn.disabled = false;
+            installBtn.textContent = 'Yeniden Dene';
+            if (statusBadge) {
+                statusBadge.className = 'status-badge error';
+                statusBadge.textContent = '✗ Hata';
+            }
+            showToast(message || 'Kurulum başarısız', 'error');
+            break;
+    }
+    
+    updateProgress();
+}
+
+// =============================================================================
+// Reboot and MOK Prompts
+// =============================================================================
+
+function showRebootPrompt(message) {
+    setTimeout(() => {
+        if (confirm((message || 'Değişikliklerin uygulanması için yeniden başlatma gerekiyor.') + '\n\nŞimdi yeniden başlatılsın mı?')) {
+            rebootSystem();
+        }
+    }, 500);
+}
+
+function showMokInstructions(message) {
+    const instructions = `
+MOK ONAYI GEREKLİ
+
+Sistem yeniden başlatıldıktan sonra MAVİ EKRANDA:
+
+1. 'Enroll MOK' seçin → Enter
+2. 'Continue' seçin → Enter  
+3. 'Yes' seçin → Enter
+4. Şifreyi girin (ekranda görünmez)
+5. 'Reboot' seçin → Enter
+
+${message || ''}
+
+Şimdi yeniden başlatılsın mı?
+    `.trim();
+    
+    setTimeout(() => {
+        if (confirm(instructions)) {
+            rebootSystem();
+        }
+    }, 500);
 }
 
 // =============================================================================

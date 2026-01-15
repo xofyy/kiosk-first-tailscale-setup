@@ -141,22 +141,44 @@ class BaseModule(ABC):
             raise
     
     def apt_install(self, packages: List[str]) -> bool:
-        """APT ile paket kur"""
+        """APT ile paket kur (noninteractive)"""
         if not packages:
             return True
         
         self.logger.info(f"Paketler kuruluyor: {', '.join(packages)}")
         
+        # Noninteractive environment
+        import os
+        env = os.environ.copy()
+        env['DEBIAN_FRONTEND'] = 'noninteractive'
+        env['NEEDRESTART_MODE'] = 'a'  # Otomatik restart, sormaz
+        
         try:
             # Önce update
-            self.run_command(['apt-get', 'update', '-qq'])
+            subprocess.run(
+                ['apt-get', 'update', '-qq'],
+                check=True,
+                capture_output=True,
+                text=True,
+                env=env
+            )
             
             # Paketleri kur
-            self.run_command(
+            subprocess.run(
                 ['apt-get', 'install', '-y', '-qq'] + packages,
-                timeout=600
+                check=True,
+                capture_output=True,
+                text=True,
+                timeout=900,  # 15 dakika (NVIDIA gibi büyük paketler için)
+                env=env
             )
             return True
+        except subprocess.CalledProcessError as e:
+            self.logger.error(f"APT kurulum hatası: {e.stderr}")
+            return False
+        except subprocess.TimeoutExpired:
+            self.logger.error(f"APT kurulum zaman aşımı: {packages}")
+            return False
         except Exception as e:
             self.logger.error(f"APT kurulum hatası: {e}")
             return False

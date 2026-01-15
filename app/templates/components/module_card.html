@@ -19,6 +19,10 @@
         <span class="status-badge warning">⟳ Kuruluyor...</span>
         {% elif status == 'failed' %}
         <span class="status-badge error">✗ Hata</span>
+        {% elif status == 'reboot_required' %}
+        <span class="status-badge info">↻ Reboot Gerekli</span>
+        {% elif status == 'mok_pending' %}
+        <span class="status-badge info">🔐 MOK Onayı Bekliyor</span>
         {% else %}
         <span class="status-badge">Bekliyor</span>
         {% endif %}
@@ -30,6 +34,10 @@
         {% elif status == 'installing' %}
         <button class="btn btn-secondary" disabled>
             <span class="spinner"></span>
+        </button>
+        {% elif status == 'reboot_required' or status == 'mok_pending' %}
+        <button class="btn btn-warning btn-reboot" onclick="rebootSystem()">
+            Yeniden Başlat
         </button>
         {% else %}
         <button class="btn btn-primary btn-install" 

@@ -15,6 +15,7 @@ pages_bp = Blueprint('pages', __name__)
 @pages_bp.route('/')
 def index():
     """Ana sayfa - Kurulum paneli"""
+    config.reload()  # Güncel config'i oku (multi-worker cache sorunu için)
     
     # Sistem bilgilerini al
     system = SystemService()
@@ -39,6 +40,7 @@ def index():
 @pages_bp.route('/settings')
 def settings():
     """Ayarlar sayfası"""
+    config.reload()  # Güncel config'i oku
     
     # Modül durumlarını al (kilitli ayarlar için)
     module_statuses = config.get_all_module_statuses()
@@ -56,6 +58,7 @@ def settings():
 @pages_bp.route('/module/<module_name>')
 def module_detail(module_name: str):
     """Modül detay sayfası"""
+    config.reload()  # Güncel config'i oku
     
     module = get_module(module_name)
     if not module:
@@ -74,6 +77,7 @@ def module_detail(module_name: str):
 @pages_bp.route('/logs')
 def logs():
     """Log görüntüleme sayfası"""
+    config.reload()  # Güncel config'i oku
     
     log_file = '/var/log/kiosk-setup.log'
     logs = []
