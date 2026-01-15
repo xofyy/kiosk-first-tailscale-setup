@@ -64,6 +64,11 @@ async function checkInternetStatus() {
     try {
         const data = await api.get('/system/internet');
         
+        // Debug log
+        console.log("API Response:", data);
+        console.log("conn-dns element:", document.getElementById('conn-dns'));
+        console.log("conn-internet element:", document.getElementById('conn-internet'));
+        
         // Header status dot güncelle
         const statusDot = document.querySelector('.status-dot');
         const statusText = document.querySelector('.status-text');

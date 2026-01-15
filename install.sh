@@ -349,9 +349,12 @@ if [[ ! -f "$KIOSK_HOME/.bash_profile" ]]; then
     cat > "$KIOSK_HOME/.bash_profile" << 'EOF'
 # Kiosk Setup Panel - Bash Profile
 
-# Sadece TTY1'de X başlat
-if [[ -z "$DISPLAY" ]] && [[ $(tty) == /dev/tty1 ]]; then
-    exec startx -- -nocursor 2>/dev/null
+# TTY1'de otomatik olarak X başlat (watchdog ile)
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    while true; do
+        startx -- -nocursor
+        sleep 2
+    done
 fi
 EOF
     log ".bash_profile oluşturuldu"

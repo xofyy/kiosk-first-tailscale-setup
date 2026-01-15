@@ -32,7 +32,17 @@ sleep 0.5
 # Watchdog - crash olursa yeniden başlat
 while true; do
     # Data dizinini oluştur
-    mkdir -p "$DATA_DIR"
+    mkdir -p "$DATA_DIR/Default"
+    
+    # Translate devre dışı bırak (Preferences)
+    cat > "$DATA_DIR/Default/Preferences" << 'PREFS'
+{
+  "translate": {"enabled": false},
+  "translate_blocked_languages": ["tr","en"],
+  "intl": {"accept_languages": "tr,en"},
+  "browser": {"enable_spellchecking": false}
+}
+PREFS
     
     # Chromium başlat
     chromium-browser \

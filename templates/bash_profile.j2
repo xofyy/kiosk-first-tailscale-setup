@@ -1,7 +1,10 @@
 # Kiosk Setup Panel - Bash Profile
 # Generated automatically - do not edit manually
 
-# TTY1'de otomatik olarak X başlat
+# TTY1'de otomatik olarak X başlat (watchdog ile)
 if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    startx -- -nocursor
+    while true; do
+        startx -- -nocursor
+        sleep 2
+    done
 fi
