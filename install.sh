@@ -308,9 +308,9 @@ if [[ ! -f "$KIOSK_HOME/.bash_profile" ]]; then
     cat > "$KIOSK_HOME/.bash_profile" << 'EOF'
 # Kiosk Setup Panel - Bash Profile
 
-# Sadece TTY1'de X başlat
-if [[ -z "$DISPLAY" ]] && [[ $(tty) == /dev/tty1 ]]; then
-    exec startx -- -nocursor 2>/dev/null
+# TTY1'de otomatik olarak X başlat
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    startx -- -nocursor
 fi
 EOF
     log ".bash_profile oluşturuldu"
@@ -321,18 +321,8 @@ fi
 # .xinitrc (sadece yoksa oluştur)
 if [[ ! -f "$KIOSK_HOME/.xinitrc" ]]; then
     cat > "$KIOSK_HOME/.xinitrc" << 'EOF'
-#!/bin/bash
+#!/bin/sh
 # Kiosk Setup Panel - X Init
-
-# Ekran ayarları
-/usr/local/bin/display-init.sh 2>/dev/null || true
-
-# D-Bus
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    eval $(dbus-launch --sh-syntax --exit-with-session)
-fi
-
-# Openbox başlat
 exec openbox-session
 EOF
     chmod +x "$KIOSK_HOME/.xinitrc"
@@ -347,22 +337,8 @@ mkdir -p "$KIOSK_HOME/.config/openbox"
 # Openbox autostart (sadece yoksa oluştur)
 if [[ ! -f "$KIOSK_HOME/.config/openbox/autostart" ]]; then
     cat > "$KIOSK_HOME/.config/openbox/autostart" << 'EOF'
-#!/bin/bash
-# Kiosk Setup Panel - Openbox Autostart
-
-# Ekran koruyucu devre dışı
-xset s off
-xset -dpms
-xset s noblank
-
-# Setup tamamlanmış mı kontrol et
-if [[ -f /etc/kiosk-setup/.setup-complete ]]; then
-    # Kiosk modunda başlat
-    /usr/local/bin/chromium-kiosk.sh &
-else
-    # Panel modunda başlat
-    /usr/local/bin/chromium-panel.sh &
-fi
+# Openbox autostart
+/usr/local/bin/kiosk-startup.sh &
 EOF
     chmod +x "$KIOSK_HOME/.config/openbox/autostart"
     log "openbox/autostart oluşturuldu"

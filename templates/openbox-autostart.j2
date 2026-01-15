@@ -1,17 +1,3 @@
-#!/bin/bash
-# Kiosk Setup Panel - Openbox Autostart
+# Openbox autostart
 # Generated automatically - do not edit manually
-
-# Ekran koruyucu devre dışı
-xset s off
-xset -dpms
-xset s noblank
-
-# Setup tamamlanmış mı kontrol et
-if [[ -f /etc/kiosk-setup/.setup-complete ]]; then
-    # Kiosk modunda başlat
-    /usr/local/bin/chromium-kiosk.sh &
-else
-    # Panel modunda başlat
-    /usr/local/bin/chromium-panel.sh &
-fi
+/usr/local/bin/kiosk-startup.sh &
