@@ -62,6 +62,54 @@ def hardware_id():
 
 
 # =============================================================================
+# KIOSK ID API
+# =============================================================================
+
+@api_bp.route('/kiosk-id', methods=['GET'])
+def get_kiosk_id():
+    """Kiosk ID'yi döndür"""
+    return jsonify({
+        'kiosk_id': config.get_kiosk_id(),
+        'is_set': bool(config.get_kiosk_id())
+    })
+
+
+@api_bp.route('/kiosk-id', methods=['POST'])
+def set_kiosk_id():
+    """Kiosk ID'yi ayarla (sadece ilk giriş)"""
+    # Zaten ayarlanmışsa engelle
+    if config.get_kiosk_id():
+        return jsonify({
+            'success': False, 
+            'error': 'Kiosk ID zaten ayarlanmış'
+        }), 400
+    
+    data = request.get_json()
+    kiosk_id = data.get('kiosk_id', '').upper().strip()
+    
+    if not kiosk_id:
+        return jsonify({
+            'success': False, 
+            'error': 'Kiosk ID gerekli'
+        }), 400
+    
+    # ID formatı kontrolü
+    import re
+    if not re.match(r'^[A-Z0-9_-]+$', kiosk_id):
+        return jsonify({
+            'success': False,
+            'error': 'Geçersiz format. Sadece büyük harf, rakam, tire ve alt çizgi kullanın'
+        }), 400
+    
+    config.set_kiosk_id(kiosk_id)
+    
+    return jsonify({
+        'success': True, 
+        'kiosk_id': kiosk_id
+    })
+
+
+# =============================================================================
 # CONFIG API
 # =============================================================================
 

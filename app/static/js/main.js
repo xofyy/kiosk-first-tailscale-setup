@@ -157,15 +157,15 @@ document.addEventListener('DOMContentLoaded', () => {
             }
             
             try {
-                const result = await api.post('/config', {
-                    'system.kiosk_id': kioskId
+                const result = await api.post('/kiosk-id', {
+                    'kiosk_id': kioskId
                 });
                 
                 if (result.success) {
-                    showToast('Kiosk ID kaydedildi', 'success');
+                    showToast('Kiosk ID kaydedildi: ' + result.kiosk_id, 'success');
                     setTimeout(() => location.reload(), 1000);
                 } else {
-                    showToast(result.errors?.join(', ') || 'Hata oluştu', 'error');
+                    showToast(result.error || 'Hata oluştu', 'error');
                 }
             } catch (error) {
                 showToast('Kaydetme hatası', 'error');
