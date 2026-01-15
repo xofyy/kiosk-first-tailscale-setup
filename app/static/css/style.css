@@ -3,23 +3,23 @@
    Modern, touch-friendly UI optimized for kiosk displays
    ============================================================================= */
 
-/* CSS Variables - Dark industrial theme */
+/* CSS Variables - Neon Green + Dark Gray Theme */
 :root {
-    --color-bg: #0a0e14;
-    --color-bg-secondary: #131920;
-    --color-bg-tertiary: #1a2129;
-    --color-surface: #1e252e;
-    --color-surface-hover: #252d38;
-    --color-border: #2d3640;
-    --color-text: #e6edf3;
-    --color-text-secondary: #8b949e;
-    --color-text-muted: #6e7681;
-    --color-primary: #58a6ff;
-    --color-primary-hover: #79b8ff;
-    --color-success: #3fb950;
-    --color-warning: #d29922;
-    --color-error: #f85149;
-    --color-accent: #a371f7;
+    --color-bg: #0d0d0d;
+    --color-bg-secondary: #141414;
+    --color-bg-tertiary: #1a1a1a;
+    --color-surface: #1f1f1f;
+    --color-surface-hover: #2a2a2a;
+    --color-border: #333333;
+    --color-text: #e0e0e0;
+    --color-text-secondary: #a0a0a0;
+    --color-text-muted: #707070;
+    --color-primary: #00ff88;
+    --color-primary-hover: #00cc6a;
+    --color-success: #00ff88;
+    --color-warning: #ffcc00;
+    --color-error: #ff4455;
+    --color-accent: #00ffaa;
     --font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     --font-size-base: 16px;
     --font-size-sm: 14px;
@@ -41,6 +41,20 @@
     box-sizing: border-box;
     margin: 0;
     padding: 0;
+    /* Metin seçimini engelle (kiosk modu için) */
+    -webkit-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    -webkit-touch-callout: none;
+}
+
+/* Input alanlarında seçime izin ver */
+input, textarea, [contenteditable="true"] {
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    -ms-user-select: text;
+    user-select: text;
 }
 
 html {

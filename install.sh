@@ -283,7 +283,32 @@ else
 fi
 
 # =============================================================================
-# 9. SYSTEMD SERVİSLERİ
+# 9. CHROMIUM POLICY
+# =============================================================================
+
+info "Chromium policy yapılandırılıyor..."
+
+CHROME_POLICY_DIR="/etc/chromium-browser/policies/managed"
+mkdir -p "$CHROME_POLICY_DIR"
+
+cat > "$CHROME_POLICY_DIR/kiosk-policy.json" << 'EOF'
+{
+  "TranslateEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "PasswordManagerEnabled": false,
+  "ImportBookmarks": false,
+  "ImportHistory": false,
+  "ImportSavedPasswords": false,
+  "MetricsReportingEnabled": false,
+  "SpellCheckServiceEnabled": false
+}
+EOF
+
+log "Chromium policy oluşturuldu"
+
+# =============================================================================
+# 10. SYSTEMD SERVİSLERİ
 # =============================================================================
 
 info "Systemd servisleri oluşturuluyor..."
@@ -321,7 +346,7 @@ systemctl enable kiosk-panel.service 2>/dev/null || true
 log "Systemd servisleri hazır"
 
 # =============================================================================
-# 10. TTY1 AUTOLOGIN
+# 11. TTY1 AUTOLOGIN
 # =============================================================================
 
 info "TTY1 autologin yapılandırılıyor..."
@@ -337,7 +362,7 @@ EOF
 log "TTY1 autologin yapılandırıldı"
 
 # =============================================================================
-# 11. KIOSK KULLANICI YAPILANDIRMASI
+# 12. KIOSK KULLANICI YAPILANDIRMASI
 # =============================================================================
 
 info "Kiosk kullanıcı yapılandırması..."
@@ -461,7 +486,7 @@ chown -R "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
 log "Kiosk kullanıcı yapılandırması tamamlandı"
 
 # =============================================================================
-# 12. SERVİSİ BAŞLAT
+# 13. SERVİSİ BAŞLAT
 # =============================================================================
 
 info "Panel servisi başlatılıyor..."
