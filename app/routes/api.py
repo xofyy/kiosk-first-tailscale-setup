@@ -32,7 +32,8 @@ def internet_status():
     return jsonify({
         'connected': system.check_internet(),
         'ip': system.get_ip_address(),
-        'tailscale_ip': system.get_tailscale_ip()
+        'tailscale_ip': system.get_tailscale_ip(),
+        'dns_working': system.check_dns()
     })
 
 

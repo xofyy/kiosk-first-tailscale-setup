@@ -64,6 +64,7 @@ async function checkInternetStatus() {
     try {
         const data = await api.get('/system/internet');
         
+        // Header status dot güncelle
         const statusDot = document.querySelector('.status-dot');
         const statusText = document.querySelector('.status-text');
         
@@ -78,6 +79,34 @@ async function checkInternetStatus() {
                 statusText.textContent = 'Bağlantı Yok';
             }
         }
+        
+        // Connection grid badge'lerini güncelle
+        const connInternet = document.getElementById('conn-internet');
+        if (connInternet) {
+            connInternet.innerHTML = data.connected 
+                ? '<span class="status-badge success">Bağlı</span>'
+                : '<span class="status-badge error">Bağlı Değil</span>';
+        }
+        
+        const connDns = document.getElementById('conn-dns');
+        if (connDns) {
+            connDns.innerHTML = data.dns_working 
+                ? '<span class="status-badge success">Çalışıyor</span>'
+                : '<span class="status-badge error">Hata</span>';
+        }
+        
+        // IP adresi güncelle
+        const connIp = document.getElementById('conn-ip');
+        if (connIp) {
+            connIp.textContent = data.ip || 'N/A';
+        }
+        
+        // Tailscale IP güncelle
+        const connTailscale = document.getElementById('conn-tailscale');
+        if (connTailscale) {
+            connTailscale.textContent = data.tailscale_ip || 'Bağlı Değil';
+        }
+        
     } catch (error) {
         console.error('Internet status check failed:', error);
     }
@@ -187,6 +216,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Check internet status on load
     checkInternetStatus();
     
-    // Periodic internet check (every 30 seconds)
-    setInterval(checkInternetStatus, 30000);
+    // Periodic internet check (every 10 seconds)
+    setInterval(checkInternetStatus, 10000);
 });

@@ -19,7 +19,7 @@
         <div class="connection-icon">📡</div>
         <div class="connection-info">
             <span class="connection-label">IP Adresi</span>
-            <span class="connection-value">{{ ip_address or 'N/A' }}</span>
+            <span class="connection-value" id="conn-ip">{{ ip_address or 'N/A' }}</span>
         </div>
     </div>
     
@@ -27,7 +27,7 @@
         <div class="connection-icon">🔗</div>
         <div class="connection-info">
             <span class="connection-label">Tailscale IP</span>
-            <span class="connection-value">{{ tailscale_ip or 'Bağlı Değil' }}</span>
+            <span class="connection-value" id="conn-tailscale">{{ tailscale_ip or 'Bağlı Değil' }}</span>
         </div>
     </div>
     
@@ -35,7 +35,7 @@
         <div class="connection-icon">🔍</div>
         <div class="connection-info">
             <span class="connection-label">DNS</span>
-            <span class="connection-value">
+            <span class="connection-value" id="conn-dns">
                 {% if dns_working %}
                 <span class="status-badge success">Çalışıyor</span>
                 {% else %}
