@@ -3,14 +3,58 @@ Kiosk Setup Panel - Base Module Class
 Tüm kurulum modüllerinin temel sınıfı
 """
 
+import os
 import subprocess
 import logging
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Tuple, List, Optional
+from datetime import datetime
 
 from app.config import config
 
 logger = logging.getLogger(__name__)
+
+# Log dizini
+LOG_DIR = '/var/log/kiosk-setup'
+
+
+def setup_module_logger(module_name: str) -> logging.Logger:
+    """
+    Modül için özel logger oluştur.
+    Her modül kendi log dosyasına yazar.
+    """
+    # Log dizinini oluştur
+    os.makedirs(LOG_DIR, exist_ok=True)
+    
+    # Logger oluştur
+    module_logger = logging.getLogger(f"module.{module_name}")
+    module_logger.setLevel(logging.DEBUG)
+    
+    # Mevcut handler'ları temizle (tekrarlayan log'ları önle)
+    module_logger.handlers.clear()
+    
+    # Dosya handler'ı
+    log_file = os.path.join(LOG_DIR, f"{module_name}.log")
+    file_handler = logging.FileHandler(log_file, encoding='utf-8')
+    file_handler.setLevel(logging.DEBUG)
+    
+    # Format
+    formatter = logging.Formatter(
+        '[%(asctime)s] [%(levelname)s] %(message)s',
+        datefmt='%Y-%m-%d %H:%M:%S'
+    )
+    file_handler.setFormatter(formatter)
+    
+    module_logger.addHandler(file_handler)
+    
+    # Ayrıca main.log'a da yaz
+    main_log = os.path.join(LOG_DIR, 'main.log')
+    main_handler = logging.FileHandler(main_log, encoding='utf-8')
+    main_handler.setLevel(logging.INFO)
+    main_handler.setFormatter(formatter)
+    module_logger.addHandler(main_handler)
+    
+    return module_logger
 
 
 class BaseModule(ABC):
@@ -27,7 +71,8 @@ class BaseModule(ABC):
     dependencies: List[str] = []
     
     def __init__(self):
-        self.logger = logging.getLogger(f"module.{self.name}")
+        self.logger = setup_module_logger(self.name)
+        self._log_file = os.path.join(LOG_DIR, f"{self.name}.log")
     
     def get_info(self) -> Dict[str, Any]:
         """Modül bilgilerini döndür"""
@@ -141,47 +186,98 @@ class BaseModule(ABC):
             raise
     
     def apt_install(self, packages: List[str]) -> bool:
-        """APT ile paket kur (noninteractive)"""
+        """APT ile paket kur (noninteractive, real-time log)"""
         if not packages:
             return True
         
         self.logger.info(f"Paketler kuruluyor: {', '.join(packages)}")
         
         # Noninteractive environment
-        import os
         env = os.environ.copy()
         env['DEBIAN_FRONTEND'] = 'noninteractive'
         env['NEEDRESTART_MODE'] = 'a'  # Otomatik restart, sormaz
         
         try:
-            # Önce update
-            subprocess.run(
-                ['apt-get', 'update', '-qq'],
-                check=True,
-                capture_output=True,
-                text=True,
-                env=env
+            # Önce update (real-time log)
+            self.logger.info("APT güncelleniyor...")
+            self._run_apt_with_logging(['apt-get', 'update', '-q'], env)
+            
+            # Paketleri kur (real-time log)
+            self.logger.info(f"Paketler kuruluyor: {' '.join(packages)}")
+            self._run_apt_with_logging(
+                ['apt-get', 'install', '-y', '-q'] + packages,
+                env,
+                timeout=900  # 15 dakika
             )
             
-            # Paketleri kur
-            subprocess.run(
-                ['apt-get', 'install', '-y', '-qq'] + packages,
-                check=True,
-                capture_output=True,
-                text=True,
-                timeout=900,  # 15 dakika (NVIDIA gibi büyük paketler için)
-                env=env
-            )
+            self.logger.info("APT kurulumu tamamlandı")
             return True
-        except subprocess.CalledProcessError as e:
-            self.logger.error(f"APT kurulum hatası: {e.stderr}")
-            return False
+            
         except subprocess.TimeoutExpired:
             self.logger.error(f"APT kurulum zaman aşımı: {packages}")
             return False
         except Exception as e:
             self.logger.error(f"APT kurulum hatası: {e}")
             return False
+    
+    def _run_apt_with_logging(
+        self, 
+        command: List[str], 
+        env: dict,
+        timeout: int = 300
+    ) -> None:
+        """APT komutunu çalıştır ve çıktıyı real-time logla"""
+        self.logger.debug(f"Çalıştırılıyor: {' '.join(command)}")
+        
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            env=env,
+            bufsize=1  # Line buffered
+        )
+        
+        start_time = datetime.now()
+        
+        try:
+            # Çıktıyı satır satır oku ve logla
+            for line in process.stdout:
+                line = line.rstrip()
+                if line:
+                    self._log_apt_output(line)
+                
+                # Timeout kontrolü
+                elapsed = (datetime.now() - start_time).total_seconds()
+                if elapsed > timeout:
+                    process.kill()
+                    raise subprocess.TimeoutExpired(command, timeout)
+            
+            # Sonucu bekle
+            return_code = process.wait()
+            
+            if return_code != 0:
+                raise subprocess.CalledProcessError(return_code, command)
+                
+        except Exception:
+            process.kill()
+            raise
+    
+    def _log_apt_output(self, line: str) -> None:
+        """APT çıktısını log dosyasına yaz"""
+        # Önemli satırları INFO olarak, diğerlerini DEBUG olarak logla
+        important_keywords = [
+            'Setting up', 'Unpacking', 'Processing', 'Selecting',
+            'Get:', 'Hit:', 'Fetched', 'upgraded', 'newly installed',
+            'Reading', 'Building', 'error', 'warning', 'E:', 'W:'
+        ]
+        
+        is_important = any(kw.lower() in line.lower() for kw in important_keywords)
+        
+        if is_important:
+            self.logger.info(f"[APT] {line}")
+        else:
+            self.logger.debug(f"[APT] {line}")
     
     def systemctl(self, action: str, service: str) -> bool:
         """Systemd servis kontrolü"""
@@ -235,3 +331,8 @@ class BaseModule(ABC):
         """Config değeri ayarla"""
         config.set(key, value)
         config.save()
+    
+    def set_module_status(self, status: str) -> None:
+        """Bu modülün durumunu ayarla"""
+        self.logger.info(f"Modül durumu değişti: {status}")
+        config.set_module_status(self.name, status)

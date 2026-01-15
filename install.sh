@@ -162,9 +162,14 @@ mkdir -p "$CONFIG_DIR"
 # Install dizini
 mkdir -p "$INSTALL_DIR"
 
-# Log dizini
+# Installer log dosyası
 touch "$LOG_FILE"
 chmod 644 "$LOG_FILE"
+
+# Modül logları dizini
+KIOSK_LOG_DIR="/var/log/kiosk-setup"
+mkdir -p "$KIOSK_LOG_DIR"
+chmod 755 "$KIOSK_LOG_DIR"
 
 log "Dizinler oluşturuldu"
 
@@ -257,8 +262,8 @@ TOUCH_VENDOR_ID="222a:0001"
 TOUCH_MATRIX="0 1 0 -1 0 1 0 0 1"
 
 if [[ -f "$CONFIG_DIR/config.yaml" ]]; then
-    CONFIGURED_VENDOR=$(grep -E "^\s*touch_vendor_id:" "$CONFIG_DIR/config.yaml" | head -1 | awk '{print $2}' | tr -d '"')
-    CONFIGURED_MATRIX=$(grep -E "^\s*touch_matrix:" "$CONFIG_DIR/config.yaml" | head -1 | cut -d'"' -f2)
+    CONFIGURED_VENDOR=$(grep -E "^\s*touch_vendor_id:" "$CONFIG_DIR/config.yaml" | head -1 | sed 's/.*touch_vendor_id:\s*//' | tr -d '"' | xargs)
+    CONFIGURED_MATRIX=$(grep -E "^\s*touch_matrix:" "$CONFIG_DIR/config.yaml" | head -1 | sed 's/.*touch_matrix:\s*//' | tr -d '"' | xargs)
     
     [[ -n "$CONFIGURED_VENDOR" ]] && TOUCH_VENDOR_ID="$CONFIGURED_VENDOR"
     [[ -n "$CONFIGURED_MATRIX" ]] && TOUCH_MATRIX="$CONFIGURED_MATRIX"
@@ -327,7 +332,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/kiosk-setup-panel
 Environment="PATH=/opt/kiosk-setup-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/kiosk-setup-panel/venv/bin/python -m gunicorn -b 0.0.0.0:8080 -w 2 app.main:app
+ExecStart=/opt/kiosk-setup-panel/venv/bin/python -m gunicorn -b 0.0.0.0:8080 -w 2 --timeout 120 app.main:app
 Restart=always
 RestartSec=5
 

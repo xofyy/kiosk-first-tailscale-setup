@@ -76,18 +76,46 @@ def module_detail(module_name: str):
 
 @pages_bp.route('/logs')
 def logs():
-    """Log görüntüleme sayfası"""
+    """Log görüntüleme sayfası (modül filtreli)"""
+    import os
+    from flask import request
+    
     config.reload()  # Güncel config'i oku
     
-    log_file = '/var/log/kiosk-setup.log'
-    logs = []
+    # Modül parametresi
+    module = request.args.get('module', '')
     
+    # Log dizini
+    log_dir = '/var/log/kiosk-setup'
+    
+    # Mevcut modül log dosyalarını listele
+    available_modules = []
+    if os.path.exists(log_dir):
+        for f in os.listdir(log_dir):
+            if f.endswith('.log') and f != 'main.log':
+                available_modules.append(f.replace('.log', ''))
+    
+    # Hangi log dosyasını okuyacağız?
+    if module and module in available_modules:
+        log_file = os.path.join(log_dir, f'{module}.log')
+    else:
+        # Tüm loglar (main.log)
+        log_file = os.path.join(log_dir, 'main.log')
+        module = ''  # Reset module param
+    
+    logs = []
     try:
-        with open(log_file, 'r') as f:
-            logs = f.readlines()[-100:]  # Son 100 satır
-    except FileNotFoundError:
-        logs = ['Log dosyası bulunamadı']
+        if os.path.exists(log_file):
+            with open(log_file, 'r') as f:
+                logs = f.readlines()[-200:]  # Son 200 satır
+        else:
+            logs = ['Log dosyası henüz oluşturulmadı']
     except Exception as e:
         logs = [f'Hata: {str(e)}']
     
-    return render_template('logs.html', logs=logs)
+    return render_template(
+        'logs.html', 
+        logs=logs, 
+        current_module=module,
+        available_modules=sorted(available_modules)
+    )

@@ -1,9 +1,10 @@
 /**
  * Kiosk Setup Panel - Module Installation JavaScript
+ * Async install ve polling sistemi
  */
 
 // =============================================================================
-// Module Installation
+// Module Installation (Async)
 // =============================================================================
 
 async function installModule(moduleName) {
@@ -28,50 +29,94 @@ async function installModule(moduleName) {
     
     showToast(`${moduleName} kurulumu başlatıldı...`, 'info');
     
-    // Log sayfasını yeni tab'da aç (kurulum sürecini takip için)
-    window.open('/logs', '_blank');
-    
     try {
+        // API'yi çağır (async - hemen döner)
         const result = await api.post(`/modules/${moduleName}/install`);
         
-        // Modül durumunu API'den tekrar al (en güncel status için)
-        const moduleStatus = await api.get(`/modules/${moduleName}/status`);
-        const newStatus = moduleStatus?.status || (result.success ? 'completed' : 'failed');
-        
         if (result.success) {
-            // Update UI - completed state
-            moduleCard.setAttribute('data-status', 'completed');
-            installBtn.className = 'btn btn-secondary';
-            installBtn.disabled = true;
-            installBtn.textContent = 'Kuruldu';
+            showToast(result.message || 'Kurulum başlatıldı', 'success');
             
-            if (statusBadge) {
-                statusBadge.className = 'status-badge success';
-                statusBadge.textContent = '✓ Tamamlandı';
-            }
+            // Log sayfasını yeni tab'da aç (modül filtresiyle)
+            window.open(`/logs?module=${moduleName}`, '_blank');
             
-            showToast(result.message || `${moduleName} kuruldu`, 'success');
-            
-            // Update progress
-            updateProgress();
+            // Polling başlat
+            startModulePolling(moduleName);
         } else {
-            // Hata durumunda status'a göre UI güncelle
-            updateModuleUI(moduleCard, installBtn, statusBadge, newStatus, result.error);
+            // Hata durumunda UI'ı güncelle
+            handleInstallError(moduleCard, installBtn, statusBadge, result.error);
         }
     } catch (error) {
-        // Update UI - failed state
-        moduleCard.setAttribute('data-status', 'failed');
-        installBtn.className = 'btn btn-primary btn-install';
-        installBtn.disabled = false;
-        installBtn.textContent = 'Yeniden Dene';
+        handleInstallError(moduleCard, installBtn, statusBadge, 'Bağlantı hatası');
+        console.error('Install error:', error);
+    }
+}
+
+function handleInstallError(moduleCard, installBtn, statusBadge, errorMessage) {
+    moduleCard.setAttribute('data-status', 'failed');
+    installBtn.className = 'btn btn-primary btn-install';
+    installBtn.disabled = false;
+    installBtn.textContent = 'Yeniden Dene';
+    
+    if (statusBadge) {
+        statusBadge.className = 'status-badge error';
+        statusBadge.textContent = '✗ Hata';
+    }
+    
+    showToast(errorMessage || 'Kurulum başlatılamadı', 'error');
+}
+
+// =============================================================================
+// Module Status Polling
+// =============================================================================
+
+const modulePollingIntervals = {};
+
+function startModulePolling(moduleName) {
+    // Önceki polling'i durdur
+    stopModulePolling(moduleName);
+    
+    // 3 saniyede bir status kontrol et
+    modulePollingIntervals[moduleName] = setInterval(async () => {
+        await checkModuleStatus(moduleName);
+    }, 3000);
+    
+    // İlk kontrolü hemen yap
+    checkModuleStatus(moduleName);
+}
+
+function stopModulePolling(moduleName) {
+    if (modulePollingIntervals[moduleName]) {
+        clearInterval(modulePollingIntervals[moduleName]);
+        delete modulePollingIntervals[moduleName];
+    }
+}
+
+async function checkModuleStatus(moduleName) {
+    try {
+        const data = await api.get(`/modules/${moduleName}/status`);
+        const status = data.status;
         
-        if (statusBadge) {
-            statusBadge.className = 'status-badge error';
-            statusBadge.textContent = '✗ Hata';
+        const moduleCard = document.querySelector(`[data-module="${moduleName}"]`);
+        if (!moduleCard) return;
+        
+        const installBtn = moduleCard.querySelector('.btn-install, .btn-reboot, .btn-secondary');
+        const statusBadge = moduleCard.querySelector('.module-status .status-badge');
+        
+        // Status değişti mi?
+        const currentStatus = moduleCard.getAttribute('data-status');
+        if (currentStatus === status) return;
+        
+        // UI güncelle
+        updateModuleUI(moduleCard, installBtn, statusBadge, status);
+        
+        // Polling'i durdur (installing dışındaki durumlar için)
+        if (status !== 'installing') {
+            stopModulePolling(moduleName);
+            updateProgress();
         }
         
-        showToast('Kurulum hatası', 'error');
-        console.error('Install error:', error);
+    } catch (error) {
+        console.error('Status check error:', error);
     }
 }
 
@@ -80,25 +125,43 @@ async function installModule(moduleName) {
 // =============================================================================
 
 function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
+    const moduleName = moduleCard.getAttribute('data-module');
     moduleCard.setAttribute('data-status', status);
     
     switch (status) {
         case 'completed':
-            installBtn.className = 'btn btn-secondary';
-            installBtn.disabled = true;
-            installBtn.textContent = 'Kuruldu';
+            if (installBtn) {
+                installBtn.className = 'btn btn-secondary';
+                installBtn.disabled = true;
+                installBtn.textContent = 'Kuruldu';
+                installBtn.onclick = null;
+            }
             if (statusBadge) {
                 statusBadge.className = 'status-badge success';
                 statusBadge.textContent = '✓ Tamamlandı';
             }
-            showToast(message || 'Kurulum tamamlandı', 'success');
+            showToast(message || `${moduleName} kurulumu tamamlandı`, 'success');
+            break;
+            
+        case 'installing':
+            if (installBtn) {
+                installBtn.className = 'btn btn-secondary';
+                installBtn.disabled = true;
+                installBtn.innerHTML = '<span class="spinner"></span> Kuruluyor';
+            }
+            if (statusBadge) {
+                statusBadge.className = 'status-badge warning';
+                statusBadge.textContent = '⟳ Kuruluyor...';
+            }
             break;
             
         case 'reboot_required':
-            installBtn.className = 'btn btn-warning btn-reboot';
-            installBtn.disabled = false;
-            installBtn.textContent = 'Yeniden Başlat';
-            installBtn.onclick = rebootSystem;
+            if (installBtn) {
+                installBtn.className = 'btn btn-warning btn-reboot';
+                installBtn.disabled = false;
+                installBtn.textContent = 'Yeniden Başlat';
+                installBtn.onclick = () => showRebootPrompt(message);
+            }
             if (statusBadge) {
                 statusBadge.className = 'status-badge info';
                 statusBadge.textContent = '↻ Reboot Gerekli';
@@ -108,13 +171,15 @@ function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
             break;
             
         case 'mok_pending':
-            installBtn.className = 'btn btn-warning btn-reboot';
-            installBtn.disabled = false;
-            installBtn.textContent = 'Yeniden Başlat';
-            installBtn.onclick = rebootSystem;
+            if (installBtn) {
+                installBtn.className = 'btn btn-warning btn-reboot';
+                installBtn.disabled = false;
+                installBtn.textContent = 'MOK Onayı';
+                installBtn.onclick = () => showMokInstructions(message);
+            }
             if (statusBadge) {
                 statusBadge.className = 'status-badge info';
-                statusBadge.textContent = '🔐 MOK Onayı Bekliyor';
+                statusBadge.textContent = '🔐 MOK Onayı';
             }
             showToast(message || 'MOK onayı için reboot gerekli', 'warning');
             showMokInstructions(message);
@@ -122,18 +187,21 @@ function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
             
         case 'failed':
         default:
-            installBtn.className = 'btn btn-primary btn-install';
-            installBtn.disabled = false;
-            installBtn.textContent = 'Yeniden Dene';
+            if (installBtn) {
+                installBtn.className = 'btn btn-primary btn-install';
+                installBtn.disabled = false;
+                installBtn.textContent = 'Yeniden Dene';
+                installBtn.onclick = () => installModule(moduleName);
+            }
             if (statusBadge) {
                 statusBadge.className = 'status-badge error';
                 statusBadge.textContent = '✗ Hata';
             }
-            showToast(message || 'Kurulum başarısız', 'error');
+            if (status === 'failed') {
+                showToast(message || `${moduleName} kurulumu başarısız`, 'error');
+            }
             break;
     }
-    
-    updateProgress();
 }
 
 // =============================================================================
@@ -269,7 +337,7 @@ async function rebootSystem() {
                     width: 48px;
                     height: 48px;
                     border: 3px solid transparent;
-                    border-top-color: #58a6ff;
+                    border-top-color: #00ff88;
                     border-radius: 50%;
                     animation: spin 1s linear infinite;
                     margin-bottom: 24px;
@@ -287,33 +355,38 @@ async function rebootSystem() {
 }
 
 // =============================================================================
-// Module Status Polling
+// Page-wide Polling (for installing modules)
 // =============================================================================
 
-let pollingInterval = null;
+let globalPollingInterval = null;
 
-function startPolling() {
-    if (pollingInterval) return;
+function startGlobalPolling() {
+    if (globalPollingInterval) return;
     
-    pollingInterval = setInterval(async () => {
-        // Check if any module is installing
+    globalPollingInterval = setInterval(async () => {
+        // Installing durumundaki tüm modülleri kontrol et
         const installingModules = document.querySelectorAll('[data-status="installing"]');
         
         if (installingModules.length === 0) {
-            stopPolling();
+            stopGlobalPolling();
             return;
         }
         
-        // Update progress
+        for (const moduleCard of installingModules) {
+            const moduleName = moduleCard.getAttribute('data-module');
+            await checkModuleStatus(moduleName);
+        }
+        
+        // Progress'i güncelle
         await updateProgress();
         
     }, 5000);
 }
 
-function stopPolling() {
-    if (pollingInterval) {
-        clearInterval(pollingInterval);
-        pollingInterval = null;
+function stopGlobalPolling() {
+    if (globalPollingInterval) {
+        clearInterval(globalPollingInterval);
+        globalPollingInterval = null;
     }
 }
 
@@ -325,9 +398,26 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial progress update
     updateProgress();
     
-    // Start polling if any module is installing
+    // Installing durumundaki modüller varsa polling başlat
     const installingModules = document.querySelectorAll('[data-status="installing"]');
     if (installingModules.length > 0) {
-        startPolling();
+        startGlobalPolling();
+        
+        // Her biri için ayrı polling da başlat (daha hızlı güncelleme için)
+        installingModules.forEach(card => {
+            const moduleName = card.getAttribute('data-module');
+            startModulePolling(moduleName);
+        });
+    }
+});
+
+// Sayfa görünürlük değişince
+document.addEventListener('visibilitychange', () => {
+    const installingModules = document.querySelectorAll('[data-status="installing"]');
+    
+    if (document.hidden) {
+        stopGlobalPolling();
+    } else if (installingModules.length > 0) {
+        startGlobalPolling();
     }
 });

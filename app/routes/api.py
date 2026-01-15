@@ -4,6 +4,8 @@ API endpoint'leri
 """
 
 import subprocess
+import threading
+import logging
 from flask import Blueprint, jsonify, request
 
 from app.config import config
@@ -12,6 +14,10 @@ from app.services.hardware import HardwareService
 from app.modules import get_module, get_all_modules
 
 api_bp = Blueprint('api', __name__)
+logger = logging.getLogger(__name__)
+
+# Aktif kurulum thread'leri (race condition kontrolü için)
+_install_threads = {}
 
 
 # =============================================================================
@@ -204,7 +210,10 @@ def module_info(module_name: str):
 
 @api_bp.route('/modules/<module_name>/install', methods=['POST'])
 def install_module(module_name: str):
-    """Modül kurulumunu başlat"""
+    """
+    Modül kurulumunu başlat (async - background thread)
+    Kurulum arka planda çalışır, API hemen döner
+    """
     module = get_module(module_name)
     
     if not module:
@@ -219,31 +228,106 @@ def install_module(module_name: str):
     if config.is_module_completed(module_name):
         return jsonify({'success': False, 'error': 'Modül zaten kurulu'}), 400
     
-    # Kurulumu başlat
+    # Zaten kuruluyor mu? (thread kontrolü)
+    if module_name in _install_threads and _install_threads[module_name].is_alive():
+        return jsonify({'success': False, 'error': 'Modül kurulumu zaten devam ediyor'}), 400
+    
+    # Status'u installing yap
+    config.set_module_status(module_name, 'installing')
+    logger.info(f"Modül kurulumu başlatılıyor (async): {module_name}")
+    
+    # Background thread başlat
+    thread = threading.Thread(
+        target=_run_install_background,
+        args=(module_name,),
+        daemon=True,
+        name=f"install-{module_name}"
+    )
+    _install_threads[module_name] = thread
+    thread.start()
+    
+    return jsonify({
+        'success': True, 
+        'status': 'installing',
+        'message': f'{module_name} kurulumu başlatıldı. Log sayfasından takip edebilirsiniz.'
+    })
+
+
+def _run_install_background(module_name: str):
+    """
+    Background thread'de modül kurulumu çalıştır.
+    Thread içinde hata yakalama ve status güncelleme yapılır.
+    """
+    module = get_module(module_name)
+    if not module:
+        logger.error(f"Modül bulunamadı: {module_name}")
+        return
+    
     try:
-        config.set_module_status(module_name, 'installing')
+        logger.info(f"Background kurulum başladı: {module_name}")
         
         success, message = module.install()
         
+        # install() metodu kendi içinde status'u set edebilir 
+        # (örn: mok_pending, reboot_required)
+        # Bu yüzden sadece completed değilse ve success ise completed yap
+        current_status = config.get_module_status(module_name)
+        
         if success:
-            config.set_module_status(module_name, 'completed')
-            return jsonify({'success': True, 'message': message})
+            # install() metodu özel bir status set ettiyse dokunma
+            if current_status == 'installing':
+                config.set_module_status(module_name, 'completed')
+            logger.info(f"Kurulum tamamlandı: {module_name} - {message}")
         else:
             config.set_module_status(module_name, 'failed')
-            return jsonify({'success': False, 'error': message}), 500
+            logger.error(f"Kurulum başarısız: {module_name} - {message}")
             
     except Exception as e:
         config.set_module_status(module_name, 'failed')
-        return jsonify({'success': False, 'error': str(e)}), 500
+        logger.exception(f"Kurulum exception: {module_name} - {e}")
+    finally:
+        # Thread referansını temizle
+        if module_name in _install_threads:
+            del _install_threads[module_name]
 
 
 @api_bp.route('/modules/<module_name>/status')
 def module_status(module_name: str):
     """Modül durumunu döndür"""
+    config.reload()  # Güncel status için
     status = config.get_module_status(module_name)
     return jsonify({
         'module': module_name,
         'status': status
+    })
+
+
+@api_bp.route('/modules/<module_name>/logs')
+def module_logs(module_name: str):
+    """Modül log'larını döndür"""
+    import os
+    
+    log_dir = '/var/log/kiosk-setup'
+    log_file = os.path.join(log_dir, f"{module_name}.log")
+    
+    # Son N satırı al (query param ile belirlenebilir)
+    lines = int(request.args.get('lines', 200))
+    
+    logs = []
+    if os.path.exists(log_file):
+        try:
+            with open(log_file, 'r') as f:
+                all_lines = f.readlines()
+                logs = all_lines[-lines:] if len(all_lines) > lines else all_lines
+        except Exception as e:
+            logs = [f"Log okuma hatası: {e}"]
+    else:
+        logs = [f"Log dosyası bulunamadı: {log_file}"]
+    
+    return jsonify({
+        'module': module_name,
+        'logs': [line.rstrip() for line in logs],
+        'total_lines': len(logs)
     })
 
 

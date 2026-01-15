@@ -696,6 +696,45 @@ body {
     line-height: 1.8;
     white-space: pre-wrap;
     word-break: break-all;
+    /* Loglarda seçime izin ver */
+    -webkit-user-select: text;
+    -moz-user-select: text;
+    user-select: text;
+}
+
+.logs-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-sm) var(--spacing-md);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-bg-secondary);
+    border-radius: var(--border-radius);
+    margin-top: var(--spacing-sm);
+}
+
+.select-input {
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-tertiary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    color: var(--color-text);
+    font-family: var(--font-family);
+    font-size: var(--font-size-sm);
+    cursor: pointer;
+    min-width: 180px;
+}
+
+.select-input:focus {
+    outline: none;
+    border-color: var(--color-primary);
+    box-shadow: 0 0 0 2px rgba(0, 255, 136, 0.1);
+}
+
+.select-input option {
+    background: var(--color-bg-secondary);
+    color: var(--color-text);
 }
 
 /* =============================================================================
