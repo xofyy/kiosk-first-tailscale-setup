@@ -230,7 +230,7 @@ if [[ -d "$SCRIPT_DIR/scripts" ]]; then
         if [[ ! -f "$dest" ]] || ! cmp -s "$script" "$dest"; then
             cp "$script" "$dest"
             chmod +x "$dest"
-            ((SCRIPTS_UPDATED++))
+            SCRIPTS_UPDATED=$((SCRIPTS_UPDATED + 1))
         fi
     done
     
