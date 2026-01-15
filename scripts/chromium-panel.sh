@@ -6,8 +6,8 @@
 
 URL="http://localhost:8080"
 
-# Chromium data dizini
-DATA_DIR="/home/kiosk/.config/chromium-panel"
+# Chromium data dizini (snap uyumlu - /tmp kullan)
+DATA_DIR="/tmp/chromium-panel"
 mkdir -p "$DATA_DIR"
 
 # Mevcut Chromium'u kapat (varsa)

@@ -15,8 +15,8 @@ if [[ -f "$CONFIG_FILE" ]]; then
     fi
 fi
 
-# Chromium data dizini
-DATA_DIR="/home/kiosk/.config/chromium-kiosk"
+# Chromium data dizini (snap uyumlu - /tmp kullan)
+DATA_DIR="/tmp/chromium-kiosk"
 mkdir -p "$DATA_DIR"
 
 # Mevcut Chromium'u kapat (varsa)
