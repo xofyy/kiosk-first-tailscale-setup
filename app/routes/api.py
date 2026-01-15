@@ -270,7 +270,7 @@ def _run_install_background(module_name: str):
         
         # install() metodu kendi içinde status'u set edebilir 
         # (örn: mok_pending, reboot_required)
-        # Bu yüzden sadece completed değilse ve success ise completed yap
+        config.reload()  # Güncel status'u oku
         current_status = config.get_module_status(module_name)
         
         if success:
@@ -279,8 +279,13 @@ def _run_install_background(module_name: str):
                 config.set_module_status(module_name, 'completed')
             logger.info(f"Kurulum tamamlandı: {module_name} - {message}")
         else:
-            config.set_module_status(module_name, 'failed')
-            logger.error(f"Kurulum başarısız: {module_name} - {message}")
+            # Modül kendi status'unu set ettiyse (mok_pending, reboot_required) dokunma
+            if current_status == 'installing':
+                config.set_module_status(module_name, 'failed')
+                logger.error(f"Kurulum başarısız: {module_name} - {message}")
+            else:
+                # mok_pending veya reboot_required - bu da bir "başarı" sayılır
+                logger.info(f"Kurulum özel durumda: {module_name} ({current_status}) - {message}")
             
     except Exception as e:
         config.set_module_status(module_name, 'failed')

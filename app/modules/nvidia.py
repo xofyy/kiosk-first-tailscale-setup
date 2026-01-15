@@ -115,18 +115,26 @@ class NvidiaModule(BaseModule):
             self.logger.error("MOK anahtar dosyası bulunamadı!")
             return False
         
-        # MOK'u kaydet
+        # MOK'u kaydet (printf kullan - tüm shell'lerde çalışır)
         self.logger.info(f"MOK anahtarı UEFI'ye kaydediliyor: {mok_der}")
         result = self.run_shell(
-            f'echo -e "{mok_password}\\n{mok_password}" | mokutil --import {mok_der}',
+            f'printf "%s\\n%s\\n" "{mok_password}" "{mok_password}" | mokutil --import {mok_der}',
             check=False
         )
         
         if result.returncode != 0:
-            self.logger.warning(f"MOK import uyarısı: {result.stderr}")
-            # Zaten import edilmiş olabilir, devam et
+            # Hata mesajını kontrol et
+            stderr = result.stderr.lower() if result.stderr else ''
+            
+            # "key is already enrolled" gibi mesajlar başarı sayılır
+            if 'already' in stderr or 'enrolled' in stderr:
+                self.logger.info("MOK anahtarı zaten kayıtlı")
+                return True
+            
+            self.logger.error(f"MOK import hatası: {result.stderr}")
+            return False
         
-        self.logger.info("MOK anahtarı kaydedildi")
+        self.logger.info("MOK anahtarı başarıyla kaydedildi")
         return True
     
     # =========================================================================
