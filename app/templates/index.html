@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+
+{% block title %}Kurulum - Kiosk Setup Panel{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Bağlantı Durumu -->
+    <section class="section connection-section">
+        <h2 class="section-title">Bağlantı Durumu</h2>
+        
+        <div class="connection-grid">
+            <div class="connection-card">
+                <div class="connection-icon">🌐</div>
+                <div class="connection-info">
+                    <span class="connection-label">İnternet</span>
+                    <span class="connection-value" id="conn-internet">
+                        {% if system_info.internet %}
+                        <span class="status-badge success">Bağlı</span>
+                        {% else %}
+                        <span class="status-badge error">Bağlı Değil</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+            
+            <div class="connection-card">
+                <div class="connection-icon">📡</div>
+                <div class="connection-info">
+                    <span class="connection-label">IP Adresi</span>
+                    <span class="connection-value">{{ system_info.ip_address or 'N/A' }}</span>
+                </div>
+            </div>
+            
+            <div class="connection-card">
+                <div class="connection-icon">🔗</div>
+                <div class="connection-info">
+                    <span class="connection-label">Tailscale IP</span>
+                    <span class="connection-value">{{ system_info.tailscale_ip or 'Bağlı Değil' }}</span>
+                </div>
+            </div>
+            
+            <div class="connection-card">
+                <div class="connection-icon">🔍</div>
+                <div class="connection-info">
+                    <span class="connection-label">DNS</span>
+                    <span class="connection-value">
+                        {% if system_info.dns_working %}
+                        <span class="status-badge success">Çalışıyor</span>
+                        {% else %}
+                        <span class="status-badge error">Hata</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+        
+        {% if not network_installed %}
+        <!-- Geçici IP Ayarı (Network modülünden önce) -->
+        <div class="ip-config-panel">
+            <h3>Geçici IP Ayarı</h3>
+            <p class="text-muted">DHCP çalışmıyorsa geçici statik IP ayarlayabilirsiniz.</p>
+            
+            <form id="temp-ip-form" class="ip-form">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Arayüz</label>
+                        <select name="interface" class="form-control">
+                            {% for name, info in system_info.interfaces.items() %}
+                            <option value="{{ name }}">{{ name }} ({{ info.state }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>IP Adresi</label>
+                        <input type="text" name="ip" class="form-control" placeholder="192.168.1.100">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Netmask</label>
+                        <input type="text" name="netmask" class="form-control" value="255.255.255.0">
+                    </div>
+                    <div class="form-group">
+                        <label>Gateway</label>
+                        <input type="text" name="gateway" class="form-control" placeholder="192.168.1.1">
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>DNS</label>
+                        <input type="text" name="dns" class="form-control" value="8.8.8.8">
+                    </div>
+                    <div class="form-group form-actions">
+                        <button type="submit" class="btn btn-primary">IP Ayarla</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Kiosk ID Girişi (Tailscale öncesi) -->
+    {% if not config.get('system.kiosk_id') %}
+    <section class="section kiosk-id-section">
+        <h2 class="section-title">Kiosk Kimliği</h2>
+        
+        <div class="kiosk-id-panel">
+            <p>Tailscale modülünü kurmadan önce Kiosk ID belirlemelisiniz.</p>
+            
+            <form id="kiosk-id-form" class="kiosk-id-form">
+                <div class="form-group">
+                    <label>Kiosk ID</label>
+                    <input type="text" name="kiosk_id" class="form-control form-control-lg" 
+                           placeholder="KIOSK-001" pattern="[A-Z0-9_-]+" 
+                           title="Sadece büyük harf, rakam, tire ve alt çizgi">
+                    <small class="text-muted">Örnek: KIOSK-001, BRANCH-ISTANBUL-01</small>
+                </div>
+                <button type="submit" class="btn btn-primary btn-lg">Kaydet</button>
+            </form>
+        </div>
+    </section>
+    {% endif %}
+
+    <!-- Kurulum Modülleri -->
+    <section class="section modules-section">
+        <h2 class="section-title">Kurulum Modülleri</h2>
+        
+        <div class="progress-bar">
+            <div class="progress-fill" id="overall-progress" style="width: 0%"></div>
+        </div>
+        <p class="progress-text" id="progress-text">0 / 10 modül tamamlandı</p>
+        
+        <div class="modules-list">
+            {% for module in modules %}
+            {% set status = module_statuses.get(module.name, 'pending') %}
+            <div class="module-card" data-module="{{ module.name }}" data-status="{{ status }}">
+                <div class="module-order">{{ module.order }}</div>
+                
+                <div class="module-info">
+                    <h3 class="module-name">{{ module.display_name }}</h3>
+                    <p class="module-desc">{{ module.description }}</p>
+                    {% if module.dependencies %}
+                    <span class="module-deps">Bağımlılık: {{ module.dependencies | join(', ') }}</span>
+                    {% endif %}
+                </div>
+                
+                <div class="module-status">
+                    {% if status == 'completed' %}
+                    <span class="status-badge success">✓ Tamamlandı</span>
+                    {% elif status == 'installing' %}
+                    <span class="status-badge warning">⟳ Kuruluyor...</span>
+                    {% elif status == 'failed' %}
+                    <span class="status-badge error">✗ Hata</span>
+                    {% else %}
+                    <span class="status-badge">Bekliyor</span>
+                    {% endif %}
+                </div>
+                
+                <div class="module-actions">
+                    {% if status == 'completed' %}
+                    <button class="btn btn-secondary" disabled>Kuruldu</button>
+                    {% elif status == 'installing' %}
+                    <button class="btn btn-secondary" disabled>
+                        <span class="spinner"></span> Kuruluyor
+                    </button>
+                    {% else %}
+                    <button class="btn btn-primary btn-install" 
+                            data-module="{{ module.name }}"
+                            onclick="installModule('{{ module.name }}')">
+                        Kur
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Kurulumu Tamamla -->
+    <section class="section complete-section">
+        <div class="complete-panel">
+            <h2>Kurulumu Tamamla</h2>
+            <p>Tüm modüller kurulduktan sonra kurulumu tamamlayabilirsiniz.</p>
+            
+            <button class="btn btn-success btn-lg" id="btn-complete" 
+                    onclick="completeSetup()" disabled>
+                Kurulumu Tamamla
+            </button>
+            
+            <p class="text-muted mt-2">
+                <small>Tamamlandığında sistem kiosk moduna geçecek ve yeniden başlatılacak.</small>
+            </p>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modules.js') }}"></script>
+<script>
+    // Sayfa yüklendiğinde ilerlemeyi güncelle
+    updateProgress();
+</script>
+{% endblock %}

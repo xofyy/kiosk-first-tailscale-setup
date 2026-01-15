@@ -1,0 +1,7 @@
+# Kiosk Setup Panel - Bash Profile
+# Generated automatically - do not edit manually
+
+# Sadece TTY1'de X başlat
+if [[ -z "$DISPLAY" ]] && [[ $(tty) == /dev/tty1 ]]; then
+    exec startx -- -nocursor 2>/dev/null
+fi

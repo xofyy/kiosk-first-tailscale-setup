@@ -1,0 +1,9 @@
+# Kiosk Setup Panel - Touch Screen Rotation
+# Generated automatically - do not edit manually
+# /etc/X11/xorg.conf.d/99-touch-rotation.conf
+
+Section "InputClass"
+    Identifier "Touchscreen rotation"
+    MatchUSBID "{{ touch_vendor_id }}"
+    Option "TransformationMatrix" "{{ touch_matrix }}"
+EndSection

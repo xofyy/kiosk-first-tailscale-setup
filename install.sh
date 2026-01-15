@@ -1,215 +1,448 @@
 #!/bin/bash
-#
-# Kiosk Setup Installer
-# Bu script kiosk setup sistemini kurar
-# - Gerekli paketleri yükler
-# - Scriptleri kopyalar
-# - Systemd service ve getty override'ları oluşturur
-#
+# =============================================================================
+# Kiosk Setup Panel - Installer Script
+# =============================================================================
+# Bu script Ubuntu Server üzerine Kiosk Setup Panel kurar.
+# Kullanım: sudo bash install.sh
+# =============================================================================
 
 set -e
+
+# =============================================================================
+# RENKLER VE LOG FONKSİYONLARI
+# =============================================================================
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║         KIOSK SETUP SİSTEMİ KURULUMU                       ║${NC}"
-echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
-echo ""
+LOG_FILE="/var/log/kiosk-setup-install.log"
 
-# Root kontrolü
+log() {
+    local msg="$1"
+    echo -e "${GREEN}[✓]${NC} $msg"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $msg" >> "$LOG_FILE"
+}
+
+error() {
+    local msg="$1"
+    echo -e "${RED}[✗]${NC} $msg"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [ERROR] $msg" >> "$LOG_FILE"
+}
+
+warn() {
+    local msg="$1"
+    echo -e "${YELLOW}[!]${NC} $msg"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] $msg" >> "$LOG_FILE"
+}
+
+info() {
+    local msg="$1"
+    echo -e "${CYAN}[i]${NC} $msg"
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [INFO] $msg" >> "$LOG_FILE"
+}
+
+# =============================================================================
+# DEĞİŞKENLER
+# =============================================================================
+
+KIOSK_USER="kiosk"
+INSTALL_DIR="/opt/kiosk-setup-panel"
+CONFIG_DIR="/etc/kiosk-setup"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# =============================================================================
+# ROOT KONTROLÜ
+# =============================================================================
+
 if [[ $EUID -ne 0 ]]; then
-    echo -e "${RED}Bu script root olarak çalıştırılmalıdır!${NC}"
-    echo "Kullanım: sudo $0"
+    error "Bu script root olarak çalıştırılmalıdır!"
+    echo "Kullanım: sudo bash install.sh"
     exit 1
 fi
 
-# Script dizinini güvenilir şekilde bul
-SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")" && pwd)"
+# =============================================================================
+# BANNER
+# =============================================================================
 
-echo -e "${CYAN}Script dizini: ${SCRIPT_DIR}${NC}"
+clear
+echo -e "${CYAN}"
+echo "╔══════════════════════════════════════════════════════════════════════╗"
+echo "║                                                                      ║"
+echo "║               KIOSK SETUP PANEL - INSTALLER                          ║"
+echo "║                                                                      ║"
+echo "╚══════════════════════════════════════════════════════════════════════╝"
+echo -e "${NC}"
 echo ""
 
-# ============================================================================
-# ADIM 1: Gerekli dosyaları kontrol et
-# ============================================================================
-echo -e "${YELLOW}[1/7]${NC} Gerekli dosyalar kontrol ediliyor..."
+# =============================================================================
+# 1. SİSTEM GÜNCELLEMESİ
+# =============================================================================
 
-REQUIRED_FILES=("setup-kiosk.sh" "hardware-unique-id.sh")
-for file in "${REQUIRED_FILES[@]}"; do
-    if [[ ! -f "${SCRIPT_DIR}/${file}" ]]; then
-        echo -e "${RED}HATA: ${file} bulunamadı!${NC}"
-        echo "Lütfen ${file} dosyasının ${SCRIPT_DIR} dizininde olduğundan emin olun."
-        exit 1
-    fi
-    echo -e "  ✓ ${file}"
-done
-echo ""
-
-# ============================================================================
-# ADIM 2: Gerekli paketleri kur
-# ============================================================================
-echo -e "${YELLOW}[2/7]${NC} Gerekli paketler kontrol ediliyor ve kuruluyor..."
-
-# Önce apt güncelle
+info "Sistem güncelleniyor..."
 apt-get update -qq
+apt-get upgrade -y -qq
+log "Sistem güncellendi"
 
-# Zorunlu paketler (script çalışması için gerekli)
+# =============================================================================
+# 2. TEMEL PAKETLER
+# =============================================================================
+
+info "Temel paketler kuruluyor..."
+
 PACKAGES=(
-    "curl"           # HTTP istekleri (enrollment API, Tailscale kurulumu)
-    "dmidecode"      # Donanım bilgisi (hardware ID üretimi)
-    "iputils-ping"   # ping komutu (internet kontrolü)
+    # X11 ve Display
+    xorg
+    xserver-xorg
+    xinit
+    x11-xserver-utils
+    xinput
+    
+    # Window Manager
+    openbox
+    
+    # Browser
+    chromium-browser
+    
+    # Python
+    python3
+    python3-pip
+    python3-venv
+    python3-dev
+    
+    # Sistem araçları
+    dbus-x11
+    mesa-utils
+    fonts-dejavu-core
+    curl
+    wget
+    nano
+    git
+    
+    # Network araçları
+    net-tools
+    iputils-ping
 )
 
 for pkg in "${PACKAGES[@]}"; do
-    if dpkg -l "$pkg" 2>/dev/null | grep -q "^ii"; then
-        echo -e "  ✓ ${pkg} (zaten kurulu)"
-    else
-        echo -e "  → ${pkg} kuruluyor..."
-        apt-get install -y -qq "$pkg" >/dev/null 2>&1
-        echo -e "  ✓ ${pkg}"
+    if ! dpkg -l | grep -q "^ii  $pkg "; then
+        apt-get install -y -qq "$pkg" 2>/dev/null || warn "Paket kurulamadı: $pkg"
     fi
 done
-echo ""
 
-# ============================================================================
-# ADIM 3: Gerekli dizinleri oluştur
-# ============================================================================
-echo -e "${YELLOW}[3/7]${NC} Gerekli dizinler oluşturuluyor..."
+log "Temel paketler kuruldu"
 
-mkdir -p /etc/kiosk-setup
-mkdir -p /usr/local/lib/kiosk
-mkdir -p /etc/systemd/system/getty@tty1.service.d
-mkdir -p /etc/systemd/system/getty@tty2.service.d
-mkdir -p /etc/systemd/system/getty@tty3.service.d
+# =============================================================================
+# 3. KIOSK KULLANICI OLUŞTURMA
+# =============================================================================
 
-echo -e "  ✓ /etc/kiosk-setup"
-echo -e "  ✓ /usr/local/lib/kiosk"
-echo -e "  ✓ /etc/systemd/system/getty@ttyX.service.d"
-echo ""
+info "Kiosk kullanıcısı oluşturuluyor..."
 
-# ============================================================================
-# ADIM 4: Scriptleri kopyala
-# ============================================================================
-echo -e "${YELLOW}[4/7]${NC} Scriptler kopyalanıyor..."
+if ! id "$KIOSK_USER" &>/dev/null; then
+    useradd -m -s /bin/bash "$KIOSK_USER"
+    # video ve audio gruplarına ekle
+    usermod -aG video,audio,input,tty "$KIOSK_USER"
+    log "Kullanıcı oluşturuldu: $KIOSK_USER"
+else
+    log "Kullanıcı zaten mevcut: $KIOSK_USER"
+fi
 
-cp "${SCRIPT_DIR}/setup-kiosk.sh" /usr/local/bin/setup-kiosk.sh
-cp "${SCRIPT_DIR}/hardware-unique-id.sh" /usr/local/lib/kiosk/hardware-unique-id.sh
+# =============================================================================
+# 4. DİZİN YAPISI
+# =============================================================================
 
-chmod +x /usr/local/bin/setup-kiosk.sh
-chmod +x /usr/local/lib/kiosk/hardware-unique-id.sh
+info "Dizin yapısı oluşturuluyor..."
 
-echo -e "  ✓ /usr/local/bin/setup-kiosk.sh"
-echo -e "  ✓ /usr/local/lib/kiosk/hardware-unique-id.sh"
-echo ""
+# Config dizini
+mkdir -p "$CONFIG_DIR"
 
-# ============================================================================
-# ADIM 5: Systemd service dosyasını oluştur
-# ============================================================================
-echo -e "${YELLOW}[5/7]${NC} Systemd service oluşturuluyor..."
+# Install dizini
+mkdir -p "$INSTALL_DIR"
 
-cat > /etc/systemd/system/kiosk-setup.service << 'EOF'
+# Log dizini
+touch "$LOG_FILE"
+chmod 644 "$LOG_FILE"
+
+log "Dizinler oluşturuldu"
+
+# =============================================================================
+# 5. UYGULAMA DOSYALARINI KOPYALA
+# =============================================================================
+
+info "Uygulama dosyaları kopyalanıyor..."
+
+# Eğer script bir clone dizininde çalışıyorsa
+if [[ -d "$SCRIPT_DIR/app" ]]; then
+    cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
+    cp -r "$SCRIPT_DIR/templates" "$INSTALL_DIR/" 2>/dev/null || true
+    cp -r "$SCRIPT_DIR/config" "$INSTALL_DIR/" 2>/dev/null || true
+    cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
+    log "Dosyalar kopyalandı: $SCRIPT_DIR -> $INSTALL_DIR"
+fi
+
+# Default config
+if [[ ! -f "$CONFIG_DIR/config.yaml" ]]; then
+    if [[ -f "$INSTALL_DIR/config/default.yaml" ]]; then
+        cp "$INSTALL_DIR/config/default.yaml" "$CONFIG_DIR/config.yaml"
+    elif [[ -f "$SCRIPT_DIR/config/default.yaml" ]]; then
+        cp "$SCRIPT_DIR/config/default.yaml" "$CONFIG_DIR/config.yaml"
+    fi
+    log "Varsayılan yapılandırma oluşturuldu"
+fi
+
+# =============================================================================
+# 6. PYTHON VIRTUAL ENVIRONMENT
+# =============================================================================
+
+info "Python virtual environment oluşturuluyor..."
+
+if [[ ! -d "$INSTALL_DIR/venv" ]]; then
+    python3 -m venv "$INSTALL_DIR/venv"
+    log "Yeni venv oluşturuldu"
+else
+    log "Venv zaten mevcut: $INSTALL_DIR/venv"
+fi
+
+source "$INSTALL_DIR/venv/bin/activate"
+
+pip install --upgrade pip -q
+pip install -r "$INSTALL_DIR/requirements.txt" -q
+
+deactivate
+log "Python ortamı hazır"
+
+# =============================================================================
+# 7. SCRIPTLERİ KOPYALA
+# =============================================================================
+
+info "Scriptler kopyalanıyor..."
+
+# Scripts dizini kontrolü - sadece değişmişse kopyala
+if [[ -d "$SCRIPT_DIR/scripts" ]]; then
+    SCRIPTS_UPDATED=0
+    for script in "$SCRIPT_DIR/scripts/"*.sh; do
+        script_name=$(basename "$script")
+        dest="/usr/local/bin/$script_name"
+        
+        if [[ ! -f "$dest" ]] || ! cmp -s "$script" "$dest"; then
+            cp "$script" "$dest"
+            chmod +x "$dest"
+            ((SCRIPTS_UPDATED++))
+        fi
+    done
+    
+    if [[ $SCRIPTS_UPDATED -gt 0 ]]; then
+        log "$SCRIPTS_UPDATED script güncellendi"
+    else
+        log "Scriptler zaten güncel"
+    fi
+fi
+
+# =============================================================================
+# 8. SYSTEMD SERVİSLERİ
+# =============================================================================
+
+info "Systemd servisleri oluşturuluyor..."
+
+SERVICE_FILE="/etc/systemd/system/kiosk-panel.service"
+
+# Flask Panel Service (sadece yoksa oluştur)
+if [[ ! -f "$SERVICE_FILE" ]]; then
+    cat > "$SERVICE_FILE" << 'EOF'
 [Unit]
-Description=Kiosk First Boot Setup
-After=network-online.target sysinit.target systemd-modules-load.service
-Wants=network-online.target
-Before=getty@tty1.service
+Description=Kiosk Setup Panel Web Server
+After=network.target
 
 [Service]
-Type=oneshot
-ExecStartPre=/bin/sleep 3
-ExecStart=/usr/local/bin/setup-kiosk.sh
-StandardInput=tty
-StandardOutput=tty
-StandardError=tty
-TTYPath=/dev/tty1
-TTYReset=yes
-TTYVHangup=yes
-TTYVTDisallocate=yes
-RemainAfterExit=yes
+Type=simple
+User=root
+WorkingDirectory=/opt/kiosk-setup-panel
+Environment="PATH=/opt/kiosk-setup-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
+ExecStart=/opt/kiosk-setup-panel/venv/bin/python -m gunicorn -b 0.0.0.0:8080 -w 2 app.main:app
+Restart=always
+RestartSec=5
 
 [Install]
 WantedBy=multi-user.target
 EOF
+    systemctl daemon-reload
+    log "kiosk-panel.service oluşturuldu"
+else
+    log "kiosk-panel.service zaten mevcut, atlanıyor"
+fi
 
-chmod 644 /etc/systemd/system/kiosk-setup.service
-echo -e "  ✓ /etc/systemd/system/kiosk-setup.service"
-echo ""
+# Enable service
+systemctl enable kiosk-panel.service 2>/dev/null || true
 
-# ============================================================================
-# ADIM 6: Getty override'ları oluştur (numaralı dosya adı)
-# ============================================================================
-echo -e "${YELLOW}[6/7]${NC} Getty override'lar oluşturuluyor..."
+log "Systemd servisleri hazır"
 
-# Numaralı dosya adı: 10-kiosk-setup.conf
-# Ansible sonradan 20-autologin.conf ekleyebilir, çakışma olmaz
-for tty in tty1 tty2 tty3; do
-    cat > "/etc/systemd/system/getty@${tty}.service.d/10-kiosk-setup.conf" << 'EOF'
-[Unit]
-After=kiosk-setup.service
-Requires=kiosk-setup.service
+# =============================================================================
+# 9. TTY1 AUTOLOGIN
+# =============================================================================
+
+info "TTY1 autologin yapılandırılıyor..."
+
+mkdir -p /etc/systemd/system/getty@tty1.service.d/
+
+cat > /etc/systemd/system/getty@tty1.service.d/override.conf << EOF
+[Service]
+ExecStart=
+ExecStart=-/sbin/agetty --autologin $KIOSK_USER --noclear %I \$TERM
 EOF
-    echo -e "  ✓ getty@${tty} → 10-kiosk-setup.conf"
-done
+
+log "TTY1 autologin yapılandırıldı"
+
+# =============================================================================
+# 10. KIOSK KULLANICI YAPILANDIRMASI
+# =============================================================================
+
+info "Kiosk kullanıcı yapılandırması..."
+
+KIOSK_HOME="/home/$KIOSK_USER"
+
+# .bash_profile - X başlatma (sadece yoksa oluştur)
+if [[ ! -f "$KIOSK_HOME/.bash_profile" ]]; then
+    cat > "$KIOSK_HOME/.bash_profile" << 'EOF'
+# Kiosk Setup Panel - Bash Profile
+
+# Sadece TTY1'de X başlat
+if [[ -z "$DISPLAY" ]] && [[ $(tty) == /dev/tty1 ]]; then
+    exec startx -- -nocursor 2>/dev/null
+fi
+EOF
+    log ".bash_profile oluşturuldu"
+else
+    log ".bash_profile zaten mevcut, atlanıyor"
+fi
+
+# .xinitrc (sadece yoksa oluştur)
+if [[ ! -f "$KIOSK_HOME/.xinitrc" ]]; then
+    cat > "$KIOSK_HOME/.xinitrc" << 'EOF'
+#!/bin/bash
+# Kiosk Setup Panel - X Init
+
+# Ekran ayarları
+/usr/local/bin/display-init.sh 2>/dev/null || true
+
+# D-Bus
+if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
+    eval $(dbus-launch --sh-syntax --exit-with-session)
+fi
+
+# Openbox başlat
+exec openbox-session
+EOF
+    chmod +x "$KIOSK_HOME/.xinitrc"
+    log ".xinitrc oluşturuldu"
+else
+    log ".xinitrc zaten mevcut, atlanıyor"
+fi
+
+# Openbox config dizini
+mkdir -p "$KIOSK_HOME/.config/openbox"
+
+# Openbox autostart (sadece yoksa oluştur)
+if [[ ! -f "$KIOSK_HOME/.config/openbox/autostart" ]]; then
+    cat > "$KIOSK_HOME/.config/openbox/autostart" << 'EOF'
+#!/bin/bash
+# Kiosk Setup Panel - Openbox Autostart
+
+# Ekran koruyucu devre dışı
+xset s off
+xset -dpms
+xset s noblank
+
+# Setup tamamlanmış mı kontrol et
+if [[ -f /etc/kiosk-setup/.setup-complete ]]; then
+    # Kiosk modunda başlat
+    /usr/local/bin/chromium-kiosk.sh &
+else
+    # Panel modunda başlat
+    /usr/local/bin/chromium-panel.sh &
+fi
+EOF
+    chmod +x "$KIOSK_HOME/.config/openbox/autostart"
+    log "openbox/autostart oluşturuldu"
+else
+    log "openbox/autostart zaten mevcut, atlanıyor"
+fi
+
+# Openbox rc.xml - keybindings (sadece yoksa oluştur)
+if [[ ! -f "$KIOSK_HOME/.config/openbox/rc.xml" ]]; then
+    cat > "$KIOSK_HOME/.config/openbox/rc.xml" << 'EOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<openbox_config xmlns="http://openbox.org/3.4/rc">
+  <keyboard>
+    <!-- Panel'e geç: Ctrl+Alt+P -->
+    <keybind key="C-A-p">
+      <action name="Execute">
+        <command>/usr/local/bin/switch-to-panel.sh</command>
+      </action>
+    </keybind>
+    
+    <!-- Kiosk'a geç: Ctrl+Alt+K -->
+    <keybind key="C-A-k">
+      <action name="Execute">
+        <command>/usr/local/bin/switch-to-kiosk.sh</command>
+      </action>
+    </keybind>
+    
+    <!-- Cockpit'e geç: Ctrl+Alt+C -->
+    <keybind key="C-A-c">
+      <action name="Execute">
+        <command>/usr/local/bin/switch-to-cockpit.sh</command>
+      </action>
+    </keybind>
+  </keyboard>
+  
+  <applications>
+    <application class="*">
+      <decor>no</decor>
+      <fullscreen>yes</fullscreen>
+    </application>
+  </applications>
+</openbox_config>
+EOF
+    log "openbox/rc.xml oluşturuldu"
+else
+    log "openbox/rc.xml zaten mevcut, atlanıyor"
+fi
+
+# Sahipliği ayarla
+chown -R "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
+
+log "Kiosk kullanıcı yapılandırması tamamlandı"
+
+# =============================================================================
+# 11. SERVİSİ BAŞLAT
+# =============================================================================
+
+info "Panel servisi başlatılıyor..."
+
+systemctl start kiosk-panel.service || warn "Panel servisi başlatılamadı (uygulama dosyaları eksik olabilir)"
+
+# =============================================================================
+# TAMAMLANDI
+# =============================================================================
+
+echo ""
+echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}║                     KURULUM TAMAMLANDI!                              ║${NC}"
+echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "${CYAN}Panel Erişimi:${NC}"
+echo "  - Yerel: http://localhost:8080"
+echo "  - Ağdan: http://$(hostname -I | awk '{print $1}'):8080"
+echo ""
+echo -e "${CYAN}Sonraki Adımlar:${NC}"
+echo "  1. Sistemi yeniden başlatın: ${YELLOW}sudo reboot${NC}"
+echo "  2. Panel otomatik olarak açılacak"
+echo "  3. Modülleri sırasıyla kurun"
+echo ""
+echo -e "${CYAN}Log Dosyası:${NC} $LOG_FILE"
 echo ""
 
-# ============================================================================
-# ADIM 7: Servisleri etkinleştir
-# ============================================================================
-echo -e "${YELLOW}[7/7]${NC} Servisler etkinleştiriliyor..."
-
-systemctl daemon-reload
-systemctl enable kiosk-setup.service
-
-echo -e "  ✓ systemctl daemon-reload"
-echo -e "  ✓ kiosk-setup.service etkinleştirildi"
-echo ""
-
-# ============================================================================
-# KURULUM ÖZETİ
-# ============================================================================
-echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
-echo -e "${GREEN}Kurulum tamamlandı!${NC}"
-echo ""
-
-echo -e "${CYAN}Kurulan Paketler:${NC}"
-for pkg in "${PACKAGES[@]}"; do
-    echo "  • $pkg"
-done
-echo ""
-
-echo -e "${CYAN}Sistem şu şekilde çalışacak:${NC}"
-echo "  1. Her açılışta kiosk-setup.service çalışacak"
-echo "  2. İlk açılışta: Kiosk ID girilecek, enrollment onayı beklenecek"
-echo "  3. Onay sonrası Tailscale kurulup bağlanacak"
-echo "  4. Kurulum tamamlanana kadar login mümkün olmayacak"
-echo "  5. Sonraki açılışlarda: Flag varsa hızlıca geçilecek"
-echo ""
-
-echo -e "${CYAN}Önemli Dosyalar:${NC}"
-echo "  • Setup Script:     /usr/local/bin/setup-kiosk.sh"
-echo "  • Hardware ID:      /usr/local/lib/kiosk/hardware-unique-id.sh"
-echo "  • Config Dizini:    /etc/kiosk-setup/"
-echo "  • Kiosk ID:         /etc/kiosk-setup/kiosk-id"
-echo "  • Hardware ID:      /etc/kiosk-setup/hardware-id"
-echo "  • Kurulum Flag:     /etc/kiosk-setup/.setup-complete"
-echo ""
-
-echo -e "${YELLOW}Getty Override Dosyaları:${NC}"
-echo "  • /etc/systemd/system/getty@tty1.service.d/10-kiosk-setup.conf"
-echo "  • /etc/systemd/system/getty@tty2.service.d/10-kiosk-setup.conf"
-echo "  • /etc/systemd/system/getty@tty3.service.d/10-kiosk-setup.conf"
-echo ""
-echo -e "${CYAN}Not: Ansible autologin için 20-autologin.conf ekleyebilir.${NC}"
-echo ""
-
-echo -e "${YELLOW}Yeniden kurulum için:${NC}"
-echo "  sudo rm /etc/kiosk-setup/.setup-complete"
-echo "  sudo reboot"
-echo ""
-
-echo -e "${GREEN}Şimdi sistemi yeniden başlatabilirsiniz: sudo reboot${NC}"
-echo -e "${GREEN}════════════════════════════════════════════════════════════${NC}"
+log "Kurulum tamamlandı"

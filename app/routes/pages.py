@@ -1,0 +1,89 @@
+"""
+Kiosk Setup Panel - Page Routes
+HTML sayfa endpoint'leri
+"""
+
+from flask import Blueprint, render_template, redirect, url_for
+
+from app.config import config
+from app.services.system import SystemService
+from app.modules import get_all_modules, get_module
+
+pages_bp = Blueprint('pages', __name__)
+
+
+@pages_bp.route('/')
+def index():
+    """Ana sayfa - Kurulum paneli"""
+    
+    # Sistem bilgilerini al
+    system = SystemService()
+    system_info = system.get_system_info()
+    
+    # Modül listesini al
+    modules = get_all_modules()
+    module_statuses = config.get_all_module_statuses()
+    
+    # Network modülü kuruldu mu? (IP ayarı için)
+    network_installed = config.is_module_completed('network')
+    
+    return render_template(
+        'index.html',
+        system_info=system_info,
+        modules=modules,
+        module_statuses=module_statuses,
+        network_installed=network_installed
+    )
+
+
+@pages_bp.route('/settings')
+def settings():
+    """Ayarlar sayfası"""
+    
+    # Modül durumlarını al (kilitli ayarlar için)
+    module_statuses = config.get_all_module_statuses()
+    
+    # Tüm ayarları al
+    all_config = config.get_all()
+    
+    return render_template(
+        'settings.html',
+        config=all_config,
+        module_statuses=module_statuses
+    )
+
+
+@pages_bp.route('/module/<module_name>')
+def module_detail(module_name: str):
+    """Modül detay sayfası"""
+    
+    module = get_module(module_name)
+    if not module:
+        return redirect(url_for('pages.index'))
+    
+    module_info = module.get_info()
+    module_status = config.get_module_status(module_name)
+    
+    return render_template(
+        'module_detail.html',
+        module=module_info,
+        status=module_status
+    )
+
+
+@pages_bp.route('/logs')
+def logs():
+    """Log görüntüleme sayfası"""
+    
+    log_file = '/var/log/kiosk-setup.log'
+    logs = []
+    
+    try:
+        with open(log_file, 'r') as f:
+            logs = f.readlines()[-100:]  # Son 100 satır
+    except FileNotFoundError:
+        logs = ['Log dosyası bulunamadı']
+    except Exception as e:
+        logs = [f'Hata: {str(e)}']
+    
+    return render_template('logs.html', logs=logs)

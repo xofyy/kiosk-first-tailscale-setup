@@ -1,0 +1,12 @@
+# Kiosk Setup Panel - Docker Compose Configuration
+# Generated automatically - do not edit manually
+# {{ compose_path }}/docker-compose.yml
+
+services:
+  local_database:
+    image: {{ registry_url }}/mongodb:{{ mongodb_tag }}
+    container_name: local_database
+    network_mode: host
+    restart: always
+    volumes:
+      - {{ mongodb_data_path }}:/data/db

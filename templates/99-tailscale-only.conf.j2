@@ -1,0 +1,26 @@
+# Kiosk Setup Panel - SSH Tailscale-Only Configuration
+# Generated automatically - do not edit manually
+# /etc/ssh/sshd_config.d/99-tailscale-only.conf
+
+# Parola ile giriş kapalı
+PasswordAuthentication no
+
+# Public key ile giriş kapalı (Tailscale kullanılacak)
+PubkeyAuthentication no
+
+# PAM aktif (Tailscale auth için)
+UsePAM yes
+
+# İzin verilen kullanıcılar
+AllowUsers root aco kiosk
+
+# Brute-force koruması
+MaxAuthTries 3
+MaxSessions 2
+
+# Bağlantı timeout
+ClientAliveInterval 300
+ClientAliveCountMax 2
+
+# Logging
+LogLevel VERBOSE

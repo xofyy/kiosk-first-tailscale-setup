@@ -1,0 +1,67 @@
+# Kiosk Setup Panel - Default Configuration
+# Bu dosya varsayılan ayarları içerir
+# Gerçek ayarlar /etc/kiosk-setup/config.yaml dosyasında saklanır
+
+kiosk:
+  url: "http://localhost:3000"
+  rotation: "right"
+  grub_rotation: 1
+  touch_vendor_id: "222a:0001"
+  touch_matrix: "0 1 0 -1 0 1 0 0 1"
+
+network:
+  dns_servers: ["8.8.8.8", "8.8.4.4"]
+
+nvidia:
+  driver_version: "535"
+
+vnc:
+  port: 5900
+  localhost_only: true
+
+cockpit:
+  port: 9090
+
+netmon:
+  db_write_interval: 300
+  retention_days: 90
+
+collector:
+  interval: 30
+
+docker:
+  compose_path: "/srv/docker"
+
+mongodb:
+  data_path: "/home/aco/mongo-data"
+  port: 27017
+  tag: "latest"
+
+registry:
+  url: "acolinux.azurecr.io"
+  username: ""
+  password: ""
+
+passwords:
+  kiosk: ""
+  vnc: ""
+  mok: "12345678"
+
+# Sistem tarafından yönetilen (değiştirilemez)
+system:
+  kiosk_id: ""
+  hardware_id: ""
+  setup_complete: false
+
+# Modül durumları
+modules:
+  nvidia: "pending"
+  tailscale: "pending"
+  network: "pending"
+  kiosk: "pending"
+  vnc: "pending"
+  cockpit: "pending"
+  netmon: "pending"
+  collector: "pending"
+  docker: "pending"
+  security: "pending"

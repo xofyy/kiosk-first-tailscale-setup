@@ -1,0 +1,42 @@
+{# IP Configuration Form Component #}
+
+<div class="ip-config-panel">
+    <h3>Geçici IP Ayarı</h3>
+    <p class="text-muted">DHCP çalışmıyorsa geçici statik IP ayarlayabilirsiniz.</p>
+    
+    <form id="temp-ip-form" class="ip-form">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Arayüz</label>
+                <select name="interface" class="form-control">
+                    {% for name, info in interfaces.items() %}
+                    <option value="{{ name }}">{{ name }} ({{ info.state }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label>IP Adresi</label>
+                <input type="text" name="ip" class="form-control" placeholder="192.168.1.100">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Netmask</label>
+                <input type="text" name="netmask" class="form-control" value="255.255.255.0">
+            </div>
+            <div class="form-group">
+                <label>Gateway</label>
+                <input type="text" name="gateway" class="form-control" placeholder="192.168.1.1">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>DNS</label>
+                <input type="text" name="dns" class="form-control" value="8.8.8.8">
+            </div>
+            <div class="form-group form-actions">
+                <button type="submit" class="btn btn-primary">IP Ayarla</button>
+            </div>
+        </div>
+    </form>
+</div>

@@ -1,0 +1,42 @@
+{# Module Card Component #}
+{# Usage: {% include 'components/module_card.html' with module=module, status=status %} #}
+
+<div class="module-card" data-module="{{ module.name }}" data-status="{{ status }}">
+    <div class="module-order">{{ module.order }}</div>
+    
+    <div class="module-info">
+        <h3 class="module-name">{{ module.display_name }}</h3>
+        <p class="module-desc">{{ module.description }}</p>
+        {% if module.dependencies %}
+        <span class="module-deps">Bağımlılık: {{ module.dependencies | join(', ') }}</span>
+        {% endif %}
+    </div>
+    
+    <div class="module-status">
+        {% if status == 'completed' %}
+        <span class="status-badge success">✓ Tamamlandı</span>
+        {% elif status == 'installing' %}
+        <span class="status-badge warning">⟳ Kuruluyor...</span>
+        {% elif status == 'failed' %}
+        <span class="status-badge error">✗ Hata</span>
+        {% else %}
+        <span class="status-badge">Bekliyor</span>
+        {% endif %}
+    </div>
+    
+    <div class="module-actions">
+        {% if status == 'completed' %}
+        <button class="btn btn-secondary" disabled>Kuruldu</button>
+        {% elif status == 'installing' %}
+        <button class="btn btn-secondary" disabled>
+            <span class="spinner"></span>
+        </button>
+        {% else %}
+        <button class="btn btn-primary btn-install" 
+                data-module="{{ module.name }}"
+                onclick="installModule('{{ module.name }}')">
+            Kur
+        </button>
+        {% endif %}
+    </div>
+</div>

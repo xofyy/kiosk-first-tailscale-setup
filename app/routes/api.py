@@ -1,0 +1,290 @@
+"""
+Kiosk Setup Panel - REST API Routes
+API endpoint'leri
+"""
+
+import subprocess
+from flask import Blueprint, jsonify, request
+
+from app.config import config
+from app.services.system import SystemService
+from app.services.hardware import HardwareService
+from app.modules import get_module, get_all_modules
+
+api_bp = Blueprint('api', __name__)
+
+
+# =============================================================================
+# SİSTEM API
+# =============================================================================
+
+@api_bp.route('/system/info')
+def system_info():
+    """Sistem bilgilerini döndür"""
+    system = SystemService()
+    return jsonify(system.get_system_info())
+
+
+@api_bp.route('/system/internet')
+def internet_status():
+    """İnternet durumunu kontrol et"""
+    system = SystemService()
+    return jsonify({
+        'connected': system.check_internet(),
+        'ip': system.get_ip_address(),
+        'tailscale_ip': system.get_tailscale_ip()
+    })
+
+
+@api_bp.route('/system/reboot', methods=['POST'])
+def reboot_system():
+    """Sistemi yeniden başlat"""
+    try:
+        subprocess.Popen(['shutdown', '-r', 'now'])
+        return jsonify({'success': True, 'message': 'Sistem yeniden başlatılıyor...'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# HARDWARE API
+# =============================================================================
+
+@api_bp.route('/hardware/id')
+def hardware_id():
+    """Hardware ID'yi döndür"""
+    hw = HardwareService()
+    return jsonify({
+        'hardware_id': hw.get_hardware_id(),
+        'components': hw.get_components()
+    })
+
+
+# =============================================================================
+# CONFIG API
+# =============================================================================
+
+@api_bp.route('/config')
+def get_config():
+    """Tüm yapılandırmayı döndür"""
+    return jsonify(config.get_all())
+
+
+@api_bp.route('/config/<path:key>')
+def get_config_value(key: str):
+    """Belirli bir yapılandırma değerini döndür"""
+    key = key.replace('/', '.')
+    value = config.get(key)
+    locked = config.is_setting_locked(key)
+    
+    return jsonify({
+        'key': key,
+        'value': value,
+        'locked': locked
+    })
+
+
+@api_bp.route('/config', methods=['POST'])
+def update_config():
+    """Yapılandırmayı güncelle"""
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'success': False, 'error': 'Veri bulunamadı'}), 400
+    
+    errors = []
+    updated = []
+    
+    for key, value in data.items():
+        # Kilitli ayar kontrolü
+        if config.is_setting_locked(key):
+            errors.append(f'{key} ayarı kilitli')
+            continue
+        
+        # Sistem değerleri değiştirilemez
+        if key.startswith('system.') or key.startswith('modules.'):
+            errors.append(f'{key} sistem tarafından yönetilir')
+            continue
+        
+        config.set(key, value)
+        updated.append(key)
+    
+    if updated:
+        config.save()
+    
+    return jsonify({
+        'success': len(errors) == 0,
+        'updated': updated,
+        'errors': errors
+    })
+
+
+# =============================================================================
+# MODÜL API
+# =============================================================================
+
+@api_bp.route('/modules')
+def list_modules():
+    """Tüm modülleri listele"""
+    modules = get_all_modules()
+    statuses = config.get_all_module_statuses()
+    
+    result = []
+    for module in modules:
+        info = module.get_info()
+        info['status'] = statuses.get(info['name'], 'pending')
+        result.append(info)
+    
+    return jsonify(result)
+
+
+@api_bp.route('/modules/<module_name>')
+def module_info(module_name: str):
+    """Modül bilgilerini döndür"""
+    module = get_module(module_name)
+    
+    if not module:
+        return jsonify({'error': 'Modül bulunamadı'}), 404
+    
+    info = module.get_info()
+    info['status'] = config.get_module_status(module_name)
+    info['can_install'] = module.can_install()
+    
+    return jsonify(info)
+
+
+@api_bp.route('/modules/<module_name>/install', methods=['POST'])
+def install_module(module_name: str):
+    """Modül kurulumunu başlat"""
+    module = get_module(module_name)
+    
+    if not module:
+        return jsonify({'success': False, 'error': 'Modül bulunamadı'}), 404
+    
+    # Kurulabilir mi kontrol et
+    can_install, reason = module.can_install()
+    if not can_install:
+        return jsonify({'success': False, 'error': reason}), 400
+    
+    # Zaten kurulu mu?
+    if config.is_module_completed(module_name):
+        return jsonify({'success': False, 'error': 'Modül zaten kurulu'}), 400
+    
+    # Kurulumu başlat
+    try:
+        config.set_module_status(module_name, 'installing')
+        
+        success, message = module.install()
+        
+        if success:
+            config.set_module_status(module_name, 'completed')
+            return jsonify({'success': True, 'message': message})
+        else:
+            config.set_module_status(module_name, 'failed')
+            return jsonify({'success': False, 'error': message}), 500
+            
+    except Exception as e:
+        config.set_module_status(module_name, 'failed')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/modules/<module_name>/status')
+def module_status(module_name: str):
+    """Modül durumunu döndür"""
+    status = config.get_module_status(module_name)
+    return jsonify({
+        'module': module_name,
+        'status': status
+    })
+
+
+# =============================================================================
+# IP YAPILANDIRMA API (Network modülünden önce)
+# =============================================================================
+
+@api_bp.route('/network/temporary-ip', methods=['POST'])
+def set_temporary_ip():
+    """
+    Geçici statik IP ayarla (Network modülünden önce kullanılır)
+    DHCP başarısız olduğunda geçici erişim için
+    """
+    # Network modülü kurulduysa devre dışı
+    if config.is_module_completed('network'):
+        return jsonify({
+            'success': False,
+            'error': 'Network modülü kurulu, NetworkManager kullanın'
+        }), 400
+    
+    data = request.get_json()
+    
+    if not data:
+        return jsonify({'success': False, 'error': 'Veri bulunamadı'}), 400
+    
+    ip = data.get('ip')
+    netmask = data.get('netmask', '255.255.255.0')
+    gateway = data.get('gateway')
+    dns = data.get('dns', '8.8.8.8')
+    interface = data.get('interface', 'eth0')
+    
+    if not ip or not gateway:
+        return jsonify({'success': False, 'error': 'IP ve Gateway gerekli'}), 400
+    
+    try:
+        system = SystemService()
+        success = system.set_temporary_ip(interface, ip, netmask, gateway, dns)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'IP ayarlandı'})
+        else:
+            return jsonify({'success': False, 'error': 'IP ayarlanamadı'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =============================================================================
+# KURULUM TAMAMLA API
+# =============================================================================
+
+@api_bp.route('/setup/complete', methods=['POST'])
+def complete_setup():
+    """Kurulumu tamamla"""
+    
+    # Tüm modüller tamamlanmış mı kontrol et
+    statuses = config.get_all_module_statuses()
+    incomplete = [m for m, s in statuses.items() if s != 'completed']
+    
+    if incomplete:
+        return jsonify({
+            'success': False,
+            'error': f'Tamamlanmamış modüller: {", ".join(incomplete)}'
+        }), 400
+    
+    try:
+        # Kurulum tamamlandı olarak işaretle
+        config.set_setup_complete(True)
+        
+        return jsonify({
+            'success': True,
+            'message': 'Kurulum tamamlandı! Sistem yeniden başlatılacak...'
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/setup/status')
+def setup_status():
+    """Kurulum durumunu döndür"""
+    statuses = config.get_all_module_statuses()
+    
+    total = len(statuses)
+    completed = sum(1 for s in statuses.values() if s == 'completed')
+    
+    return jsonify({
+        'complete': config.is_setup_complete(),
+        'total_modules': total,
+        'completed_modules': completed,
+        'progress': int((completed / total) * 100) if total > 0 else 0,
+        'module_statuses': statuses
+    })

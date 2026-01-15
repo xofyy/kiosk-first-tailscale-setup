@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}Loglar - Kiosk Setup Panel{% endblock %}
+
+{% block content %}
+<div class="logs-page">
+    <div class="logs-header">
+        <h2 class="page-title">Sistem Logları</h2>
+        <div class="logs-actions">
+            <button class="btn btn-secondary" onclick="location.reload()">Yenile</button>
+            <label class="checkbox-label">
+                <input type="checkbox" id="auto-scroll" checked>
+                Otomatik kaydır
+            </label>
+        </div>
+    </div>
+    
+    <div class="logs-container" id="logs-container">
+        <pre class="logs-content">{% for line in logs %}{{ line }}{% endfor %}</pre>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Otomatik scroll
+    const container = document.getElementById('logs-container');
+    const autoScroll = document.getElementById('auto-scroll');
+    
+    if (autoScroll.checked) {
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    // Her 5 saniyede yenile
+    setInterval(() => {
+        if (document.hidden) return;
+        
+        fetch('/logs')
+            .then(r => r.text())
+            .then(html => {
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newContent = doc.querySelector('.logs-content');
+                
+                if (newContent) {
+                    document.querySelector('.logs-content').innerHTML = newContent.innerHTML;
+                    
+                    if (autoScroll.checked) {
+                        container.scrollTop = container.scrollHeight;
+                    }
+                }
+            });
+    }, 5000);
+</script>
+{% endblock %}
