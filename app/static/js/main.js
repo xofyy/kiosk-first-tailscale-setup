@@ -81,14 +81,24 @@ function showToast(message, type = 'info') {
 // Internet Status Check
 // =============================================================================
 
+let isCheckingInternet = false; // Çakışmayı önle
+
 async function checkInternetStatus() {
-    const statusDot = document.querySelector('.status-dot');
-    const statusText = document.querySelector('.status-text');
+    // Zaten kontrol ediliyorsa veya tarayıcı offline'sa atla
+    if (isCheckingInternet || !navigator.onLine) {
+        updateOfflineUI();
+        return;
+    }
+    
+    isCheckingInternet = true;
     
     try {
         const data = await api.get('/system/internet', 3000); // 3 saniye timeout
         
         // Header status dot güncelle
+        const statusDot = document.querySelector('.status-dot');
+        const statusText = document.querySelector('.status-text');
+        
         if (statusDot && statusText) {
             if (data.connected) {
                 statusDot.classList.add('online');
@@ -129,13 +139,26 @@ async function checkInternetStatus() {
         }
         
     } catch (error) {
-        // Hata durumunda UI'ı offline olarak güncelle (sayfa donmaz)
-        if (statusDot && statusText) {
-            statusDot.classList.add('offline');
-            statusDot.classList.remove('online');
-            statusText.textContent = 'Kontrol edilemiyor';
-        }
-        console.warn('Internet status check failed:', error.message || error);
+        updateOfflineUI();
+        console.warn('Internet check failed:', error.message || error);
+    } finally {
+        isCheckingInternet = false;
+    }
+}
+
+function updateOfflineUI() {
+    const statusDot = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-text');
+    
+    if (statusDot && statusText) {
+        statusDot.classList.add('offline');
+        statusDot.classList.remove('online');
+        statusText.textContent = 'Çevrimdışı';
+    }
+    
+    const connInternet = document.getElementById('conn-internet');
+    if (connInternet) {
+        connInternet.innerHTML = '<span class="status-badge error">Çevrimdışı</span>';
     }
 }
 
@@ -240,9 +263,28 @@ document.addEventListener('DOMContentLoaded', () => {
 // =============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Check internet status on load
-    checkInternetStatus();
+    // Sadece online ise kontrol et
+    if (navigator.onLine) {
+        checkInternetStatus();
+    } else {
+        updateOfflineUI();
+    }
     
-    // Periodic internet check (every 10 seconds)
-    setInterval(checkInternetStatus, 10000);
+    // Periodic check - sadece online ise çalışır
+    setInterval(() => {
+        if (navigator.onLine) {
+            checkInternetStatus();
+        }
+    }, 10000);
+});
+
+// Online/offline event listeners - anında tepki
+window.addEventListener('online', () => {
+    console.log('Network: Online');
+    checkInternetStatus();
+});
+
+window.addEventListener('offline', () => {
+    console.log('Network: Offline');
+    updateOfflineUI();
 });

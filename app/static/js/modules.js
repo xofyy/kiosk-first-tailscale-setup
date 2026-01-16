@@ -92,8 +92,11 @@ function stopModulePolling(moduleName) {
 }
 
 async function checkModuleStatus(moduleName) {
+    // Offline ise atla
+    if (!navigator.onLine) return;
+    
     try {
-        const data = await api.get(`/modules/${moduleName}/status`);
+        const data = await api.get(`/modules/${moduleName}/status`, 5000);
         const status = data.status;
         
         const moduleCard = document.querySelector(`[data-module="${moduleName}"]`);
@@ -116,7 +119,7 @@ async function checkModuleStatus(moduleName) {
         }
         
     } catch (error) {
-        console.error('Status check error:', error);
+        console.warn('Status check error:', error.message || error);
     }
 }
 
@@ -245,8 +248,11 @@ ${message || ''}
 // =============================================================================
 
 async function updateProgress() {
+    // Offline ise atla
+    if (!navigator.onLine) return;
+    
     try {
-        const data = await api.get('/setup/status');
+        const data = await api.get('/setup/status', 5000);
         
         // Update progress bar
         const progressBar = document.getElementById('overall-progress');
