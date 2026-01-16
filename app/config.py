@@ -4,12 +4,16 @@ Merkezi ayar yönetimi modülü
 """
 
 import os
+import logging
 import yaml
 from typing import Any, Dict, Optional
 from pathlib import Path
 
 CONFIG_FILE = "/etc/kiosk-setup/config.yaml"
 DEFAULT_CONFIG_FILE = "/opt/kiosk-setup-panel/config/default.yaml"
+
+# Logger
+logger = logging.getLogger(__name__)
 
 
 class Config:
@@ -52,18 +56,31 @@ class Config:
             self._config = {}
             self._load()
             # Eğer yeni config boş veya çok küçükse, eski config'i geri yükle
-            if not self._config or len(self._config) < 2:
+            if not self._config or len(self._config) < 3:
+                logger.warning(f"Config reload: yeni config geçersiz, eski config korunuyor (keys: {list(self._config.keys()) if self._config else 'boş'})")
                 self._config = old_config
-        except Exception:
+            else:
+                logger.debug(f"Config reload başarılı ({len(self._config)} bölüm)")
+        except Exception as e:
             # Hata durumunda eski config'i geri yükle
+            logger.exception(f"Config reload hatası, eski config korunuyor: {e}")
             self._config = old_config
     
     def save(self) -> bool:
         """Config'i dosyaya kaydet (güvenli - boş config kaydetmez)"""
         try:
             # Boş veya çok küçük config kaydetme (güvenlik)
-            if not self._config or len(self._config) < 2:
-                print("Config kaydetme atlandı: config boş veya geçersiz")
+            if not self._config:
+                logger.error("Config kaydetme ENGELLENDI: config boş!")
+                return False
+            
+            if len(self._config) < 3:
+                logger.error(f"Config kaydetme ENGELLENDI: config çok küçük (keys: {list(self._config.keys())})")
+                return False
+            
+            # modules bölümü olmalı
+            if 'modules' not in self._config:
+                logger.error("Config kaydetme ENGELLENDI: 'modules' bölümü eksik!")
                 return False
             
             # Dizini oluştur
@@ -71,9 +88,11 @@ class Config:
             
             with open(CONFIG_FILE, 'w') as f:
                 yaml.dump(self._config, f, default_flow_style=False, allow_unicode=True)
+            
+            logger.debug(f"Config kaydedildi ({len(self._config)} bölüm)")
             return True
         except Exception as e:
-            print(f"Config kaydetme hatası: {e}")
+            logger.exception(f"Config kaydetme HATASI: {e}")
             return False
     
     def get(self, key: str, default: Any = None) -> Any:
@@ -131,7 +150,7 @@ class Config:
         """Modül durumunu al"""
         return self.get(f'modules.{module}', 'pending')
     
-    def set_module_status(self, module: str, status: str) -> None:
+    def set_module_status(self, module: str, status: str) -> bool:
         """
         Modül durumunu ayarla
         
@@ -142,9 +161,19 @@ class Config:
         - failed: Başarısız
         - reboot_required: Kurulum tamamlandı, reboot gerekli
         - mok_pending: MOK onayı bekliyor (NVIDIA - Secure Boot)
+        
+        Returns:
+            bool: Kaydetme başarılı mı
         """
         self.set(f'modules.{module}', status)
-        self.save()
+        saved = self.save()
+        
+        if saved:
+            logger.info(f"Modül status güncellendi: {module} -> {status}")
+        else:
+            logger.error(f"Modül status KAYDEDILEMEDI: {module} -> {status}")
+        
+        return saved
     
     def is_module_completed(self, module: str) -> bool:
         """Modül tamamlanmış mı?"""

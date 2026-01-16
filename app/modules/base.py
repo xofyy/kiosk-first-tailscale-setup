@@ -392,14 +392,33 @@ class BaseModule(ABC):
                 with open(grub_file, 'w') as f:
                     f.write(grub_content)
                 
-                # update-grub çalıştır (tam yol!)
+                # grub-mkconfig çalıştır (update-grub scripti PATH sorunu yaratıyor)
                 self.logger.info("GRUB yapılandırması güncelleniyor...")
-                result = self.run_command(['/usr/sbin/update-grub'], check=False)
                 
-                if result.returncode == 0:
-                    self.logger.info("GRUB yapılandırması güncellendi")
+                # Önce UEFI yolunu dene, yoksa BIOS yolu
+                grub_cfg_paths = [
+                    '/boot/grub/grub.cfg',           # Standart
+                    '/boot/efi/EFI/ubuntu/grub.cfg', # UEFI Ubuntu
+                ]
+                
+                grub_cfg = None
+                for path in grub_cfg_paths:
+                    if os.path.exists(os.path.dirname(path)):
+                        grub_cfg = path
+                        break
+                
+                if grub_cfg:
+                    result = self.run_command(
+                        ['/usr/sbin/grub-mkconfig', '-o', grub_cfg],
+                        check=False
+                    )
+                    
+                    if result.returncode == 0:
+                        self.logger.info(f"GRUB yapılandırması güncellendi: {grub_cfg}")
+                    else:
+                        self.logger.warning(f"grub-mkconfig uyarısı: {result.stderr}")
                 else:
-                    self.logger.warning(f"update-grub uyarısı: {result.stderr}")
+                    self.logger.warning("GRUB config dizini bulunamadı, atlanıyor")
             else:
                 self.logger.info("GRUB yapılandırması zaten güncel")
             
