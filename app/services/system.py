@@ -26,6 +26,25 @@ class SystemService:
             'disk': self.get_disk_info(),
         }
     
+    def get_system_info_fast(self) -> Dict[str, Any]:
+        """
+        Internet kontrolü YAPMADAN hızlı sistem bilgisi.
+        Tab geçişlerini bloke etmez. Internet bilgileri JS ile async güncellenir.
+        
+        Internet yokken sayfa geçişlerinin yavaşlamasını önler.
+        """
+        return {
+            'hostname': self.get_hostname(),
+            'ip_address': None,  # JS güncelleyecek
+            'tailscale_ip': None,  # JS güncelleyecek
+            'internet': None,  # JS güncelleyecek
+            'dns_working': None,  # JS güncelleyecek
+            'interfaces': self.get_network_interfaces(),  # Bu hızlı (local)
+            'uptime': self.get_uptime(),  # Bu hızlı (/proc okuma)
+            'memory': self.get_memory_info(),  # Bu hızlı (/proc okuma)
+            'disk': self.get_disk_info(),  # Bu hızlı (statvfs)
+        }
+    
     def get_hostname(self) -> str:
         """Hostname'i al"""
         return socket.gethostname()

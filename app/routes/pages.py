@@ -17,9 +17,10 @@ def index():
     """Ana sayfa - Kurulum paneli"""
     config.reload()  # Güncel config'i oku (multi-worker cache sorunu için)
     
-    # Sistem bilgilerini al
+    # Sistem bilgilerini al (internet kontrolü YAPMADAN - hızlı sayfa yüklemesi için)
+    # Internet bilgileri JavaScript ile async olarak güncellenir (main.js)
     system = SystemService()
-    system_info = system.get_system_info()
+    system_info = system.get_system_info_fast()
     
     # Modül listesini al
     modules = get_all_modules()

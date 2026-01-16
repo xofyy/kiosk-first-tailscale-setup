@@ -129,21 +129,33 @@ async function checkInternetStatus() {
         
         const connDns = document.getElementById('conn-dns');
         if (connDns) {
-            connDns.innerHTML = data.dns_working 
-                ? '<span class="status-badge success">Çalışıyor</span>'
-                : '<span class="status-badge error">Hata</span>';
+            if (data.dns_working === null) {
+                connDns.innerHTML = '<span class="status-badge">Kontrol ediliyor...</span>';
+            } else {
+                connDns.innerHTML = data.dns_working 
+                    ? '<span class="status-badge success">Çalışıyor</span>'
+                    : '<span class="status-badge error">Hata</span>';
+            }
         }
         
         // IP adresi güncelle
         const connIp = document.getElementById('conn-ip');
         if (connIp) {
-            connIp.textContent = data.ip || 'N/A';
+            if (data.ip === null) {
+                connIp.textContent = 'Kontrol ediliyor...';
+            } else {
+                connIp.textContent = data.ip || 'N/A';
+            }
         }
         
         // Tailscale IP güncelle
         const connTailscale = document.getElementById('conn-tailscale');
         if (connTailscale) {
-            connTailscale.textContent = data.tailscale_ip || 'Bağlı Değil';
+            if (data.tailscale_ip === null) {
+                connTailscale.textContent = 'Kontrol ediliyor...';
+            } else {
+                connTailscale.textContent = data.tailscale_ip || 'Bağlı Değil';
+            }
         }
         
     } catch (error) {
