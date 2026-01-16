@@ -36,14 +36,12 @@ class CockpitModule(BaseModule):
 server {{
     listen {nginx_port};
     server_name localhost;
-    
     add_header X-Content-Type-Options "nosniff" always;
     client_max_body_size 100M;
-    
     proxy_connect_timeout 60;
     proxy_send_timeout 60;
     proxy_read_timeout 60;
-    
+
 """
         
         for name, service in services.items():
@@ -51,38 +49,64 @@ server {{
             port = service.get('port', 5000)
             websocket = service.get('websocket', False)
             
-            # Root path için trailing slash (normal proxy)
-            # Diğer path'ler için trailing slash YOK (path korunur, UrlRoot ile çalışır)
+            # Root path için trailing slash
             if path == "/":
-                proxy_pass = f"http://127.0.0.1:{port}/"
-            else:
-                proxy_pass = f"http://127.0.0.1:{port}"
-            
-            # Websocket servisleri için Host header'ı localhost olarak ayarla
-            if websocket:
-                host_header = f"localhost:{nginx_port}"
-            else:
-                host_header = "$host"
-            
-            config += f"""    # {service.get('display_name', name)}
-    location {path} {{
-        proxy_pass {proxy_pass};
-        proxy_set_header Host {host_header};
+                config += f"""    # {service.get('display_name', name)}
+    location / {{
+        proxy_pass http://127.0.0.1:{port}/;
+        proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+    }}
+
 """
-            
-            if websocket:
-                config += """        
-        # WebSocket desteği
+            elif name == 'cockpit':
+                # Cockpit özel yapılandırma - static dosyalar için ayrı location
+                config += f"""    # Cockpit static dosyaları
+    location /cockpit/static/ {{
+        proxy_pass http://127.0.0.1:{port}/cockpit/cockpit/static/;
+        proxy_set_header Host $host:$server_port;
+    }}
+
+    # Cockpit ana
+    location /cockpit/ {{
+        proxy_pass http://127.0.0.1:{port};
+        proxy_set_header Host $host:$server_port;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Origin http://localhost:{nginx_port};
+
+        # WebSocket
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 86400;
+
+        # iframe için
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
+    }}
+
 """
-            
-            config += "    }\n\n"
+            else:
+                # Diğer servisler
+                config += f"""    # {service.get('display_name', name)}
+    location {path} {{
+        proxy_pass http://127.0.0.1:{port}/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+"""
+                if websocket:
+                    config += """        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+"""
+                config += "    }\n\n"
         
         config += "}\n"
         
@@ -159,14 +183,15 @@ server {{
             # =================================================================
             self.logger.info("Cockpit yapılandırılıyor...")
             
-            # Nginx websocket servisleri için Host: localhost:{nginx_port} gönderiyor
-            # Bu sayede sadece localhost origin yeterli, IP bağımsız çalışır
-            # UrlRoot=/cockpit/ - Cockpit /cockpit/ path'inde çalışacak
-            # Nginx proxy_pass trailing slash OLMADAN path'i koruyor
+            # Cockpit yapılandırması:
+            # - UrlRoot=/cockpit (trailing slash YOK)
+            # - Origins hem http hem ws için
+            # - AllowEmbedding iframe için gerekli
             cockpit_conf = f"""[WebService]
-UrlRoot=/cockpit/
-Origins = http://localhost:{nginx_port}
+UrlRoot=/cockpit
+Origins = http://localhost:{nginx_port} ws://localhost:{nginx_port}
 AllowUnencrypted = true
+AllowEmbedding = true
 
 [Session]
 IdleTimeout = 0
