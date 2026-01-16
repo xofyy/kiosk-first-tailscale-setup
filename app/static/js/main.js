@@ -290,12 +290,12 @@ document.addEventListener('DOMContentLoaded', () => {
         updateOfflineUI();
     }
     
-    // Periodic check - sadece online ise çalışır
+    // Periodic check - sadece online ise çalışır (3 saniyede bir)
     setInterval(() => {
         if (navigator.onLine) {
             checkInternetStatus();
         }
-    }, 10000);
+    }, 3000);
 });
 
 // Online/offline event listeners - anında tepki

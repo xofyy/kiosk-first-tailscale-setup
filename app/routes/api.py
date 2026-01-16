@@ -29,7 +29,7 @@ _internet_cache = {
     'last_check': 0
 }
 _cache_lock = threading.Lock()
-_CACHE_TTL = 10  # 10 saniye geçerli
+_CACHE_TTL = 3  # 3 saniye geçerli (hızlı UI güncellemesi için)
 _update_in_progress = False
 
 
