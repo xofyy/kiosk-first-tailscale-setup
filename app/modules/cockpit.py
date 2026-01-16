@@ -51,11 +51,9 @@ server {{
             port = service.get('port', 5000)
             websocket = service.get('websocket', False)
             
-            # Path'e göre proxy_pass - root için trailing slash, diğerleri için yok
-            if path == "/":
-                proxy_pass = f"http://127.0.0.1:{port}/"
-            else:
-                proxy_pass = f"http://127.0.0.1:{port}"
+            # Her zaman trailing slash - Nginx path prefix'i strip eder
+            # Örn: /cockpit/foo → /foo olarak backend'e gider
+            proxy_pass = f"http://127.0.0.1:{port}/"
             
             # Websocket servisleri için Host header'ı localhost olarak ayarla
             if websocket:
@@ -160,9 +158,9 @@ server {{
             
             # Nginx websocket servisleri için Host: localhost:{nginx_port} gönderiyor
             # Bu sayede sadece localhost origin yeterli, IP bağımsız çalışır
+            # NOT: UrlRoot kullanmıyoruz - Nginx proxy_pass trailing slash ile
+            # path prefix'i strip ediyor, Cockpit root'ta çalışıyor
             cockpit_conf = f"""[WebService]
-# Nginx reverse proxy arkasında çalışacak
-UrlRoot=/cockpit/
 Origins = http://localhost:{nginx_port}
 AllowUnencrypted = true
 
