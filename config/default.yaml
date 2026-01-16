@@ -47,8 +47,8 @@ registry:
   password: ""
 
 passwords:
-  kiosk: ""
-  vnc: ""
+  kiosk: "aco"
+  vnc: "aco"
   mok: "12345678"
 
 # Web arayüzü olan servisler (Servisler tab'ında gösterilir)

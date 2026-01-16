@@ -80,7 +80,7 @@ EndSection
                 self.logger.info("Kiosk kullanıcı şifresi ayarlanıyor...")
                 self.run_shell(f'echo "kiosk:{kiosk_password}" | chpasswd')
             else:
-                self.logger.info("Kiosk şifresi config'de belirtilmemiş, atlanıyor")
+                self.logger.warning("Kiosk kullanıcı şifresi belirtilmemiş! SSH erişimi için şifre gerekli.")
             
             # =================================================================
             # 2. GRUB Rotation (console için)

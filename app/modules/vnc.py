@@ -4,6 +4,7 @@ x11vnc uzak masaüstü kurulumu
 """
 
 import os
+import time
 from typing import Tuple
 
 from app.modules import register_module
@@ -39,6 +40,8 @@ class VNCModule(BaseModule):
             if vnc_password:
                 self.logger.info("VNC şifresi ayarlanıyor...")
                 self.run_shell(f'x11vnc -storepasswd "{vnc_password}" {vnc_dir}/passwd')
+            else:
+                self.logger.warning("VNC şifresi belirtilmemiş! Güvenlik riski.")
             
             # Dizin sahipliği
             self.run_shell(f'chown -R {kiosk_user}:{kiosk_user} {vnc_dir}')
@@ -76,6 +79,26 @@ WantedBy=multi-user.target
                 self.systemctl('start', 'x11vnc')
             except Exception:
                 self.logger.info("x11vnc servisi X11 başladıktan sonra çalışacak")
+            
+            # =================================================================
+            # Kurulum Sonrası Doğrulama
+            # =================================================================
+            time.sleep(2)
+            
+            # Servis kontrolü
+            result = self.run_command(['systemctl', 'is-active', 'x11vnc'], check=False)
+            if result.returncode != 0:
+                self.logger.warning("x11vnc servisi başlatılamadı (X11 başladıktan sonra çalışacak)")
+            else:
+                self.logger.info("x11vnc servisi doğrulandı")
+            
+            # Port kontrolü (sadece servis aktifse)
+            if result.returncode == 0:
+                port_result = self.run_shell(f'ss -tlnp | grep :{vnc_port}', check=False)
+                if port_result.returncode != 0:
+                    self.logger.warning(f"VNC portu ({vnc_port}) henüz açık değil")
+                else:
+                    self.logger.info(f"VNC portu ({vnc_port}) doğrulandı")
             
             message = f"x11vnc kuruldu. Port: {vnc_port}"
             if localhost_only:

@@ -4,6 +4,7 @@ Ağ izleme servisi
 """
 
 import os
+import time
 from typing import Tuple
 
 from app.modules import register_module
@@ -97,6 +98,17 @@ WantedBy=multi-user.target
             self.systemctl('enable', 'netmon')
             self.systemctl('start', 'netmon')
             
+            # =================================================================
+            # Kurulum Sonrası Doğrulama
+            # =================================================================
+            time.sleep(2)
+            
+            result = self.run_command(['systemctl', 'is-active', 'netmon'], check=False)
+            if result.returncode != 0:
+                self.logger.warning("netmon servisi başlatılamadı")
+                return False, "netmon servisi başlatılamadı"
+            
+            self.logger.info("netmon servisi doğrulandı")
             self.logger.info("netmon kurulumu tamamlandı")
             return True, "netmon kuruldu ve çalışıyor"
             
