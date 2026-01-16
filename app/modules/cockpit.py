@@ -14,8 +14,8 @@ class CockpitModule(BaseModule):
     name = "cockpit"
     display_name = "Cockpit"
     description = "Web tabanlı sunucu yönetim paneli"
-    order = 6
-    dependencies = ["kiosk"]
+    order = 4
+    dependencies = ["network"]
     
     def install(self) -> Tuple[bool, str]:
         """Cockpit kurulumu"""

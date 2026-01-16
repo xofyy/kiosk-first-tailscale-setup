@@ -96,6 +96,13 @@
                 </div>
             </form>
         </div>
+        {% else %}
+        <!-- Network kurulu - Cockpit bilgilendirmesi -->
+        <div class="ip-config-panel info-panel">
+            <h3>🌐 IP Ayarları</h3>
+            <p>NetworkManager aktif. IP değişikliği için <strong>Cockpit</strong>'i kullanabilirsiniz.</p>
+            <p class="text-muted">Cockpit modülünü kurduktan sonra <kbd>F2</kbd> tuşuyla erişebilirsiniz.</p>
+        </div>
         {% endif %}
     </section>
 

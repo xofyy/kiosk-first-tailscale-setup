@@ -15,7 +15,7 @@ class VNCModule(BaseModule):
     name = "vnc"
     display_name = "VNC"
     description = "x11vnc uzak masaüstü erişimi (localhost-only, SSH tunnel ile)"
-    order = 5
+    order = 6
     dependencies = ["kiosk"]
     
     def install(self) -> Tuple[bool, str]:
