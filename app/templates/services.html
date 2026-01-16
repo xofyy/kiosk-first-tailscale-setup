@@ -1,0 +1,275 @@
+{% extends "base.html" %}
+
+{% block title %}Servisler - Kiosk Setup Panel{% endblock %}
+
+{% block extra_css %}
+<style>
+    .services-page {
+        display: flex;
+        flex-direction: column;
+        height: 100%;
+    }
+    
+    .services-header {
+        margin-bottom: 1.5rem;
+    }
+    
+    .services-header h2 {
+        margin: 0;
+        color: var(--text-primary);
+    }
+    
+    .services-header p {
+        margin: 0.5rem 0 0 0;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+    
+    .service-cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .service-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 1.25rem;
+        transition: all 0.2s;
+    }
+    
+    .service-card:hover {
+        border-color: var(--primary-color);
+    }
+    
+    .service-card.active {
+        border-color: var(--success-color);
+    }
+    
+    .service-card.inactive {
+        opacity: 0.7;
+    }
+    
+    .service-card h3 {
+        margin: 0 0 0.5rem 0;
+        font-size: 1.1rem;
+        color: var(--text-primary);
+    }
+    
+    .service-port {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 0.75rem;
+    }
+    
+    .service-status {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+    }
+    
+    .status-dot.running {
+        background: var(--success-color);
+    }
+    
+    .status-dot.stopped {
+        background: var(--danger-color);
+    }
+    
+    .status-dot.unknown {
+        background: var(--warning-color);
+    }
+    
+    .service-card .btn {
+        width: 100%;
+    }
+    
+    .service-card .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    
+    /* iframe container */
+    .service-frame-container {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: var(--bg-primary);
+        z-index: 1000;
+        display: none;
+        flex-direction: column;
+    }
+    
+    .service-frame-container.visible {
+        display: flex;
+    }
+    
+    .frame-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--card-bg);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    .frame-title {
+        font-weight: 600;
+        color: var(--text-primary);
+    }
+    
+    .btn-close-frame {
+        background: var(--danger-color);
+        color: white;
+        border: none;
+        padding: 0.5rem 1rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+    
+    .btn-close-frame:hover {
+        background: #c0392b;
+    }
+    
+    .service-frame {
+        flex: 1;
+        border: none;
+        width: 100%;
+        height: 100%;
+    }
+    
+    /* Nginx uyarısı */
+    .nginx-warning {
+        background: var(--warning-color);
+        color: #000;
+        padding: 1rem;
+        border-radius: 8px;
+        margin-bottom: 1.5rem;
+    }
+    
+    .nginx-warning h3 {
+        margin: 0 0 0.5rem 0;
+    }
+    
+    .nginx-warning p {
+        margin: 0;
+    }
+    
+    /* Boş durum */
+    .no-services {
+        text-align: center;
+        padding: 3rem;
+        color: var(--text-secondary);
+    }
+    
+    .no-services-icon {
+        font-size: 3rem;
+        margin-bottom: 1rem;
+        opacity: 0.5;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="services-page">
+    <div class="services-header">
+        <h2>🔧 Servisler</h2>
+        <p>Kurulu servislere buradan erişebilirsiniz.</p>
+    </div>
+    
+    {% if not nginx_installed %}
+    <div class="nginx-warning">
+        <h3>⚠️ Nginx Kurulu Değil</h3>
+        <p>Servislere erişim için önce Nginx modülünü kurmanız gerekiyor.</p>
+    </div>
+    {% endif %}
+    
+    {% if services %}
+    <div class="service-cards">
+        {% for name, service in services.items() %}
+        <div class="service-card {% if service.active %}active{% else %}inactive{% endif %}">
+            <h3>{{ service.display_name or name }}</h3>
+            <p class="service-port">Port: {{ service.port or 'N/A' }}</p>
+            
+            <div class="service-status">
+                <span class="status-dot {{ service.status }}"></span>
+                <span>
+                    {% if service.status == 'running' %}Çalışıyor
+                    {% elif service.status == 'stopped' %}Durduruldu
+                    {% else %}Bilinmiyor
+                    {% endif %}
+                </span>
+            </div>
+            
+            <button 
+                class="btn btn-primary" 
+                onclick="openService('{{ service.path or '/' + name + '/' }}', '{{ service.display_name or name }}')"
+                {% if not service.active or not nginx_installed %}disabled{% endif %}>
+                {% if service.active %}Aç{% else %}Servis Kapalı{% endif %}
+            </button>
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="no-services">
+        <div class="no-services-icon">🔌</div>
+        <h3>Henüz Servis Yok</h3>
+        <p>Cockpit veya diğer servisleri kurduktan sonra burada görünecekler.</p>
+    </div>
+    {% endif %}
+</div>
+
+<!-- iframe Container -->
+<div class="service-frame-container" id="frame-container">
+    <div class="frame-header">
+        <span class="frame-title" id="frame-title">Servis</span>
+        <button class="btn-close-frame" onclick="closeFrame()">✕ Kapat</button>
+    </div>
+    <iframe id="service-frame" class="service-frame" src=""></iframe>
+</div>
+
+<script>
+function openService(path, title) {
+    const container = document.getElementById('frame-container');
+    const frame = document.getElementById('service-frame');
+    const titleEl = document.getElementById('frame-title');
+    
+    titleEl.textContent = title;
+    frame.src = path;
+    container.classList.add('visible');
+    
+    // Body scroll'u kapat
+    document.body.style.overflow = 'hidden';
+}
+
+function closeFrame() {
+    const container = document.getElementById('frame-container');
+    const frame = document.getElementById('service-frame');
+    
+    container.classList.remove('visible');
+    frame.src = '';
+    
+    // Body scroll'u aç
+    document.body.style.overflow = '';
+}
+
+// ESC tuşu ile kapat
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+        closeFrame();
+    }
+});
+</script>
+{% endblock %}

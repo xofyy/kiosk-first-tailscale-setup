@@ -24,7 +24,7 @@ class KioskModule(BaseModule):
     name = "kiosk"
     display_name = "Kiosk"
     description = "Ekran rotasyonu, touch yapılandırması, kullanıcı şifresi"
-    order = 5
+    order = 6
     dependencies = ["cockpit"]
     
     def _configure_touch(self, vendor_id: str, matrix: str) -> None:

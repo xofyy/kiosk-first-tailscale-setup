@@ -14,7 +14,7 @@ class SecurityModule(BaseModule):
     name = "security"
     display_name = "Security"
     description = "UFW Firewall ve SSH güvenlik yapılandırması"
-    order = 10
+    order = 11
     dependencies = ["netmon", "collector", "docker"]
     
     def install(self) -> Tuple[bool, str]:

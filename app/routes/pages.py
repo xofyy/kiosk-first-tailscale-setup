@@ -74,6 +74,51 @@ def module_detail(module_name: str):
     )
 
 
+@pages_bp.route('/services')
+def services():
+    """Servisler sayfası - iframe ile servis erişimi"""
+    import json
+    import os
+    
+    config.reload()  # Güncel config'i oku
+    
+    from app.services.service_checker import get_all_services_status
+    
+    # Servisleri config'den al
+    services_config = config.get('services', {})
+    
+    # Nginx services.json varsa onu da kontrol et
+    nginx_services_file = '/etc/nginx/kiosk-services.json'
+    if os.path.exists(nginx_services_file):
+        try:
+            with open(nginx_services_file, 'r') as f:
+                nginx_services = json.load(f)
+                # Nginx'ten gelen servisleri config ile birleştir
+                for name, svc in nginx_services.items():
+                    if name not in services_config and not svc.get('internal'):
+                        services_config[name] = svc
+        except Exception:
+            pass
+    
+    # Her servisin durumunu kontrol et
+    services_status = get_all_services_status(services_config)
+    
+    # Internal servisleri filtrele (panel gibi)
+    visible_services = {
+        name: status for name, status in services_status.items()
+        if not status.get('internal', False)
+    }
+    
+    # Nginx modülü kurulu mu?
+    nginx_installed = config.is_module_completed('nginx')
+    
+    return render_template(
+        'services.html',
+        services=visible_services,
+        nginx_installed=nginx_installed
+    )
+
+
 @pages_bp.route('/logs')
 def logs():
     """Log görüntüleme sayfası (modül filtreli)"""

@@ -17,8 +17,8 @@ class DockerModule(BaseModule):
     name = "docker"
     display_name = "Docker"
     description = "Docker Engine, NVIDIA Container Toolkit ve MongoDB"
-    order = 9
-    dependencies = ["vnc", "cockpit"]
+    order = 10
+    dependencies = ["vnc"]
     
     def install(self) -> Tuple[bool, str]:
         """Docker kurulumu"""

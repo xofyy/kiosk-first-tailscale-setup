@@ -15,8 +15,8 @@ class CollectorModule(BaseModule):
     name = "collector"
     display_name = "collector"
     description = "Sistem metrikleri toplama servisi (Prometheus node_exporter)"
-    order = 8
-    dependencies = ["vnc", "cockpit"]
+    order = 9
+    dependencies = ["vnc"]
     
     def install(self) -> Tuple[bool, str]:
         """collector kurulumu"""

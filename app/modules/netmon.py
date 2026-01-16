@@ -15,8 +15,8 @@ class NetmonModule(BaseModule):
     name = "netmon"
     display_name = "netmon"
     description = "Ağ trafiği izleme ve kayıt servisi"
-    order = 7
-    dependencies = ["vnc", "cockpit"]
+    order = 8
+    dependencies = ["vnc"]
     
     def install(self) -> Tuple[bool, str]:
         """netmon kurulumu"""

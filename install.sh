@@ -332,7 +332,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/kiosk-setup-panel
 Environment="PATH=/opt/kiosk-setup-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/kiosk-setup-panel/venv/bin/python -m gunicorn -b 0.0.0.0:8080 -w 2 --timeout 120 app.main:app
+ExecStart=/opt/kiosk-setup-panel/venv/bin/python -m gunicorn -b 127.0.0.1:5000 -w 2 --timeout 120 app.main:app
 Restart=always
 RestartSec=5
 
@@ -450,24 +450,10 @@ if [[ ! -f "$KIOSK_HOME/.config/openbox/rc.xml" ]]; then
 <?xml version="1.0" encoding="UTF-8"?>
 <openbox_config xmlns="http://openbox.org/3.4/rc">
   <keyboard>
-    <!-- Panel'e geç: Ctrl+Alt+P -->
-    <keybind key="C-A-p">
+    <!-- Panel/Kiosk Toggle: F10 -->
+    <keybind key="F10">
       <action name="Execute">
-        <command>/usr/local/bin/switch-to-panel.sh</command>
-      </action>
-    </keybind>
-    
-    <!-- Kiosk'a geç: Ctrl+Alt+K -->
-    <keybind key="C-A-k">
-      <action name="Execute">
-        <command>/usr/local/bin/switch-to-kiosk.sh</command>
-      </action>
-    </keybind>
-    
-    <!-- Cockpit'e geç: Ctrl+Alt+C -->
-    <keybind key="C-A-c">
-      <action name="Execute">
-        <command>/usr/local/bin/switch-to-cockpit.sh</command>
+        <command>/usr/local/bin/toggle-panel-kiosk.sh</command>
       </action>
     </keybind>
   </keyboard>
