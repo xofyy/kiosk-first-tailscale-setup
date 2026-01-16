@@ -298,69 +298,18 @@
         flex-direction: column;
     }
     
-    .service-frame-container.visible {
-        display: flex;
-    }
-    
-    .frame-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 0 1.5rem;
-        background: linear-gradient(135deg, #222 0%, #1a1a1a 100%);
-        border-bottom: 2px solid #333;
-        height: 56px;
-        flex-shrink: 0;
-    }
-    
-    .frame-header-left {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-    }
-    
-    .frame-title {
-        font-weight: 700;
-        font-size: 1.15rem;
-        color: #fff;
-    }
-    
-    .frame-subtitle {
-        font-size: 0.8rem;
-        color: #888;
-        padding: 0.3rem 0.75rem;
-        background: rgba(255,255,255,0.1);
-        border-radius: 4px;
-    }
-    
-    .btn-close-frame {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: #e74c3c;
-        color: white;
-        border: none;
-        padding: 0.65rem 1.5rem;
-        border-radius: 8px;
-        cursor: pointer;
-        font-size: 0.95rem;
-        font-weight: 700;
-        transition: all 0.2s ease;
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
-    
-    .btn-close-frame:hover {
-        background: #c0392b;
-        transform: scale(1.03);
-    }
-    
     .service-frame {
         flex: 1;
         border: none;
         width: 100%;
         height: 100%;
         background: #fff;
+        /* Iframe içinde scrollbar'ı gizle (Chrome/Safari) */
+        scrollbar-width: none; /* Firefox */
+    }
+    
+    .service-frame::-webkit-scrollbar {
+        display: none; /* Chrome/Safari */
     }
     
     /* Loading */
