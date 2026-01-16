@@ -213,11 +213,13 @@ class HardwareService:
             if result.returncode == 0:
                 macs = []
                 for line in result.stdout.split('\n'):
-                    if 'ether' in line.lower():
+                    # 'link/ether XX:XX:XX:XX:XX:XX' formatı
+                    if 'link/ether' in line:
                         parts = line.split()
                         for i, p in enumerate(parts):
-                            if p.lower() == 'ether' and i + 1 < len(parts):
+                            if p == 'link/ether' and i + 1 < len(parts):
                                 macs.append(parts[i + 1])
+                                break
                 return ','.join(macs)
         except Exception:
             pass

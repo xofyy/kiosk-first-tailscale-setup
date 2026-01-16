@@ -12,11 +12,12 @@ from app.routes.pages import pages_bp
 from app.routes.api import api_bp
 
 # Logging yapılandırması
+os.makedirs('/var/log/kiosk-setup', exist_ok=True)  # Log dizinini oluştur
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/var/log/kiosk-setup.log'),
+        logging.FileHandler('/var/log/kiosk-setup/main.log'),
         logging.StreamHandler()
     ]
 )

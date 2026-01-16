@@ -50,7 +50,7 @@ class EnrollmentService:
                 timeout=ENROLLMENT_TIMEOUT
             )
             
-            if response.status_code == 200:
+            if response.status_code in (200, 201):  # 201 Created de başarılı
                 return {
                     'success': True,
                     'data': response.json()
@@ -61,6 +61,23 @@ class EnrollmentService:
                     'success': True,
                     'already_enrolled': True,
                     'data': response.json()
+                }
+            elif response.status_code == 400:
+                # Validation hatası
+                try:
+                    error_data = response.json()
+                    error_msg = error_data.get('message', 'Doğrulama hatası')
+                except:
+                    error_msg = 'Doğrulama hatası'
+                return {
+                    'success': False,
+                    'error': f"Validation hatası: {error_msg}",
+                    'details': response.text
+                }
+            elif response.status_code == 429:
+                return {
+                    'success': False,
+                    'error': 'Çok fazla istek gönderildi, lütfen bekleyin'
                 }
             else:
                 return {
