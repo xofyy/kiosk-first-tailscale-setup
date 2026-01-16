@@ -33,31 +33,31 @@ class SecurityModule(BaseModule):
             self.logger.info("UFW kuralları yapılandırılıyor...")
             
             # Önce sıfırla
-            self.run_shell('ufw --force reset')
+            self.run_shell('/usr/sbin/ufw --force reset')
             
             # Varsayılan politikalar
-            self.run_command(['ufw', 'default', 'deny', 'incoming'])
-            self.run_command(['ufw', 'default', 'allow', 'outgoing'])
-            self.run_command(['ufw', 'default', 'deny', 'routed'])  # Docker routing için
+            self.run_command(['/usr/sbin/ufw', 'default', 'deny', 'incoming'])
+            self.run_command(['/usr/sbin/ufw', 'default', 'allow', 'outgoing'])
+            self.run_command(['/usr/sbin/ufw', 'default', 'deny', 'routed'])  # Docker routing için
             
             # Tailscale üzerinden SSH
-            self.run_shell('ufw allow in on tailscale0 to any port 22 proto tcp')
+            self.run_shell('/usr/sbin/ufw allow in on tailscale0 to any port 22 proto tcp')
             
             # Tailscale üzerinden VNC
-            self.run_shell(f'ufw allow in on tailscale0 to any port {vnc_port} proto tcp')
+            self.run_shell(f'/usr/sbin/ufw allow in on tailscale0 to any port {vnc_port} proto tcp')
             
             # Tailscale üzerinden Cockpit
-            self.run_shell(f'ufw allow in on tailscale0 to any port {cockpit_port} proto tcp')
+            self.run_shell(f'/usr/sbin/ufw allow in on tailscale0 to any port {cockpit_port} proto tcp')
             
             # Panel erişimi (yerel ağ ve Tailscale)
-            self.run_shell('ufw allow 8080/tcp')
+            self.run_shell('/usr/sbin/ufw allow 8080/tcp')
             
             # LAN'dan SSH engelle (Tailscale hariç)
             # Not: tailscale0 kuralı önce geldiği için Tailscale üzerinden erişim açık
-            self.run_shell('ufw deny 22/tcp comment "Deny SSH from LAN"')
+            self.run_shell('/usr/sbin/ufw deny 22/tcp comment "Deny SSH from LAN"')
             
             # UFW'yi etkinleştir
-            self.run_shell('ufw --force enable')
+            self.run_shell('/usr/sbin/ufw --force enable')
             
             # 3. SSH yapılandırması
             self.logger.info("SSH güvenlik yapılandırması...")
