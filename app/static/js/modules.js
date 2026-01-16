@@ -263,7 +263,16 @@ async function updateProgress() {
         // Update complete button
         const completeBtn = document.getElementById('btn-complete');
         if (completeBtn) {
-            completeBtn.disabled = data.completed_modules < data.total_modules;
+            if (data.complete) {
+                // Setup zaten tamamlanmış
+                completeBtn.textContent = '✓ Kurulum Tamamlandı';
+                completeBtn.disabled = true;
+                completeBtn.classList.remove('btn-success');
+                completeBtn.classList.add('btn-secondary');
+            } else {
+                // Tüm modüller tamamlandıysa butonu aktif et
+                completeBtn.disabled = data.completed_modules < data.total_modules;
+            }
         }
         
     } catch (error) {
