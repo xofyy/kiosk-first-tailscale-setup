@@ -4,6 +4,7 @@ Sistem metrik toplama servisi
 """
 
 import os
+import time
 from typing import Tuple
 
 from app.modules import register_module
@@ -21,6 +22,8 @@ class CollectorModule(BaseModule):
     def install(self) -> Tuple[bool, str]:
         """collector kurulumu"""
         try:
+            collector_dir = "/opt/collector-agent"
+            
             # 1. Gerekli paketleri kur
             self.logger.info("collector bağımlılıkları kuruluyor...")
             
@@ -29,9 +32,12 @@ class CollectorModule(BaseModule):
             if not self.apt_install(packages):
                 return False, "collector bağımlılıkları kurulamadı"
             
-            # 2. collector-agent repo'yu klonla
-            collector_dir = "/opt/collector-agent"
+            # 2. prometheus-node-exporter servisini etkinleştir
+            self.logger.info("Node Exporter başlatılıyor...")
+            self.systemctl('enable', 'prometheus-node-exporter')
+            self.systemctl('start', 'prometheus-node-exporter')
             
+            # 3. collector-agent repo'yu klonla
             if os.path.exists(collector_dir):
                 self.run_shell(f'rm -rf {collector_dir}')
             
@@ -42,16 +48,24 @@ class CollectorModule(BaseModule):
                 collector_dir
             ])
             
-            # 3. Python bağımlılıklarını kur
-            self.logger.info("Python bağımlılıkları kuruluyor...")
+            # 4. pip, setuptools, wheel güncelle (UNKNOWN sorunu için şart)
+            self.logger.info("pip, setuptools, wheel güncelleniyor...")
+            self.run_shell('pip3 install --upgrade pip setuptools wheel')
             
-            if os.path.exists(f'{collector_dir}/requirements.txt'):
-                self.run_command([
-                    'pip3', 'install', '-r',
-                    f'{collector_dir}/requirements.txt'
-                ])
+            # 5. UNKNOWN paketini kaldır (varsa)
+            self.run_shell('pip3 uninstall -y UNKNOWN 2>/dev/null || true')
             
-            # 4. Config dosyası oluştur
+            # 6. Build cache temizle
+            for cache_dir in ['UNKNOWN.egg-info', 'build']:
+                cache_path = f'{collector_dir}/{cache_dir}'
+                if os.path.exists(cache_path):
+                    self.run_shell(f'rm -rf {cache_path}')
+            
+            # 7. collector-agent'ı pip ile kur
+            self.logger.info("collector-agent paketi kuruluyor...")
+            self.run_shell(f'cd {collector_dir} && pip3 install . --no-cache-dir --force-reinstall')
+            
+            # 8. Config dizini ve dosyası oluştur
             interval = self.get_config('collector.interval', 30)
             
             config_content = f"""# collector-agent Configuration
@@ -62,52 +76,41 @@ interval: {interval}
 # Node exporter
 node_exporter:
   enabled: true
-  port: 9100
+  url: "http://localhost:9100/metrics"
+  timeout: 5
 
 # NVIDIA SMI metrics
 nvidia_smi:
   enabled: true
 
-# System metrics
-system:
-  cpu: true
-  memory: true
-  disk: true
-  network: true
-
-# Output
-output:
-  type: prometheus
-  port: 9101
+# Logging
+logging:
+  level: INFO
+  file: /var/log/collector-agent.log
 """
             os.makedirs('/etc/collector-agent', exist_ok=True)
             self.write_file('/etc/collector-agent/config.yaml', config_content)
             
-            # 5. prometheus-node-exporter servisini etkinleştir
-            self.systemctl('enable', 'prometheus-node-exporter')
-            self.systemctl('start', 'prometheus-node-exporter')
+            # 9. Repo'daki systemd service dosyasını kopyala
+            self.logger.info("Systemd service kuruluyor...")
+            self.run_shell(f'cp {collector_dir}/systemd/collector-agent.service /etc/systemd/system/')
             
-            # 6. collector-agent systemd service
-            service_content = f"""[Unit]
-Description=Collector Agent Service
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 {collector_dir}/main.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-"""
-            self.write_file('/etc/systemd/system/collector-agent.service', service_content)
-            
-            # 7. Servisi etkinleştir ve başlat
+            # 10. Servisi etkinleştir ve başlat
             self.run_command(['systemctl', 'daemon-reload'])
             self.systemctl('enable', 'collector-agent')
             self.systemctl('start', 'collector-agent')
             
+            # =================================================================
+            # Kurulum Sonrası Doğrulama
+            # =================================================================
+            time.sleep(2)
+            
+            result = self.run_command(['systemctl', 'is-active', 'collector-agent'], check=False)
+            if result.returncode != 0:
+                self.logger.warning("collector-agent servisi başlatılamadı")
+                return False, "collector-agent servisi başlatılamadı"
+            
+            self.logger.info("collector-agent servisi doğrulandı")
             self.logger.info("collector kurulumu tamamlandı")
             return True, "collector-agent ve prometheus-node-exporter kuruldu"
             
