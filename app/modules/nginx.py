@@ -180,7 +180,7 @@ server {{
     
     def _reload_nginx(self) -> bool:
         """Nginx'i reload et"""
-        result = self.run_command(['nginx', '-t'], check=False)
+        result = self.run_command(['/usr/sbin/nginx', '-t'], check=False)
         if result.returncode != 0:
             self.logger.error(f"Nginx config hatası: {result.stderr}")
             return False
@@ -274,7 +274,7 @@ server {{
             self.logger.info("Nginx başlatılıyor...")
             
             # Config test
-            result = self.run_command(['nginx', '-t'], check=False)
+            result = self.run_command(['/usr/sbin/nginx', '-t'], check=False)
             if result.returncode != 0:
                 self.logger.error(f"Nginx config hatası: {result.stderr}")
                 return False, f"Nginx config hatası: {result.stderr}"
