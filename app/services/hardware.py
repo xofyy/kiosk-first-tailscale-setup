@@ -190,3 +190,35 @@ class HardwareService:
             pass
         
         return info
+    
+    def get_motherboard_uuid(self) -> str:
+        """Anakart UUID'sini al"""
+        try:
+            with open('/sys/class/dmi/id/product_uuid', 'r') as f:
+                return f.read().strip()
+        except Exception:
+            pass
+        return ''
+    
+    def get_mac_addresses(self) -> str:
+        """Tüm network interface MAC adreslerini al (virgülle ayrılmış)"""
+        try:
+            result = subprocess.run(
+                ['ip', 'link', 'show'],
+                capture_output=True,
+                text=True,
+                timeout=5
+            )
+            
+            if result.returncode == 0:
+                macs = []
+                for line in result.stdout.split('\n'):
+                    if 'ether' in line.lower():
+                        parts = line.split()
+                        for i, p in enumerate(parts):
+                            if p.lower() == 'ether' and i + 1 < len(parts):
+                                macs.append(parts[i + 1])
+                return ','.join(macs)
+        except Exception:
+            pass
+        return ''

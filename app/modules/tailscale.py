@@ -61,7 +61,19 @@ class TailscaleModule(BaseModule):
             
             self.logger.info("Enrollment API'ye kayıt yapılıyor...")
             
-            enroll_result = enrollment.enroll(kiosk_id, hardware_id)
+            # Ek bilgileri al
+            motherboard_uuid = hardware.get_motherboard_uuid()
+            mac_addresses = hardware.get_mac_addresses()
+            
+            self.logger.info(f"Motherboard UUID: {motherboard_uuid}")
+            self.logger.info(f"MAC Addresses: {mac_addresses}")
+            
+            enroll_result = enrollment.enroll(
+                kiosk_id, 
+                hardware_id,
+                motherboard_uuid=motherboard_uuid,
+                mac_addresses=mac_addresses
+            )
             
             if not enroll_result['success']:
                 return False, enroll_result.get('error', 'Enrollment başarısız')

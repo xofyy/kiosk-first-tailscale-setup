@@ -25,13 +25,15 @@ class EnrollmentService:
             'Accept': 'application/json'
         })
     
-    def enroll(self, kiosk_id: str, hardware_id: str) -> Dict[str, Any]:
+    def enroll(self, kiosk_id: str, hardware_id: str, motherboard_uuid: str = '', mac_addresses: str = '') -> Dict[str, Any]:
         """
         Enrollment API'ye kayıt isteği gönder.
         
         Args:
-            kiosk_id: Kiosk kimliği
+            kiosk_id: Kiosk kimliği (hostname olarak gönderilir)
             hardware_id: Donanım kimliği
+            motherboard_uuid: Anakart UUID'si
+            mac_addresses: MAC adresleri (virgülle ayrılmış)
             
         Returns:
             API yanıtı
@@ -40,8 +42,10 @@ class EnrollmentService:
             response = self.session.post(
                 f"{self.api_url}/api/enroll",
                 json={
-                    'kiosk_id': kiosk_id,
-                    'hardware_id': hardware_id
+                    'hardware_id': hardware_id,
+                    'hostname': kiosk_id,  # API 'hostname' bekliyor
+                    'motherboard_uuid': motherboard_uuid,
+                    'mac_addresses': mac_addresses
                 },
                 timeout=ENROLLMENT_TIMEOUT
             )
