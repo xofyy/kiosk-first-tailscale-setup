@@ -51,9 +51,12 @@ server {{
             port = service.get('port', 5000)
             websocket = service.get('websocket', False)
             
-            # Her zaman trailing slash - Nginx path prefix'i strip eder
-            # Örn: /cockpit/foo → /foo olarak backend'e gider
-            proxy_pass = f"http://127.0.0.1:{port}/"
+            # Root path için trailing slash (normal proxy)
+            # Diğer path'ler için trailing slash YOK (path korunur, UrlRoot ile çalışır)
+            if path == "/":
+                proxy_pass = f"http://127.0.0.1:{port}/"
+            else:
+                proxy_pass = f"http://127.0.0.1:{port}"
             
             # Websocket servisleri için Host header'ı localhost olarak ayarla
             if websocket:
@@ -158,9 +161,10 @@ server {{
             
             # Nginx websocket servisleri için Host: localhost:{nginx_port} gönderiyor
             # Bu sayede sadece localhost origin yeterli, IP bağımsız çalışır
-            # NOT: UrlRoot kullanmıyoruz - Nginx proxy_pass trailing slash ile
-            # path prefix'i strip ediyor, Cockpit root'ta çalışıyor
+            # UrlRoot=/cockpit/ - Cockpit /cockpit/ path'inde çalışacak
+            # Nginx proxy_pass trailing slash OLMADAN path'i koruyor
             cockpit_conf = f"""[WebService]
+UrlRoot=/cockpit/
 Origins = http://localhost:{nginx_port}
 AllowUnencrypted = true
 
