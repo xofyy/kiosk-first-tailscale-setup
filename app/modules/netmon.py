@@ -41,11 +41,24 @@ class NetmonModule(BaseModule):
                 netmon_dir
             ])
             
-            # 3. netmon'u pip ile kur (CLI aracını oluşturur: /usr/local/bin/netmon)
-            self.logger.info("netmon paketi kuruluyor...")
-            self.run_command(['pip3', 'install', netmon_dir])
+            # 3. pip, setuptools, wheel güncelle (UNKNOWN sorunu için şart)
+            self.logger.info("pip, setuptools, wheel güncelleniyor...")
+            self.run_shell('pip3 install --upgrade pip setuptools wheel')
             
-            # 4. Config dosyası oluştur
+            # 4. UNKNOWN paketini kaldır (varsa)
+            self.run_shell('pip3 uninstall -y UNKNOWN 2>/dev/null || true')
+            
+            # 5. Build cache temizle
+            for cache_dir in ['UNKNOWN.egg-info', 'build']:
+                cache_path = f'{netmon_dir}/{cache_dir}'
+                if os.path.exists(cache_path):
+                    self.run_shell(f'rm -rf {cache_path}')
+            
+            # 6. netmon'u pip ile kur (CLI aracını oluşturur: /usr/local/bin/netmon)
+            self.logger.info("netmon paketi kuruluyor...")
+            self.run_shell(f'cd {netmon_dir} && pip3 install . --no-cache-dir --force-reinstall')
+            
+            # 7. Config dosyası oluştur
             db_write_interval = self.get_config('netmon.db_write_interval', 300)
             retention_days = self.get_config('netmon.retention_days', 90)
             
@@ -66,14 +79,14 @@ database_path: /var/lib/netmon/data.db
             os.makedirs('/etc/netmon', exist_ok=True)
             self.write_file('/etc/netmon/config.yaml', config_content)
             
-            # 5. Data dizini
+            # 8. Data dizini
             os.makedirs('/var/lib/netmon', exist_ok=True)
             
-            # 6. Repo'daki systemd service dosyasını kopyala
+            # 9. Repo'daki systemd service dosyasını kopyala
             self.logger.info("Systemd service kuruluyor...")
             self.run_shell(f'cp {netmon_dir}/systemd/netmon.service /etc/systemd/system/')
             
-            # 7. Servisi etkinleştir ve başlat
+            # 10. Servisi etkinleştir ve başlat
             self.run_command(['systemctl', 'daemon-reload'])
             self.systemctl('enable', 'netmon')
             self.systemctl('start', 'netmon')
