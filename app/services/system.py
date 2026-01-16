@@ -35,6 +35,7 @@ class SystemService:
         try:
             # Default route üzerinden IP al
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.settimeout(2)  # 2 saniye timeout - internet yokken bloke olmayı önler
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
             s.close()
