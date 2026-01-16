@@ -63,7 +63,7 @@ services:
   mechcontroller:
     display_name: "Mechatronic Controller"
     port: 1234
-    path: "/mech/"
+    path: "/mechatronic_controller/"
     websocket: false
     check_type: "port"
     check_value: 1234
