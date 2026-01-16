@@ -313,7 +313,61 @@ EOF
 log "Chromium policy oluşturuldu"
 
 # =============================================================================
-# 10. SYSTEMD SERVİSLERİ
+# 10. NGINX REVERSE PROXY
+# =============================================================================
+
+info "Nginx reverse proxy kuruluyor..."
+
+apt-get install -y nginx
+
+# Default site'i kaldır
+rm -f /etc/nginx/sites-enabled/default
+
+# Services registry (boş başlat - modüller ekler)
+mkdir -p /etc/nginx
+cat > /etc/nginx/kiosk-services.json << 'EOF'
+{
+  "panel": {
+    "display_name": "Panel",
+    "port": 5000,
+    "path": "/",
+    "websocket": false,
+    "internal": true
+  }
+}
+EOF
+
+# Panel için proxy config
+cat > /etc/nginx/sites-available/kiosk-panel << 'NGINX_EOF'
+server {
+    listen 8080;
+    server_name localhost;
+    
+    add_header X-Content-Type-Options "nosniff" always;
+    client_max_body_size 100M;
+    
+    proxy_connect_timeout 60;
+    proxy_send_timeout 60;
+    proxy_read_timeout 60;
+    
+    location / {
+        proxy_pass http://127.0.0.1:5000/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+NGINX_EOF
+
+ln -sf /etc/nginx/sites-available/kiosk-panel /etc/nginx/sites-enabled/
+systemctl enable nginx
+systemctl restart nginx
+
+log "Nginx reverse proxy hazır (port: 8080)"
+
+# =============================================================================
+# 11. SYSTEMD SERVİSLERİ
 # =============================================================================
 
 info "Systemd servisleri oluşturuluyor..."
@@ -347,7 +401,7 @@ systemctl enable kiosk-panel.service 2>/dev/null || true
 log "Systemd servisleri hazır"
 
 # =============================================================================
-# 11. TTY1 AUTOLOGIN
+# 12. TTY1 AUTOLOGIN
 # =============================================================================
 
 info "TTY1 autologin yapılandırılıyor..."
@@ -363,7 +417,7 @@ EOF
 log "TTY1 autologin yapılandırıldı"
 
 # =============================================================================
-# 12. KIOSK KULLANICI YAPILANDIRMASI
+# 13. KIOSK KULLANICI YAPILANDIRMASI
 # =============================================================================
 
 info "Kiosk kullanıcı yapılandırması..."
@@ -473,7 +527,7 @@ chown -R "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
 log "Kiosk kullanıcı yapılandırması tamamlandı"
 
 # =============================================================================
-# 13. SERVİSİ BAŞLAT
+# 14. SERVİSİ BAŞLAT
 # =============================================================================
 
 info "Panel servisi başlatılıyor..."

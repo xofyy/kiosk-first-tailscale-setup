@@ -79,7 +79,6 @@ modules:
   nvidia: "pending"
   tailscale: "pending"
   network: "pending"
-  nginx: "pending"
   kiosk: "pending"
   vnc: "pending"
   cockpit: "pending"
