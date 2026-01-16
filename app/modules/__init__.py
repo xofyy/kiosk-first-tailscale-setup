@@ -36,9 +36,10 @@ def get_module_names() -> List[str]:
 from app.modules.nvidia import NvidiaModule
 from app.modules.tailscale import TailscaleModule
 from app.modules.network import NetworkModule
+from app.modules.nginx import NginxModule
+from app.modules.cockpit import CockpitModule
 from app.modules.kiosk import KioskModule
 from app.modules.vnc import VNCModule
-from app.modules.cockpit import CockpitModule
 from app.modules.netmon import NetmonModule
 from app.modules.collector import CollectorModule
 from app.modules.docker import DockerModule

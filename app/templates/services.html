@@ -8,97 +8,243 @@
         display: flex;
         flex-direction: column;
         height: 100%;
+        padding: 0;
     }
     
+    /* Header */
     .services-header {
-        margin-bottom: 1.5rem;
+        padding: 1.5rem 2rem;
+        background: linear-gradient(135deg, var(--card-bg) 0%, rgba(var(--primary-rgb, 46, 204, 113), 0.1) 100%);
+        border-bottom: 1px solid var(--border-color);
     }
     
     .services-header h2 {
         margin: 0;
         color: var(--text-primary);
+        font-size: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    
+    .services-header h2 .icon {
+        font-size: 1.75rem;
     }
     
     .services-header p {
         margin: 0.5rem 0 0 0;
         color: var(--text-secondary);
-        font-size: 0.9rem;
+        font-size: 0.95rem;
     }
     
+    /* Main Content Area */
+    .services-content {
+        flex: 1;
+        padding: 2rem;
+        overflow-y: auto;
+    }
+    
+    /* Nginx Warning */
+    .nginx-warning {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        background: linear-gradient(135deg, rgba(241, 196, 15, 0.15) 0%, rgba(241, 196, 15, 0.05) 100%);
+        border: 1px solid rgba(241, 196, 15, 0.3);
+        color: var(--text-primary);
+        padding: 1.25rem 1.5rem;
+        border-radius: 12px;
+        margin-bottom: 2rem;
+    }
+    
+    .nginx-warning .warning-icon {
+        font-size: 2rem;
+        flex-shrink: 0;
+    }
+    
+    .nginx-warning .warning-content h3 {
+        margin: 0 0 0.25rem 0;
+        font-size: 1rem;
+        color: #f1c40f;
+    }
+    
+    .nginx-warning .warning-content p {
+        margin: 0;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+    
+    /* Service Cards Grid */
     .service-cards {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-        gap: 1rem;
-        margin-bottom: 1.5rem;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1.5rem;
     }
     
+    /* Service Card */
     .service-card {
         background: var(--card-bg);
         border: 1px solid var(--border-color);
-        border-radius: 8px;
-        padding: 1.25rem;
-        transition: all 0.2s;
+        border-radius: 16px;
+        padding: 1.5rem;
+        transition: all 0.3s ease;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .service-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 4px;
+        background: var(--border-color);
+        transition: background 0.3s ease;
+    }
+    
+    .service-card.active::before {
+        background: linear-gradient(90deg, var(--success-color), #27ae60);
+    }
+    
+    .service-card.inactive::before {
+        background: linear-gradient(90deg, var(--danger-color), #c0392b);
     }
     
     .service-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
         border-color: var(--primary-color);
     }
     
-    .service-card.active {
-        border-color: var(--success-color);
-    }
-    
-    .service-card.inactive {
-        opacity: 0.7;
-    }
-    
-    .service-card h3 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1.1rem;
-        color: var(--text-primary);
-    }
-    
-    .service-port {
-        font-size: 0.85rem;
-        color: var(--text-secondary);
-        margin-bottom: 0.75rem;
-    }
-    
-    .service-status {
+    .service-card-header {
         display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        align-items: flex-start;
+        justify-content: space-between;
         margin-bottom: 1rem;
     }
     
-    .status-dot {
-        width: 8px;
-        height: 8px;
+    .service-card h3 {
+        margin: 0;
+        font-size: 1.25rem;
+        color: var(--text-primary);
+        font-weight: 600;
+    }
+    
+    .service-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        border-radius: 20px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+    
+    .service-badge.running {
+        background: rgba(46, 204, 113, 0.15);
+        color: #2ecc71;
+    }
+    
+    .service-badge.stopped {
+        background: rgba(231, 76, 60, 0.15);
+        color: #e74c3c;
+    }
+    
+    .service-badge.unknown {
+        background: rgba(241, 196, 15, 0.15);
+        color: #f1c40f;
+    }
+    
+    .service-badge .dot {
+        width: 6px;
+        height: 6px;
         border-radius: 50%;
+        background: currentColor;
     }
     
-    .status-dot.running {
-        background: var(--success-color);
+    .service-info {
+        margin-bottom: 1.25rem;
     }
     
-    .status-dot.stopped {
-        background: var(--danger-color);
+    .service-info-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+        margin-bottom: 0.5rem;
     }
     
-    .status-dot.unknown {
-        background: var(--warning-color);
+    .service-info-row .label {
+        opacity: 0.7;
     }
     
-    .service-card .btn {
-        width: 100%;
+    .service-info-row .value {
+        color: var(--text-primary);
+        font-family: 'JetBrains Mono', 'Fira Code', monospace;
     }
     
-    .service-card .btn:disabled {
-        opacity: 0.5;
+    .service-actions {
+        display: flex;
+        gap: 0.75rem;
+    }
+    
+    .service-actions .btn {
+        flex: 1;
+        padding: 0.75rem 1rem;
+        font-weight: 600;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+    }
+    
+    .service-actions .btn-primary {
+        background: linear-gradient(135deg, var(--primary-color), #27ae60);
+    }
+    
+    .service-actions .btn-primary:hover:not(:disabled) {
+        transform: scale(1.02);
+        box-shadow: 0 4px 12px rgba(46, 204, 113, 0.3);
+    }
+    
+    .service-actions .btn:disabled {
+        opacity: 0.4;
         cursor: not-allowed;
+        background: var(--border-color);
+        color: var(--text-secondary);
     }
     
-    /* iframe container */
+    /* Empty State */
+    .no-services {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 4rem 2rem;
+        text-align: center;
+    }
+    
+    .no-services-icon {
+        font-size: 4rem;
+        margin-bottom: 1.5rem;
+        opacity: 0.3;
+    }
+    
+    .no-services h3 {
+        margin: 0 0 0.5rem 0;
+        color: var(--text-primary);
+        font-size: 1.25rem;
+    }
+    
+    .no-services p {
+        margin: 0;
+        color: var(--text-secondary);
+        max-width: 400px;
+    }
+    
+    /* iframe Container - Full Screen Overlay */
     .service-frame-container {
         position: fixed;
         top: 0;
@@ -109,6 +255,12 @@
         z-index: 1000;
         display: none;
         flex-direction: column;
+        animation: fadeIn 0.2s ease;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
     
     .service-frame-container.visible {
@@ -119,28 +271,47 @@
         display: flex;
         align-items: center;
         justify-content: space-between;
-        padding: 0.75rem 1rem;
+        padding: 0.75rem 1.5rem;
         background: var(--card-bg);
         border-bottom: 1px solid var(--border-color);
+        min-height: 56px;
+    }
+    
+    .frame-header-left {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
     }
     
     .frame-title {
         font-weight: 600;
+        font-size: 1.1rem;
         color: var(--text-primary);
     }
     
+    .frame-subtitle {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+    }
+    
     .btn-close-frame {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
         background: var(--danger-color);
         color: white;
         border: none;
-        padding: 0.5rem 1rem;
-        border-radius: 4px;
+        padding: 0.6rem 1.25rem;
+        border-radius: 8px;
         cursor: pointer;
         font-size: 0.9rem;
+        font-weight: 600;
+        transition: all 0.2s ease;
     }
     
     .btn-close-frame:hover {
         background: #c0392b;
+        transform: scale(1.02);
     }
     
     .service-frame {
@@ -148,36 +319,33 @@
         border: none;
         width: 100%;
         height: 100%;
+        background: white;
     }
     
-    /* Nginx uyarısı */
-    .nginx-warning {
-        background: var(--warning-color);
-        color: #000;
-        padding: 1rem;
-        border-radius: 8px;
-        margin-bottom: 1.5rem;
-    }
-    
-    .nginx-warning h3 {
-        margin: 0 0 0.5rem 0;
-    }
-    
-    .nginx-warning p {
-        margin: 0;
-    }
-    
-    /* Boş durum */
-    .no-services {
-        text-align: center;
-        padding: 3rem;
+    /* Loading indicator */
+    .frame-loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
         color: var(--text-secondary);
     }
     
-    .no-services-icon {
-        font-size: 3rem;
-        margin-bottom: 1rem;
-        opacity: 0.5;
+    .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid var(--border-color);
+        border-top-color: var(--primary-color);
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+    }
+    
+    @keyframes spin {
+        to { transform: rotate(360deg); }
     }
 </style>
 {% endblock %}
@@ -185,57 +353,84 @@
 {% block content %}
 <div class="services-page">
     <div class="services-header">
-        <h2>🔧 Servisler</h2>
-        <p>Kurulu servislere buradan erişebilirsiniz.</p>
+        <h2><span class="icon">🔧</span> Servisler</h2>
+        <p>Kurulu web servislerine buradan erişebilirsiniz. Servisler iframe içinde açılır.</p>
     </div>
     
-    {% if not nginx_installed %}
-    <div class="nginx-warning">
-        <h3>⚠️ Nginx Kurulu Değil</h3>
-        <p>Servislere erişim için önce Nginx modülünü kurmanız gerekiyor.</p>
-    </div>
-    {% endif %}
-    
-    {% if services %}
-    <div class="service-cards">
-        {% for name, service in services.items() %}
-        <div class="service-card {% if service.active %}active{% else %}inactive{% endif %}">
-            <h3>{{ service.display_name or name }}</h3>
-            <p class="service-port">Port: {{ service.port or 'N/A' }}</p>
-            
-            <div class="service-status">
-                <span class="status-dot {{ service.status }}"></span>
-                <span>
-                    {% if service.status == 'running' %}Çalışıyor
-                    {% elif service.status == 'stopped' %}Durduruldu
-                    {% else %}Bilinmiyor
-                    {% endif %}
-                </span>
+    <div class="services-content">
+        {% if not nginx_installed %}
+        <div class="nginx-warning">
+            <span class="warning-icon">⚠️</span>
+            <div class="warning-content">
+                <h3>Nginx Kurulu Değil</h3>
+                <p>Servislere iframe üzerinden erişim için önce Nginx modülünü kurmanız gerekiyor.</p>
             </div>
-            
-            <button 
-                class="btn btn-primary" 
-                onclick="openService('{{ service.path or '/' + name + '/' }}', '{{ service.display_name or name }}')"
-                {% if not service.active or not nginx_installed %}disabled{% endif %}>
-                {% if service.active %}Aç{% else %}Servis Kapalı{% endif %}
-            </button>
         </div>
-        {% endfor %}
+        {% endif %}
+        
+        {% if services %}
+        <div class="service-cards">
+            {% for name, service in services.items() %}
+            <div class="service-card {% if service.active %}active{% else %}inactive{% endif %}">
+                <div class="service-card-header">
+                    <h3>{{ service.display_name or name }}</h3>
+                    <span class="service-badge {{ service.status }}">
+                        <span class="dot"></span>
+                        {% if service.status == 'running' %}Aktif
+                        {% elif service.status == 'stopped' %}Kapalı
+                        {% else %}Bilinmiyor
+                        {% endif %}
+                    </span>
+                </div>
+                
+                <div class="service-info">
+                    <div class="service-info-row">
+                        <span class="label">Port:</span>
+                        <span class="value">{{ service.port or 'N/A' }}</span>
+                    </div>
+                    <div class="service-info-row">
+                        <span class="label">Path:</span>
+                        <span class="value">{{ service.path or '/' + name + '/' }}</span>
+                    </div>
+                </div>
+                
+                <div class="service-actions">
+                    <button 
+                        class="btn btn-primary" 
+                        onclick="openService('{{ service.path or '/' + name + '/' }}', '{{ service.display_name or name }}')"
+                        {% if not service.active or not nginx_installed %}disabled{% endif %}>
+                        {% if service.active and nginx_installed %}
+                            🚀 Aç
+                        {% elif not nginx_installed %}
+                            🔒 Nginx Gerekli
+                        {% else %}
+                            ⏸️ Servis Kapalı
+                        {% endif %}
+                    </button>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% else %}
+        <div class="no-services">
+            <div class="no-services-icon">🔌</div>
+            <h3>Henüz Servis Yok</h3>
+            <p>Cockpit veya diğer servisleri kurduktan sonra burada görünecekler. Servislere iframe üzerinden erişebilirsiniz.</p>
+        </div>
+        {% endif %}
     </div>
-    {% else %}
-    <div class="no-services">
-        <div class="no-services-icon">🔌</div>
-        <h3>Henüz Servis Yok</h3>
-        <p>Cockpit veya diğer servisleri kurduktan sonra burada görünecekler.</p>
-    </div>
-    {% endif %}
 </div>
 
 <!-- iframe Container -->
 <div class="service-frame-container" id="frame-container">
     <div class="frame-header">
-        <span class="frame-title" id="frame-title">Servis</span>
-        <button class="btn-close-frame" onclick="closeFrame()">✕ Kapat</button>
+        <div class="frame-header-left">
+            <span class="frame-title" id="frame-title">Servis</span>
+            <span class="frame-subtitle">ESC veya butona basarak kapatabilirsiniz</span>
+        </div>
+        <button class="btn-close-frame" onclick="closeFrame()">
+            ✕ Kapat
+        </button>
     </div>
     <iframe id="service-frame" class="service-frame" src=""></iframe>
 </div>
