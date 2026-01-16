@@ -3,6 +3,7 @@ Kiosk Setup Panel - Tailscale Module
 Tailscale VPN kurulumu ve Enrollment
 """
 
+import time
 from typing import Tuple
 
 from app.modules import register_module
@@ -11,6 +12,10 @@ from app.services.system import SystemService
 from app.services.hardware import HardwareService
 from app.services.enrollment import EnrollmentService
 from app.config import config
+
+# Sabitler
+HEADSCALE_URL = "https://headscale.xofyy.com"
+APPROVAL_TIMEOUT = 300  # 5 dakika
 
 
 @register_module
@@ -33,6 +38,16 @@ class TailscaleModule(BaseModule):
         
         return True, ""
     
+    def _is_tailscale_installed(self) -> bool:
+        """Tailscale kurulu mu kontrol et"""
+        result = self.run_command(['which', 'tailscale'], check=False)
+        return result.returncode == 0
+    
+    def _is_tailscale_connected(self) -> bool:
+        """Tailscale bağlı mı kontrol et"""
+        result = self.run_command(['tailscale', 'status'], check=False)
+        return result.returncode == 0
+    
     def install(self) -> Tuple[bool, str]:
         """Tailscale kurulumu"""
         try:
@@ -45,7 +60,6 @@ class TailscaleModule(BaseModule):
             
             # Config'e kaydet
             config.set_hardware_id(hardware_id)
-            
             self.logger.info(f"Hardware ID: {hardware_id}")
             
             # 2. Kiosk ID al (önceden ayarlanmış olmalı)
@@ -78,34 +92,72 @@ class TailscaleModule(BaseModule):
             if not enroll_result['success']:
                 return False, enroll_result.get('error', 'Enrollment başarısız')
             
-            # 4. Yönetici onayı bekle
-            self.logger.info("Yönetici onayı bekleniyor...")
+            self.logger.info(f"Enrollment durumu: {enroll_result.get('status')}")
             
-            auth_key = enrollment.wait_for_approval(kiosk_id, timeout=300)
+            # 4. Zaten approved mı kontrol et (auth_key response'da olabilir)
+            auth_key = enroll_result.get('auth_key')
+            
+            if not auth_key:
+                # 5. Onay bekle - HARDWARE_ID ile!
+                self.logger.info("Yönetici onayı bekleniyor...")
+                auth_key = enrollment.wait_for_approval(hardware_id, timeout=APPROVAL_TIMEOUT)
             
             if not auth_key:
                 return False, "Yönetici onayı alınamadı veya zaman aşımı"
             
             self.logger.info("Yönetici onayı alındı!")
             
-            # 5. Tailscale kurulumu
-            self.logger.info("Tailscale kuruluyor...")
+            # 6. Tailscale kurulu mu kontrol et
+            if self._is_tailscale_installed():
+                self.logger.info("Tailscale zaten kurulu")
+            else:
+                self.logger.info("Tailscale kuruluyor...")
+                self.run_shell('curl -fsSL https://tailscale.com/install.sh | sh')
+                
+                # Kurulum doğrulaması
+                if not self._is_tailscale_installed():
+                    return False, "Tailscale kurulumu başarısız"
+                self.logger.info("Tailscale kuruldu")
             
-            # Tailscale repo ve kurulum
-            self.run_shell('curl -fsSL https://tailscale.com/install.sh | sh')
-            
-            # 6. Headscale'e bağlan
-            headscale_url = "https://headscale.xofyy.com"
-            
-            self.run_command([
-                'tailscale', 'up',
-                '--login-server', headscale_url,
-                '--authkey', auth_key,
-                '--hostname', kiosk_id.lower()
-            ])
-            
-            # 7. Tailscale servisini etkinleştir
+            # 7. Tailscaled servisini başlat
+            self.logger.info("Tailscaled servisi başlatılıyor...")
             self.systemctl('enable', 'tailscaled')
+            self.systemctl('start', 'tailscaled')
+            
+            # Servisin başlamasını bekle
+            time.sleep(3)
+            
+            # 8. Headscale'e bağlan (tam parametrelerle!)
+            self.logger.info(f"Headscale'e bağlanılıyor: {HEADSCALE_URL}")
+            
+            result = self.run_command([
+                'tailscale', 'up',
+                '--login-server', HEADSCALE_URL,
+                '--authkey', auth_key,
+                '--hostname', kiosk_id.lower(),
+                '--advertise-tags=tag:kiosk',
+                '--ssh',
+                '--accept-dns=true',
+                '--accept-routes=false',
+                '--reset'
+            ], check=False)
+            
+            if result.returncode != 0:
+                self.logger.error(f"Tailscale up hatası: {result.stderr}")
+                return False, f"Headscale bağlantısı başarısız: {result.stderr}"
+            
+            # 9. Bağlantıyı doğrula
+            time.sleep(3)
+            
+            if self._is_tailscale_connected():
+                self.logger.info("Tailscale bağlantısı doğrulandı")
+                
+                # Durum bilgisini logla
+                status_result = self.run_command(['tailscale', 'status'], check=False)
+                if status_result.returncode == 0:
+                    self.logger.info(f"Tailscale durumu:\n{status_result.stdout}")
+            else:
+                self.logger.warning("Tailscale bağlantısı doğrulanamadı (ama işlem devam ediyor)")
             
             self.logger.info("Tailscale kurulumu tamamlandı")
             return True, "Tailscale kuruldu ve Headscale'e bağlandı"

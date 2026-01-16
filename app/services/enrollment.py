@@ -36,54 +36,122 @@ class EnrollmentService:
             mac_addresses: MAC adresleri (virgülle ayrılmış)
             
         Returns:
-            API yanıtı
+            API yanıtı (success, status, auth_key, data)
         """
         try:
+            logger.info(f"Enrollment isteği gönderiliyor: hardware_id={hardware_id}, hostname={kiosk_id}")
+            
             response = self.session.post(
                 f"{self.api_url}/api/enroll",
                 json={
                     'hardware_id': hardware_id,
-                    'hostname': kiosk_id,  # API 'hostname' bekliyor
+                    'hostname': kiosk_id,
                     'motherboard_uuid': motherboard_uuid,
                     'mac_addresses': mac_addresses
                 },
                 timeout=ENROLLMENT_TIMEOUT
             )
             
-            if response.status_code in (200, 201):  # 201 Created de başarılı
+            logger.info(f"Enrollment yanıtı: status_code={response.status_code}")
+            
+            if response.status_code in (200, 201):
+                resp_data = response.json()
+                # Nested data yapısını parse et (API: { data: { status, auth_key } })
+                inner_data = resp_data.get('data', resp_data)
+                status = inner_data.get('status')
+                auth_key = inner_data.get('auth_key')
+                
+                logger.info(f"Enrollment durumu: status={status}, auth_key={'var' if auth_key else 'yok'}")
+                
                 return {
                     'success': True,
-                    'data': response.json()
-                }
-            elif response.status_code == 409:
-                # Zaten kayıtlı
-                return {
-                    'success': True,
-                    'already_enrolled': True,
-                    'data': response.json()
+                    'status': status,
+                    'auth_key': auth_key,  # Zaten approved ise key burada
+                    'data': inner_data
                 }
             elif response.status_code == 400:
-                # Validation hatası
                 try:
                     error_data = response.json()
                     error_msg = error_data.get('message', 'Doğrulama hatası')
                 except:
                     error_msg = 'Doğrulama hatası'
+                logger.error(f"Validation hatası: {error_msg}")
                 return {
                     'success': False,
                     'error': f"Validation hatası: {error_msg}",
                     'details': response.text
                 }
             elif response.status_code == 429:
+                logger.warning("Rate limit aşıldı")
                 return {
                     'success': False,
                     'error': 'Çok fazla istek gönderildi, lütfen bekleyin'
                 }
             else:
+                logger.error(f"API hatası: {response.status_code} - {response.text}")
                 return {
                     'success': False,
                     'error': f"API hatası: {response.status_code}",
                     'details': response.text
+                }
+                
+        except requests.exceptions.Timeout:
+            logger.error("Bağlantı zaman aşımı")
+            return {
+                'success': False,
+                'error': 'Bağlantı zaman aşımı'
+            }
+        except requests.exceptions.ConnectionError:
+            logger.error("Bağlantı kurulamadı")
+            return {
+                'success': False,
+                'error': 'Bağlantı kurulamadı'
+            }
+        except Exception as e:
+            logger.error(f"Enrollment hatası: {e}")
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def check_status(self, hardware_id: str) -> Dict[str, Any]:
+        """
+        Enrollment durumunu kontrol et.
+        
+        Args:
+            hardware_id: Donanım kimliği (HARDWARE_ID ile sorgulama!)
+            
+        Returns:
+            Durum bilgisi (pending, approved, rejected, expired)
+        """
+        try:
+            # DOĞRU ENDPOINT: /api/enroll/{hardware_id}/status
+            response = self.session.get(
+                f"{self.api_url}/api/enroll/{hardware_id}/status",
+                timeout=ENROLLMENT_TIMEOUT
+            )
+            
+            if response.status_code == 200:
+                resp_data = response.json()
+                # Nested data yapısını parse et (API: { data: { status, auth_key } })
+                inner_data = resp_data.get('data', resp_data)
+                
+                return {
+                    'success': True,
+                    'status': inner_data.get('status'),
+                    'auth_key': inner_data.get('auth_key'),
+                    'reason': inner_data.get('reason'),  # rejected durumunda
+                    'data': inner_data
+                }
+            elif response.status_code == 404:
+                return {
+                    'success': False,
+                    'error': 'Kayıt bulunamadı'
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': f"API hatası: {response.status_code}"
                 }
                 
         except requests.exceptions.Timeout:
@@ -102,108 +170,76 @@ class EnrollmentService:
                 'error': str(e)
             }
     
-    def check_status(self, kiosk_id: str) -> Dict[str, Any]:
+    def get_auth_key(self, hardware_id: str) -> Optional[str]:
         """
-        Enrollment durumunu kontrol et.
+        Auth key al - check_status() response'undan alır.
+        
+        DEPRECATED: Bu metod artık doğrudan kullanılmamalı.
+        Auth key, check_status() veya enroll() response'unda döner.
+        Geriye uyumluluk için tutulmuştur.
         
         Args:
-            kiosk_id: Kiosk kimliği
-            
-        Returns:
-            Durum bilgisi (pending, approved, rejected)
-        """
-        try:
-            response = self.session.get(
-                f"{self.api_url}/api/status/{kiosk_id}",
-                timeout=ENROLLMENT_TIMEOUT
-            )
-            
-            if response.status_code == 200:
-                return {
-                    'success': True,
-                    'data': response.json()
-                }
-            elif response.status_code == 404:
-                return {
-                    'success': False,
-                    'error': 'Kayıt bulunamadı'
-                }
-            else:
-                return {
-                    'success': False,
-                    'error': f"API hatası: {response.status_code}"
-                }
-                
-        except Exception as e:
-            return {
-                'success': False,
-                'error': str(e)
-            }
-    
-    def get_auth_key(self, kiosk_id: str) -> Optional[str]:
-        """
-        Onaylanmış kayıt için auth key al.
-        
-        Args:
-            kiosk_id: Kiosk kimliği
+            hardware_id: Donanım kimliği
             
         Returns:
             Tailscale auth key veya None
         """
-        try:
-            response = self.session.get(
-                f"{self.api_url}/api/auth-key/{kiosk_id}",
-                timeout=ENROLLMENT_TIMEOUT
-            )
-            
-            if response.status_code == 200:
-                data = response.json()
-                return data.get('auth_key')
-                
-        except Exception as e:
-            logger.error(f"Auth key alma hatası: {e}")
+        # Status endpoint'inden auth_key al
+        status_result = self.check_status(hardware_id)
+        
+        if status_result.get('success') and status_result.get('status') == 'approved':
+            return status_result.get('auth_key')
         
         return None
     
     def wait_for_approval(
         self,
-        kiosk_id: str,
+        hardware_id: str,
         timeout: int = 300,
-        poll_interval: int = 5
+        poll_interval: int = 30
     ) -> Optional[str]:
         """
         Yönetici onayını bekle ve auth key al.
         
         Args:
-            kiosk_id: Kiosk kimliği
+            hardware_id: Donanım kimliği (HARDWARE_ID ile sorgulama!)
             timeout: Maksimum bekleme süresi (saniye)
-            poll_interval: Kontrol aralığı (saniye)
+            poll_interval: Kontrol aralığı (saniye) - varsayılan 30s
             
         Returns:
             Tailscale auth key veya None (zaman aşımı/red)
         """
         start_time = time.time()
         
-        logger.info(f"Yönetici onayı bekleniyor... (max {timeout}s)")
+        logger.info(f"Yönetici onayı bekleniyor... (max {timeout}s, her {poll_interval}s kontrol)")
         
         while time.time() - start_time < timeout:
-            status = self.check_status(kiosk_id)
+            # HARDWARE_ID ile status kontrolü
+            status_result = self.check_status(hardware_id)
             
-            if not status.get('success'):
-                logger.warning(f"Durum kontrolü başarısız: {status.get('error')}")
+            if not status_result.get('success'):
+                logger.warning(f"Durum kontrolü başarısız: {status_result.get('error')}")
                 time.sleep(poll_interval)
                 continue
             
-            data = status.get('data', {})
-            enrollment_status = data.get('status')
+            enrollment_status = status_result.get('status')
             
             if enrollment_status == 'approved':
                 logger.info("Onay alındı!")
-                return self.get_auth_key(kiosk_id)
+                # Auth key STATUS response'unda (ayrı endpoint değil!)
+                auth_key = status_result.get('auth_key')
+                if auth_key:
+                    return auth_key
+                logger.error("Onay alındı ama auth_key bulunamadı!")
+                return None
             
             elif enrollment_status == 'rejected':
-                logger.error("Kayıt reddedildi")
+                reason = status_result.get('reason', 'Bilinmiyor')
+                logger.error(f"Kayıt reddedildi: {reason}")
                 return None
+            
+            elif enrollment_status == 'expired':
+                logger.warning("Auth key süresi dolmuş, yeni onay bekleniyor...")
             
             # pending - beklemeye devam
             elapsed = int(time.time() - start_time)

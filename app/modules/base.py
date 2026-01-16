@@ -336,3 +336,78 @@ class BaseModule(ABC):
         """Bu modülün durumunu ayarla"""
         self.logger.info(f"Modül durumu değişti: {status}")
         config.set_module_status(self.name, status)
+    
+    def configure_grub(self, params: Dict[str, Any] = None) -> bool:
+        """
+        GRUB parametrelerini merkezi olarak yapılandır.
+        
+        Args:
+            params: Opsiyonel parametreler
+                - nvidia_modeset: True ise nvidia-drm.modeset=1 ekle
+                - grub_rotation: int değer ile fbcon=rotate:X ekle
+        
+        Varsayılan olarak 'quiet splash' her zaman eklenir.
+        
+        Returns:
+            Başarılı mı
+        """
+        params = params or {}
+        grub_file = '/etc/default/grub'
+        
+        try:
+            with open(grub_file, 'r') as f:
+                grub_content = f.read()
+            
+            original_content = grub_content
+            
+            # 1. quiet splash kontrolü (her zaman)
+            if 'quiet' not in grub_content or 'splash' not in grub_content:
+                # quiet splash yoksa ekle
+                if 'GRUB_CMDLINE_LINUX_DEFAULT="' in grub_content:
+                    grub_content = grub_content.replace(
+                        'GRUB_CMDLINE_LINUX_DEFAULT="',
+                        'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash '
+                    )
+                    self.logger.info("GRUB: quiet splash eklendi")
+            
+            # 2. nvidia-drm.modeset=1 kontrolü
+            if params.get('nvidia_modeset') and 'nvidia-drm.modeset=1' not in grub_content:
+                grub_content = grub_content.replace(
+                    'GRUB_CMDLINE_LINUX_DEFAULT="',
+                    'GRUB_CMDLINE_LINUX_DEFAULT="nvidia-drm.modeset=1 '
+                )
+                self.logger.info("GRUB: nvidia-drm.modeset=1 eklendi")
+            
+            # 3. fbcon rotation kontrolü
+            grub_rotation = params.get('grub_rotation')
+            if grub_rotation is not None and 'fbcon=rotate:' not in grub_content:
+                grub_content = grub_content.replace(
+                    'GRUB_CMDLINE_LINUX_DEFAULT="',
+                    f'GRUB_CMDLINE_LINUX_DEFAULT="fbcon=rotate:{grub_rotation} '
+                )
+                self.logger.info(f"GRUB: fbcon=rotate:{grub_rotation} eklendi")
+            
+            # Değişiklik var mı?
+            if grub_content != original_content:
+                with open(grub_file, 'w') as f:
+                    f.write(grub_content)
+                
+                # update-grub çalıştır (tam yol!)
+                self.logger.info("GRUB yapılandırması güncelleniyor...")
+                result = self.run_command(['/usr/sbin/update-grub'], check=False)
+                
+                if result.returncode == 0:
+                    self.logger.info("GRUB yapılandırması güncellendi")
+                else:
+                    self.logger.warning(f"update-grub uyarısı: {result.stderr}")
+            else:
+                self.logger.info("GRUB yapılandırması zaten güncel")
+            
+            return True
+            
+        except FileNotFoundError:
+            self.logger.warning(f"GRUB dosyası bulunamadı: {grub_file}")
+            return False
+        except Exception as e:
+            self.logger.warning(f"GRUB yapılandırma hatası: {e}")
+            return False

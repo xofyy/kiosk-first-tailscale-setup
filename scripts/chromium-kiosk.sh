@@ -38,11 +38,16 @@ while true; do
     chromium-browser \
         --user-data-dir="$DATA_DIR" \
         --kiosk \
+        --incognito \
         --noerrdialogs \
         --disable-infobars \
         --disable-session-crashed-bubble \
         --disable-restore-session-state \
-        --disable-features=TranslateUI,Translate \
+        --disable-dev-tools \
+        --disable-sync \
+        --disable-default-apps \
+        --disable-component-update \
+        --disable-features=TranslateUI,Translate,OverscrollHistoryNavigation,TouchpadOverscrollHistoryNavigation,InfiniteSessionRestore,PasswordManager,Autofill,MediaRouter,GlobalMediaControls,ExtensionsToolbarMenu \
         --disable-translate \
         --lang=tr \
         --check-for-update-interval=31536000 \

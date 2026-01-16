@@ -138,35 +138,6 @@ class NvidiaModule(BaseModule):
         return True
     
     # =========================================================================
-    # GRUB Yapılandırması
-    # =========================================================================
-    
-    def _configure_grub(self) -> bool:
-        """GRUB'a nvidia-drm.modeset=1 ekle"""
-        grub_file = '/etc/default/grub'
-        
-        try:
-            with open(grub_file, 'r') as f:
-                grub_content = f.read()
-            
-            if 'nvidia-drm.modeset=1' not in grub_content:
-                grub_content = grub_content.replace(
-                    'GRUB_CMDLINE_LINUX_DEFAULT="',
-                    'GRUB_CMDLINE_LINUX_DEFAULT="nvidia-drm.modeset=1 '
-                )
-                
-                with open(grub_file, 'w') as f:
-                    f.write(grub_content)
-                
-                self.run_command(['update-grub'])
-                self.logger.info("GRUB yapılandırması güncellendi")
-            
-            return True
-        except Exception as e:
-            self.logger.warning(f"GRUB yapılandırma hatası: {e}")
-            return False
-    
-    # =========================================================================
     # Ana Kurulum Fonksiyonu
     # =========================================================================
     
@@ -253,9 +224,9 @@ class NvidiaModule(BaseModule):
             self.logger.info("NVIDIA paketi zaten kurulu")
         
         # =====================================================================
-        # 6. GRUB Yapılandırması
+        # 6. GRUB Yapılandırması (quiet splash + nvidia modeset)
         # =====================================================================
-        self._configure_grub()
+        self.configure_grub({'nvidia_modeset': True})
         
         # =====================================================================
         # 7. nvidia-persistenced Servisi
