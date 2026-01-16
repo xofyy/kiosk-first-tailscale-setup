@@ -213,6 +213,9 @@ document.addEventListener('DOMContentLoaded', () => {
 // =============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
+    // Add loaded class for page transitions
+    document.body.classList.add('loaded');
+
     // Check internet status on load
     checkInternetStatus();
     
