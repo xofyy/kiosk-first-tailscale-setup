@@ -36,6 +36,24 @@
     --transition: 0.2s ease;
 }
 
+/* Scrollbar'ı gizle - WebKit (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+    width: 0;
+    height: 0;
+    background: transparent;
+}
+
+/* Firefox için */
+html {
+    scrollbar-width: none;
+}
+
+/* IE/Edge için */
+body, .main-content, .container {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+
 /* Reset & Base */
 *, *::before, *::after {
     box-sizing: border-box;
