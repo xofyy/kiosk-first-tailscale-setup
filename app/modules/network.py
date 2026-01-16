@@ -212,7 +212,7 @@ network:
             # 6. netplan apply
             # =================================================================
             self.logger.info("netplan apply çalıştırılıyor...")
-            result = self.run_command(['netplan', 'apply'], check=False)
+            result = self.run_command(['/usr/sbin/netplan', 'apply'], check=False)
             if result.returncode != 0:
                 self.logger.warning(f"netplan apply uyarısı: {result.stderr}")
             
