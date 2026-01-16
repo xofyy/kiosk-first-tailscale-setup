@@ -4,6 +4,7 @@ Docker Engine, NVIDIA Container Toolkit ve MongoDB kurulumu
 """
 
 import os
+import time
 from typing import Tuple
 from datetime import datetime
 
@@ -43,7 +44,10 @@ class DockerModule(BaseModule):
             self.logger.info("Docker repository ekleniyor...")
             
             # Gerekli paketler
-            self.apt_install(['ca-certificates', 'curl', 'gnupg'])
+            self.apt_install([
+                'ca-certificates', 'curl', 'gnupg',
+                'python3-pip', 'python3-docker', 'python3-pymongo'
+            ])
             
             # GPG key
             self.run_shell('install -m 0755 -d /etc/apt/keyrings')
@@ -78,17 +82,24 @@ class DockerModule(BaseModule):
             if not self.apt_install(docker_packages):
                 return False, "Docker paketleri kurulamadı"
             
-            # 4. Docker daemon.json yapılandırması
+            # 4. NVIDIA varlık kontrolü
+            nvidia_available = self.run_shell('nvidia-smi >/dev/null 2>&1', check=False).returncode == 0
+            if nvidia_available:
+                self.logger.info("NVIDIA GPU tespit edildi")
+            else:
+                self.logger.info("NVIDIA GPU bulunamadı, Container Toolkit atlanacak")
+            
+            # 5. Docker daemon.json yapılandırması (NVIDIA koşullu)
             self.logger.info("Docker yapılandırılıyor...")
             
-            daemon_config = """{
+            if nvidia_available:
+                daemon_config = """{
     "log-driver": "json-file",
     "log-opts": {
         "max-size": "10m",
         "max-file": "3"
     },
     "storage-driver": "overlay2",
-    "default-runtime": "nvidia",
     "runtimes": {
         "nvidia": {
             "path": "nvidia-container-runtime",
@@ -97,37 +108,63 @@ class DockerModule(BaseModule):
     }
 }
 """
+            else:
+                daemon_config = """{
+    "log-driver": "json-file",
+    "log-opts": {
+        "max-size": "10m",
+        "max-file": "3"
+    },
+    "storage-driver": "overlay2"
+}
+"""
             self.write_file('/etc/docker/daemon.json', daemon_config)
             
-            # 5. NVIDIA Container Toolkit
-            self.logger.info("NVIDIA Container Toolkit kuruluyor...")
+            # 6. NVIDIA Container Toolkit (sadece NVIDIA varsa)
+            if nvidia_available:
+                self.logger.info("NVIDIA Container Toolkit kuruluyor...")
+                
+                # NVIDIA repo
+                self.run_shell(
+                    'curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | '
+                    'gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes'
+                )
+                
+                self.run_shell(
+                    'curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | '
+                    'sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" | '
+                    'tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null'
+                )
+                
+                self.run_command(['apt-get', 'update', '-qq'])
+                self.apt_install(['nvidia-container-toolkit'])
+                
+                # nvidia-ctk yapılandırması
+                self.run_shell('nvidia-ctk runtime configure --runtime=docker || true')
             
-            # NVIDIA repo
-            self.run_shell(
-                'curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | '
-                'gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes'
-            )
-            
-            self.run_shell(
-                'curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | '
-                'sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" | '
-                'tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null'
-            )
-            
-            self.run_command(['apt-get', 'update', '-qq'])
-            self.apt_install(['nvidia-container-toolkit'])
-            
-            # nvidia-ctk yapılandırması
-            self.run_shell('nvidia-ctk runtime configure --runtime=docker || true')
-            
-            # 6. Docker servisini başlat
+            # 7. Docker servisini başlat
             self.systemctl('enable', 'docker')
             self.systemctl('restart', 'docker')
             
-            # 7. Compose dizini oluştur
+            # 8. Kurulum doğrulaması
+            time.sleep(2)
+            
+            result = self.run_command(['docker', '--version'], check=False)
+            if result.returncode != 0:
+                return False, "Docker kurulumu doğrulanamadı"
+            self.logger.info(f"Docker: {result.stdout.strip()}")
+            
+            result = self.run_command(['docker', 'compose', 'version'], check=False)
+            if result.returncode != 0:
+                return False, "Docker Compose kurulumu doğrulanamadı"
+            self.logger.info(f"Docker Compose: {result.stdout.strip()}")
+            
+            self.logger.info("Docker kurulumu doğrulandı")
+            
+            # 9. Compose dizini oluştur
             os.makedirs(compose_path, exist_ok=True)
             
-            # 8. Registry login
+            # 10. Registry login
             if registry_user and registry_pass:
                 self.logger.info(f"Registry login: {registry_url}")
                 self.run_shell(
@@ -135,7 +172,7 @@ class DockerModule(BaseModule):
                     f'-u {registry_user} --password-stdin'
                 )
             
-            # 9. docker-compose.yml oluştur (Jinja template)
+            # 11. docker-compose.yml oluştur
             self.logger.info("docker-compose.yml oluşturuluyor...")
             
             mongodb_tag = self.get_config('mongodb.tag', 'latest')
@@ -158,12 +195,31 @@ services:
 """
             self.write_file(f'{compose_path}/docker-compose.yml', compose_content)
             
-            # 10. Docker compose up
+            # 12. Docker compose up
             self.logger.info("MongoDB container başlatılıyor...")
             
             self.run_shell(f'cd {compose_path} && docker compose up -d')
             
-            # 11. Kiosk ID'yi MongoDB'ye kaydet
+            # 12.1 MongoDB hazır olana kadar bekle (60 saniye timeout)
+            self.logger.info("MongoDB'nin hazır olması bekleniyor...")
+            mongodb_ready = False
+            for i in range(60):
+                result = self.run_shell(
+                    'docker exec local_database mongosh --eval "db.runCommand({ping:1})" 2>/dev/null',
+                    check=False
+                )
+                if result.returncode == 0:
+                    self.logger.info("MongoDB hazır")
+                    mongodb_ready = True
+                    break
+                if i % 10 == 0 and i > 0:
+                    self.logger.info(f"MongoDB bekleniyor... ({i}/60 saniye)")
+                time.sleep(1)
+            
+            if not mongodb_ready:
+                return False, "MongoDB başlatılamadı (60 saniye timeout)"
+            
+            # 13. Kiosk ID'yi MongoDB'ye kaydet
             self._save_kiosk_id_to_mongodb()
             
             self.logger.info("Docker kurulumu tamamlandı")
@@ -177,7 +233,11 @@ services:
         """Kiosk ID'yi MongoDB'ye kaydet"""
         try:
             import socket
-            from pymongo import MongoClient
+            try:
+                from pymongo import MongoClient
+            except ImportError:
+                self.logger.warning("pymongo bulunamadı, MongoDB kaydı atlanıyor")
+                return
             
             kiosk_id = config.get_kiosk_id()
             hardware_id = config.get_hardware_id()
