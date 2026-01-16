@@ -38,6 +38,7 @@ class SecurityModule(BaseModule):
             # Varsayılan politikalar
             self.run_command(['ufw', 'default', 'deny', 'incoming'])
             self.run_command(['ufw', 'default', 'allow', 'outgoing'])
+            self.run_command(['ufw', 'default', 'deny', 'routed'])  # Docker routing için
             
             # Tailscale üzerinden SSH
             self.run_shell('ufw allow in on tailscale0 to any port 22 proto tcp')
@@ -53,6 +54,7 @@ class SecurityModule(BaseModule):
             
             # LAN'dan SSH engelle (Tailscale hariç)
             # Not: tailscale0 kuralı önce geldiği için Tailscale üzerinden erişim açık
+            self.run_shell('ufw deny 22/tcp comment "Deny SSH from LAN"')
             
             # UFW'yi etkinleştir
             self.run_shell('ufw --force enable')
@@ -63,27 +65,41 @@ class SecurityModule(BaseModule):
             ssh_config = """# Tailscale-only SSH Configuration
 # /etc/ssh/sshd_config.d/99-tailscale-only.conf
 
-# Parola ile giriş kapalı
+# Root sadece Tailscale SSH ile erişebilir
+PermitRootLogin yes
+
+# KLASİK SSH TAMAMEN KAPALI
+# Bu ayarlar LAN/WAN üzerinden SSH'ı engeller
+# Tailscale SSH (PAM üzerinden) çalışmaya devam eder
 PasswordAuthentication no
-
-# Public key ile giriş kapalı (Tailscale kullanılacak)
 PubkeyAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
 
-# PAM aktif (Tailscale auth için)
+# Tailscale SSH için PAM gerekli
 UsePAM yes
 
 # İzin verilen kullanıcılar
 AllowUsers root aco kiosk
 
+# VNC port-forward için gerekli
+AllowTcpForwarding yes
+
+# Güvenlik: X11 ve tunnel kapalı
+X11Forwarding no
+PermitTunnel no
+GatewayPorts no
+
 # Brute-force koruması
+LoginGraceTime 20
 MaxAuthTries 3
 MaxSessions 2
 
-# Bağlantı timeout
+# Keepalive - bağlantı kopması durumunda temizlik
 ClientAliveInterval 300
 ClientAliveCountMax 2
 
-# Logging
+# Detaylı log (güvenlik izleme için)
 LogLevel VERBOSE
 """
             self.write_file('/etc/ssh/sshd_config.d/99-tailscale-only.conf', ssh_config)
