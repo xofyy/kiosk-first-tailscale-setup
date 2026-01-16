@@ -35,7 +35,7 @@ class SystemService:
         try:
             # Default route üzerinden IP al
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.settimeout(2)  # 2 saniye timeout - internet yokken bloke olmayı önler
+            s.settimeout(1)  # 1 saniye timeout - hızlı cevap için
             s.connect(("8.8.8.8", 80))
             ip = s.getsockname()[0]
             s.close()
@@ -50,7 +50,7 @@ class SystemService:
                 ['tailscale', 'ip', '-4'],
                 capture_output=True,
                 text=True,
-                timeout=5
+                timeout=1  # 1 saniye timeout - hızlı cevap için
             )
             if result.returncode == 0:
                 return result.stdout.strip()
@@ -103,7 +103,7 @@ class SystemService:
     def check_internet(self) -> bool:
         """İnternet bağlantısını kontrol et"""
         try:
-            socket.create_connection(("8.8.8.8", 53), timeout=3)
+            socket.create_connection(("8.8.8.8", 53), timeout=1)  # 1 saniye timeout
             return True
         except OSError:
             return False
@@ -111,7 +111,7 @@ class SystemService:
     def check_dns(self) -> bool:
         """DNS çözümleme kontrolü"""
         try:
-            socket.setdefaulttimeout(3)
+            socket.setdefaulttimeout(1)  # 1 saniye timeout
             socket.gethostbyname("google.com")
             return True
         except (socket.error, socket.timeout):

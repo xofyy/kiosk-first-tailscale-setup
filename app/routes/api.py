@@ -6,6 +6,7 @@ API endpoint'leri
 import subprocess
 import threading
 import logging
+import time
 from flask import Blueprint, jsonify, request
 
 from app.config import config
@@ -18,6 +19,18 @@ logger = logging.getLogger(__name__)
 
 # Aktif kurulum thread'leri (race condition kontrolü için)
 _install_threads = {}
+
+# Internet durumu cache'i - anında dönüş için (worker'ı bloke etmez)
+_internet_cache = {
+    'connected': None,
+    'ip': None,
+    'dns_working': None,
+    'tailscale_ip': None,
+    'last_check': 0
+}
+_cache_lock = threading.Lock()
+_CACHE_TTL = 10  # 10 saniye geçerli
+_update_in_progress = False
 
 
 # =============================================================================
@@ -33,14 +46,72 @@ def system_info():
 
 @api_bp.route('/system/internet')
 def internet_status():
-    """İnternet durumunu kontrol et"""
-    system = SystemService()
-    return jsonify({
-        'connected': system.check_internet(),
-        'ip': system.get_ip_address(),
-        'tailscale_ip': system.get_tailscale_ip(),
-        'dns_working': system.check_dns()
-    })
+    """
+    Internet durumu - cache'den anında döner, arka planda günceller.
+    Bu sayede worker hiç bloke olmaz ve tab geçişleri anında çalışır.
+    """
+    global _update_in_progress
+    
+    with _cache_lock:
+        cache_age = time.time() - _internet_cache['last_check']
+        result = {
+            'connected': _internet_cache['connected'],
+            'ip': _internet_cache['ip'],
+            'dns_working': _internet_cache['dns_working'],
+            'tailscale_ip': _internet_cache['tailscale_ip']
+        }
+    
+    # Cache eski veya boşsa, arka planda güncelle
+    if cache_age > _CACHE_TTL and not _update_in_progress:
+        _update_in_progress = True
+        threading.Thread(target=_update_internet_cache, daemon=True).start()
+    
+    return jsonify(result)
+
+
+def _update_internet_cache():
+    """Arka planda internet durumunu güncelle (worker'ı bloke etmez)"""
+    global _update_in_progress
+    try:
+        system = SystemService()
+        
+        # Her birini ayrı ayrı güncelle (hata olsa bile diğerleri çalışsın)
+        connected = None
+        ip = None
+        dns_working = None
+        tailscale_ip = None
+        
+        try:
+            connected = system.check_internet()
+        except Exception:
+            pass
+        
+        try:
+            ip = system.get_ip_address()
+        except Exception:
+            pass
+        
+        try:
+            dns_working = system.check_dns()
+        except Exception:
+            pass
+        
+        try:
+            tailscale_ip = system.get_tailscale_ip()
+        except Exception:
+            pass
+        
+        with _cache_lock:
+            _internet_cache['connected'] = connected
+            _internet_cache['ip'] = ip
+            _internet_cache['dns_working'] = dns_working
+            _internet_cache['tailscale_ip'] = tailscale_ip
+            _internet_cache['last_check'] = time.time()
+            
+    except Exception as e:
+        logger.warning(f"Internet cache update failed: {e}")
+    finally:
+        _update_in_progress = False
 
 
 @api_bp.route('/system/reboot', methods=['POST'])

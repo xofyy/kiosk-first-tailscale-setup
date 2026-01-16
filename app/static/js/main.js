@@ -100,7 +100,11 @@ async function checkInternetStatus() {
         const statusText = document.querySelector('.status-text');
         
         if (statusDot && statusText) {
-            if (data.connected) {
+            if (data.connected === null) {
+                // Cache henüz dolu değil - arka planda güncelleniyor
+                statusDot.classList.remove('online', 'offline');
+                statusText.textContent = 'Kontrol ediliyor...';
+            } else if (data.connected) {
                 statusDot.classList.add('online');
                 statusDot.classList.remove('offline');
                 statusText.textContent = data.ip || 'Bağlı';
@@ -114,9 +118,13 @@ async function checkInternetStatus() {
         // Connection grid badge'lerini güncelle
         const connInternet = document.getElementById('conn-internet');
         if (connInternet) {
-            connInternet.innerHTML = data.connected 
-                ? '<span class="status-badge success">Bağlı</span>'
-                : '<span class="status-badge error">Bağlı Değil</span>';
+            if (data.connected === null) {
+                connInternet.innerHTML = '<span class="status-badge">Kontrol ediliyor...</span>';
+            } else {
+                connInternet.innerHTML = data.connected 
+                    ? '<span class="status-badge success">Bağlı</span>'
+                    : '<span class="status-badge error">Bağlı Değil</span>';
+            }
         }
         
         const connDns = document.getElementById('conn-dns');
