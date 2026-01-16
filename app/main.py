@@ -4,6 +4,7 @@ Kiosk Setup Panel - Flask Application Entry Point
 
 import os
 import logging
+import subprocess
 from flask import Flask
 
 from app.config import config
@@ -21,6 +22,37 @@ logging.basicConfig(
 )
 
 logger = logging.getLogger(__name__)
+
+
+def check_pending_modules():
+    """
+    Startup'ta mok_pending ve reboot_required durumundaki modülleri kontrol et.
+    Reboot sonrası otomatik status güncelleme için.
+    """
+    config.reload()
+    statuses = config.get_all_module_statuses()
+    
+    for module_name, status in statuses.items():
+        if status == 'mok_pending' or status == 'reboot_required':
+            logger.info(f"Pending modül kontrol ediliyor: {module_name} ({status})")
+            
+            # NVIDIA modülü için özel kontrol
+            if module_name == 'nvidia':
+                try:
+                    result = subprocess.run(
+                        ['nvidia-smi'],
+                        capture_output=True,
+                        timeout=10
+                    )
+                    if result.returncode == 0:
+                        logger.info(f"NVIDIA çalışıyor, status completed yapılıyor")
+                        config.set_module_status('nvidia', 'completed')
+                    else:
+                        logger.warning(f"NVIDIA henüz çalışmıyor, status korunuyor: {status}")
+                except FileNotFoundError:
+                    logger.warning("nvidia-smi bulunamadı")
+                except Exception as e:
+                    logger.warning(f"NVIDIA kontrol hatası: {e}")
 
 
 def create_app() -> Flask:
@@ -60,6 +92,9 @@ def create_app() -> Flask:
 
 # Gunicorn için app instance
 app = create_app()
+
+# Startup'ta pending modülleri kontrol et
+check_pending_modules()
 
 
 if __name__ == '__main__':

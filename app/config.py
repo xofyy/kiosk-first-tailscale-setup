@@ -46,13 +46,26 @@ class Config:
                 base[key] = value
     
     def reload(self) -> None:
-        """Config'i yeniden yükle"""
-        self._config = {}
-        self._load()
+        """Config'i yeniden yükle (güvenli - hata durumunda mevcut config korunur)"""
+        old_config = self._config.copy()
+        try:
+            self._config = {}
+            self._load()
+            # Eğer yeni config boş veya çok küçükse, eski config'i geri yükle
+            if not self._config or len(self._config) < 2:
+                self._config = old_config
+        except Exception:
+            # Hata durumunda eski config'i geri yükle
+            self._config = old_config
     
     def save(self) -> bool:
-        """Config'i dosyaya kaydet"""
+        """Config'i dosyaya kaydet (güvenli - boş config kaydetmez)"""
         try:
+            # Boş veya çok küçük config kaydetme (güvenlik)
+            if not self._config or len(self._config) < 2:
+                print("Config kaydetme atlandı: config boş veya geçersiz")
+                return False
+            
             # Dizini oluştur
             os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
             

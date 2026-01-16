@@ -47,7 +47,7 @@ def internet_status():
 def reboot_system():
     """Sistemi yeniden başlat"""
     try:
-        subprocess.Popen(['shutdown', '-r', 'now'])
+        subprocess.Popen(['systemctl', 'reboot'])
         return jsonify({'success': True, 'message': 'Sistem yeniden başlatılıyor...'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

@@ -7,6 +7,12 @@ import subprocess
 import hashlib
 from typing import Dict, Optional
 
+# Absolute paths for system commands (PATH'te /usr/sbin olmayabilir)
+DMIDECODE = '/usr/sbin/dmidecode'
+LSBLK = '/usr/bin/lsblk'
+UDEVADM = '/usr/bin/udevadm'
+HDPARM = '/usr/sbin/hdparm'
+
 
 class HardwareService:
     """Hardware ID üretimi ve donanım bilgileri"""
@@ -44,7 +50,7 @@ class HardwareService:
         """Anakart seri numarasını al"""
         try:
             result = subprocess.run(
-                ['dmidecode', '-s', 'baseboard-serial-number'],
+                [DMIDECODE, '-s', 'baseboard-serial-number'],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -60,7 +66,7 @@ class HardwareService:
         # Alternatif: system UUID
         try:
             result = subprocess.run(
-                ['dmidecode', '-s', 'system-uuid'],
+                [DMIDECODE, '-s', 'system-uuid'],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -76,7 +82,7 @@ class HardwareService:
         """RAM seri numarasını al (ilk modül)"""
         try:
             result = subprocess.run(
-                ['dmidecode', '-t', 'memory'],
+                [DMIDECODE, '-t', 'memory'],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -98,7 +104,7 @@ class HardwareService:
         try:
             # lsblk ile root disk'i bul
             result = subprocess.run(
-                ['lsblk', '-no', 'PKNAME', '/'],
+                [LSBLK, '-no', 'PKNAME', '/'],
                 capture_output=True,
                 text=True,
                 timeout=5
@@ -110,7 +116,7 @@ class HardwareService:
                 if disk:
                     # udevadm ile seri numarasını al
                     result = subprocess.run(
-                        ['udevadm', 'info', '--query=property', f'--name=/dev/{disk}'],
+                        [UDEVADM, 'info', '--query=property', f'--name=/dev/{disk}'],
                         capture_output=True,
                         text=True,
                         timeout=5
@@ -128,7 +134,7 @@ class HardwareService:
         # Alternatif: hdparm
         try:
             result = subprocess.run(
-                ['hdparm', '-I', '/dev/sda'],
+                [HDPARM, '-I', '/dev/sda'],
                 capture_output=True,
                 text=True,
                 timeout=5
