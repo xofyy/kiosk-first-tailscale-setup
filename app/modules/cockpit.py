@@ -90,10 +90,12 @@ class CockpitModule(BaseModule):
             # =================================================================
             self.logger.info("Cockpit yapılandırılıyor...")
             
+            # Nginx websocket servisleri için Host: localhost:{nginx_port} gönderiyor
+            # Bu sayede sadece localhost origin yeterli, IP bağımsız çalışır
             cockpit_conf = f"""[WebService]
 # Nginx reverse proxy arkasında çalışacak
 UrlRoot=/cockpit/
-Origins = http://localhost:{nginx_port} https://localhost:{nginx_port}
+Origins = http://localhost:{nginx_port}
 AllowUnencrypted = true
 
 [Session]

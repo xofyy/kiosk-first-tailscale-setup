@@ -152,10 +152,24 @@ server {{
             port = service['port']
             websocket = service.get('websocket', False)
             
+            # Path'e göre proxy_pass - root path için trailing slash, diğerleri için yok
+            # Bu, UrlRoot kullanan servisler (Cockpit gibi) için gerekli
+            if path == "/":
+                proxy_pass = f"http://127.0.0.1:{port}/"
+            else:
+                proxy_pass = f"http://127.0.0.1:{port}"
+            
+            # Websocket servisleri için Host header'ı localhost olarak ayarla
+            # Bu sayede IP adresi değişse bile Cockpit Origins kontrolü geçer
+            if websocket:
+                host_header = f"localhost:{nginx_port}"
+            else:
+                host_header = "$host"
+            
             config += f"""    # {service.get('display_name', name)}
     location {path} {{
-        proxy_pass http://127.0.0.1:{port}/;
-        proxy_set_header Host $host;
+        proxy_pass {proxy_pass};
+        proxy_set_header Host {host_header};
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;

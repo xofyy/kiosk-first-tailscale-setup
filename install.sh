@@ -320,9 +320,8 @@ info "Systemd servisleri oluşturuluyor..."
 
 SERVICE_FILE="/etc/systemd/system/kiosk-panel.service"
 
-# Flask Panel Service (sadece yoksa oluştur)
-if [[ ! -f "$SERVICE_FILE" ]]; then
-    cat > "$SERVICE_FILE" << 'EOF'
+# Flask Panel Service (her zaman güncelle - upgrade desteği için)
+cat > "$SERVICE_FILE" << 'EOF'
 [Unit]
 Description=Kiosk Setup Panel Web Server
 After=network.target
@@ -339,11 +338,8 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 EOF
-    systemctl daemon-reload
-    log "kiosk-panel.service oluşturuldu"
-else
-    log "kiosk-panel.service zaten mevcut, atlanıyor"
-fi
+systemctl daemon-reload
+log "kiosk-panel.service oluşturuldu/güncellendi"
 
 # Enable service
 systemctl enable kiosk-panel.service 2>/dev/null || true
