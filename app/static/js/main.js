@@ -7,28 +7,49 @@
 // =============================================================================
 
 const api = {
-    async get(endpoint) {
+    async get(endpoint, timeout = 5000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
         try {
-            const response = await fetch(`/api${endpoint}`);
+            const response = await fetch(`/api${endpoint}`, {
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
             return await response.json();
         } catch (error) {
-            console.error('API GET error:', error);
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                console.warn('API GET timeout:', endpoint);
+            } else {
+                console.error('API GET error:', error);
+            }
             throw error;
         }
     },
     
-    async post(endpoint, data = {}) {
+    async post(endpoint, data = {}, timeout = 30000) {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
         try {
             const response = await fetch(`/api${endpoint}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(data),
+                signal: controller.signal
             });
+            clearTimeout(timeoutId);
             return await response.json();
         } catch (error) {
-            console.error('API POST error:', error);
+            clearTimeout(timeoutId);
+            if (error.name === 'AbortError') {
+                console.warn('API POST timeout:', endpoint);
+            } else {
+                console.error('API POST error:', error);
+            }
             throw error;
         }
     }
@@ -61,13 +82,13 @@ function showToast(message, type = 'info') {
 // =============================================================================
 
 async function checkInternetStatus() {
+    const statusDot = document.querySelector('.status-dot');
+    const statusText = document.querySelector('.status-text');
+    
     try {
-        const data = await api.get('/system/internet');
+        const data = await api.get('/system/internet', 3000); // 3 saniye timeout
         
         // Header status dot güncelle
-        const statusDot = document.querySelector('.status-dot');
-        const statusText = document.querySelector('.status-text');
-        
         if (statusDot && statusText) {
             if (data.connected) {
                 statusDot.classList.add('online');
@@ -108,7 +129,13 @@ async function checkInternetStatus() {
         }
         
     } catch (error) {
-        console.error('Internet status check failed:', error);
+        // Hata durumunda UI'ı offline olarak güncelle (sayfa donmaz)
+        if (statusDot && statusText) {
+            statusDot.classList.add('offline');
+            statusDot.classList.remove('online');
+            statusText.textContent = 'Kontrol edilemiyor';
+        }
+        console.warn('Internet status check failed:', error.message || error);
     }
 }
 
