@@ -15,18 +15,19 @@ fi
 # Mevcut mod (varsayılan: kiosk)
 CURRENT_MODE=$(cat "$CURRENT_MODE_FILE" 2>/dev/null || echo "kiosk")
 
+# Önce TÜM watchdog scriptlerini ve chromium'ları öldür
+# Bu sayede çoklu instance sorunu önlenir
+pkill -f "chromium-kiosk.sh" 2>/dev/null
+pkill -f "chromium-panel.sh" 2>/dev/null
+pkill -f "chromium-browser" 2>/dev/null
+sleep 1
+
 if [[ "$CURRENT_MODE" == "kiosk" ]]; then
     # Panel'e geç
-    pkill -f "chromium.*chromium-kiosk" 2>/dev/null
-    pkill -f "chromium.*chromium-panel" 2>/dev/null
-    sleep 0.5
     echo "panel" > "$CURRENT_MODE_FILE"
     /usr/local/bin/chromium-panel.sh &
 else
     # Kiosk'a geç
-    pkill -f "chromium.*chromium-panel" 2>/dev/null
-    pkill -f "chromium.*chromium-kiosk" 2>/dev/null
-    sleep 0.5
     echo "kiosk" > "$CURRENT_MODE_FILE"
     /usr/local/bin/chromium-kiosk.sh &
 fi

@@ -4,6 +4,14 @@
 # Panel arayüzü için Chromium başlatma scripti (Watchdog ile)
 # =============================================================================
 
+# Lock dosyası ile çoklu instance önleme
+LOCK_FILE="/tmp/chromium-panel.lock"
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    echo "chromium-panel.sh zaten çalışıyor, çıkılıyor..."
+    exit 1
+fi
+
 URL="http://localhost:8080"
 DATA_DIR="/tmp/chromium-panel"
 

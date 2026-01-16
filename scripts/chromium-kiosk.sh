@@ -4,6 +4,14 @@
 # Ana kiosk uygulaması için Chromium başlatma scripti (Watchdog ile)
 # =============================================================================
 
+# Lock dosyası ile çoklu instance önleme
+LOCK_FILE="/tmp/chromium-kiosk.lock"
+exec 200>"$LOCK_FILE"
+if ! flock -n 200; then
+    echo "chromium-kiosk.sh zaten çalışıyor, çıkılıyor..."
+    exit 1
+fi
+
 # Config'den URL al veya varsayılan kullan
 CONFIG_FILE="/etc/kiosk-setup/config.yaml"
 URL="http://localhost:3000"
