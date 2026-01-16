@@ -41,23 +41,15 @@ class NetmonModule(BaseModule):
                 netmon_dir
             ])
             
-            # 3. Python bağımlılıklarını kur
-            self.logger.info("Python bağımlılıkları kuruluyor...")
-            
-            if os.path.exists(f'{netmon_dir}/requirements.txt'):
-                self.run_command([
-                    'pip3', 'install', '-r',
-                    f'{netmon_dir}/requirements.txt'
-                ])
+            # 3. netmon'u pip ile kur (CLI aracını oluşturur: /usr/local/bin/netmon)
+            self.logger.info("netmon paketi kuruluyor...")
+            self.run_command(['pip3', 'install', netmon_dir])
             
             # 4. Config dosyası oluştur
             db_write_interval = self.get_config('netmon.db_write_interval', 300)
             retention_days = self.get_config('netmon.retention_days', 90)
             
             config_content = f"""# netmon Configuration
-
-# Network interfaces to monitor (empty = all)
-interfaces: []
 
 # Database write interval (seconds)
 db_write_interval: {db_write_interval}
@@ -77,21 +69,9 @@ database_path: /var/lib/netmon/data.db
             # 5. Data dizini
             os.makedirs('/var/lib/netmon', exist_ok=True)
             
-            # 6. Systemd service oluştur
-            service_content = f"""[Unit]
-Description=Network Monitor Service
-After=network.target
-
-[Service]
-Type=simple
-ExecStart=/usr/bin/python3 {netmon_dir}/main.py
-Restart=always
-RestartSec=10
-
-[Install]
-WantedBy=multi-user.target
-"""
-            self.write_file('/etc/systemd/system/netmon.service', service_content)
+            # 6. Repo'daki systemd service dosyasını kopyala
+            self.logger.info("Systemd service kuruluyor...")
+            self.run_shell(f'cp {netmon_dir}/systemd/netmon.service /etc/systemd/system/')
             
             # 7. Servisi etkinleştir ve başlat
             self.run_command(['systemctl', 'daemon-reload'])
