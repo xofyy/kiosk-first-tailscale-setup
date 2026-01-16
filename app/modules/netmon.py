@@ -48,11 +48,8 @@ class NetmonModule(BaseModule):
             # 4. UNKNOWN paketini kaldır (varsa)
             self.run_shell('pip3 uninstall -y UNKNOWN 2>/dev/null || true')
             
-            # 5. Build cache temizle
-            for cache_dir in ['UNKNOWN.egg-info', 'build']:
-                cache_path = f'{netmon_dir}/{cache_dir}'
-                if os.path.exists(cache_path):
-                    self.run_shell(f'rm -rf {cache_path}')
+            # 5. Build cache temizle (tüm egg-info dizinleri dahil)
+            self.run_shell(f'rm -rf {netmon_dir}/build {netmon_dir}/*.egg-info')
             
             # 6. netmon'u pip ile kur (CLI aracını oluşturur: /usr/local/bin/netmon)
             self.logger.info("netmon paketi kuruluyor...")

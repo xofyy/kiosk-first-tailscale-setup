@@ -55,11 +55,8 @@ class CollectorModule(BaseModule):
             # 5. UNKNOWN paketini kaldır (varsa)
             self.run_shell('pip3 uninstall -y UNKNOWN 2>/dev/null || true')
             
-            # 6. Build cache temizle
-            for cache_dir in ['UNKNOWN.egg-info', 'build']:
-                cache_path = f'{collector_dir}/{cache_dir}'
-                if os.path.exists(cache_path):
-                    self.run_shell(f'rm -rf {cache_path}')
+            # 6. Build cache temizle (tüm egg-info dizinleri dahil)
+            self.run_shell(f'rm -rf {collector_dir}/build {collector_dir}/*.egg-info')
             
             # 7. collector-agent'ı pip ile kur
             self.logger.info("collector-agent paketi kuruluyor...")
