@@ -21,20 +21,20 @@ class HardwareService:
         """
         Benzersiz Hardware ID üret.
         Anakart, RAM ve disk seri numaralarından oluşturulur.
+        Format: MOBO_SERIAL:xxx|RAM_SERIALS:xxx|DISK_SERIALS:xxx
         """
         components = self.get_components()
         
-        # Bileşen değerlerini birleştir
-        combined = '|'.join([
-            components.get('motherboard_serial', ''),
-            components.get('ram_serial', ''),
-            components.get('disk_serial', '')
-        ])
+        mb = components.get('motherboard_serial', '')
+        ram = components.get('ram_serials', '')
+        disk = components.get('disk_serials', '')
         
-        # SHA256 hash al ve ilk 16 karakteri kullan
-        if combined.strip('|'):
-            hash_obj = hashlib.sha256(combined.encode())
-            return hash_obj.hexdigest()[:16].upper()
+        # SHA256 formatı (eski script ile uyumlu)
+        sha_input = f"MOBO_SERIAL:{mb}|RAM_SERIALS:{ram}|DISK_SERIALS:{disk}"
+        
+        # SHA256 hash al ve ilk 16 karakteri kullan (lowercase)
+        if mb or ram or disk:
+            return hashlib.sha256(sha_input.encode()).hexdigest()[:16]
         
         return ''
     
@@ -42,8 +42,8 @@ class HardwareService:
         """Donanım bileşen bilgilerini al"""
         return {
             'motherboard_serial': self._get_motherboard_serial(),
-            'ram_serial': self._get_ram_serial(),
-            'disk_serial': self._get_disk_serial()
+            'ram_serials': self._get_ram_serials(),
+            'disk_serials': self._get_disk_serials()
         }
     
     def _get_motherboard_serial(self) -> str:
@@ -78,8 +78,9 @@ class HardwareService:
         
         return ''
     
-    def _get_ram_serial(self) -> str:
-        """RAM seri numarasını al (ilk modül)"""
+    def _get_ram_serials(self) -> str:
+        """Tüm RAM modüllerinin seri numaralarını al (virgülle ayrılmış)"""
+        serials = []
         try:
             result = subprocess.run(
                 [DMIDECODE, '-t', 'memory'],
@@ -92,60 +93,75 @@ class HardwareService:
                 for line in result.stdout.split('\n'):
                     if 'Serial Number:' in line:
                         serial = line.split(':')[1].strip()
-                        if serial and serial.lower() not in ['not specified', 'unknown', 'n/a']:
-                            return serial
+                        if serial and serial.lower() not in ['not specified', 'unknown', 'n/a', 'no dimm']:
+                            serials.append(serial)
         except Exception:
             pass
         
-        return ''
+        return ','.join(serials) if serials else ''
     
-    def _get_disk_serial(self) -> str:
-        """Ana disk seri numarasını al"""
+    def _get_disk_serials(self) -> str:
+        """Tüm fiziksel disklerin seri numaralarını al (virgülle ayrılmış, sıralı)"""
+        serials = []
+        
+        # lsblk ile tüm disk serial'lerini al (loop=7, ram=1 hariç)
         try:
-            # lsblk ile root disk'i bul
             result = subprocess.run(
-                [LSBLK, '-no', 'PKNAME', '/'],
+                [LSBLK, '-dno', 'NAME,SERIAL', '--exclude', '7,1'],
                 capture_output=True,
                 text=True,
                 timeout=5
             )
             
             if result.returncode == 0:
-                disk = result.stdout.strip()
-                
-                if disk:
-                    # udevadm ile seri numarasını al
-                    result = subprocess.run(
-                        [UDEVADM, 'info', '--query=property', f'--name=/dev/{disk}'],
-                        capture_output=True,
-                        text=True,
-                        timeout=5
-                    )
-                    
-                    if result.returncode == 0:
-                        for line in result.stdout.split('\n'):
-                            if line.startswith('ID_SERIAL=') or line.startswith('ID_SERIAL_SHORT='):
-                                serial = line.split('=')[1].strip()
-                                if serial:
-                                    return serial
+                for line in result.stdout.strip().split('\n'):
+                    if not line.strip():
+                        continue
+                    parts = line.split(None, 1)  # Sadece ilk boşluktan böl
+                    if len(parts) >= 2:
+                        serial = parts[1].strip()
+                        if serial and serial.lower() not in ['n/a', 'unknown', '']:
+                            serials.append(serial)
         except Exception:
             pass
         
-        # Alternatif: hdparm
-        try:
-            result = subprocess.run(
-                [HDPARM, '-I', '/dev/sda'],
-                capture_output=True,
-                text=True,
-                timeout=5
-            )
-            
-            if result.returncode == 0:
-                for line in result.stdout.split('\n'):
-                    if 'Serial Number:' in line:
-                        return line.split(':')[1].strip()
-        except Exception:
-            pass
+        # Fallback: udevadm ile dene (lsblk serial vermezse)
+        if not serials:
+            try:
+                result = subprocess.run(
+                    [LSBLK, '-dno', 'NAME', '--exclude', '7,1'],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+                
+                if result.returncode == 0:
+                    for disk_name in result.stdout.strip().split('\n'):
+                        disk_name = disk_name.strip()
+                        if not disk_name:
+                            continue
+                        
+                        udev_result = subprocess.run(
+                            [UDEVADM, 'info', '--query=property', f'--name=/dev/{disk_name}'],
+                            capture_output=True,
+                            text=True,
+                            timeout=5
+                        )
+                        
+                        if udev_result.returncode == 0:
+                            for prop_line in udev_result.stdout.split('\n'):
+                                if prop_line.startswith('ID_SERIAL_SHORT='):
+                                    serial = prop_line.split('=')[1].strip()
+                                    if serial:
+                                        serials.append(serial)
+                                        break
+            except Exception:
+                pass
+        
+        # Sırala (tutarlılık için) ve birleştir
+        if serials:
+            serials.sort()
+            return ','.join(serials)
         
         return ''
     
