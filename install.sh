@@ -451,11 +451,6 @@ if [[ ! -f "$KIOSK_HOME/.xinitrc" ]]; then
 # Ekran ayarları
 /usr/local/bin/display-init.sh 2>/dev/null || true
 
-# D-Bus
-if [ -z "$DBUS_SESSION_BUS_ADDRESS" ]; then
-    eval $(dbus-launch --sh-syntax --exit-with-session)
-fi
-
 # Openbox başlat
 exec openbox-session
 EOF

@@ -451,6 +451,35 @@ def set_temporary_ip():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@api_bp.route('/network/reset-dhcp', methods=['POST'])
+def reset_to_dhcp():
+    """
+    DHCP'ye geri dön (Network modülünden önce kullanılır)
+    Statik IP ayarını kaldırıp DHCP'yi aktif eder
+    """
+    # Network modülü kurulduysa devre dışı
+    if config.is_module_completed('network'):
+        return jsonify({
+            'success': False,
+            'error': 'Network modülü kurulu, NetworkManager kullanın'
+        }), 400
+    
+    data = request.get_json() or {}
+    interface = data.get('interface', 'eth0')
+    
+    try:
+        system = SystemService()
+        success = system.reset_to_dhcp(interface)
+        
+        if success:
+            return jsonify({'success': True, 'message': 'DHCP aktif edildi'})
+        else:
+            return jsonify({'success': False, 'error': 'DHCP başarısız'}), 500
+            
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # =============================================================================
 # KURULUM TAMAMLA API
 # =============================================================================

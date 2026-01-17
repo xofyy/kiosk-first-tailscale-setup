@@ -68,6 +68,66 @@ class NetworkModule(BaseModule):
         except Exception:
             return False
     
+    def _get_default_interface(self) -> str:
+        """Varsayılan network interface'ini bul"""
+        result = self.run_shell(
+            "ip route | grep default | awk '{print $5}' | head -1",
+            check=False
+        )
+        interface = result.stdout.strip()
+        return interface if interface else 'eth0'
+    
+    def _wait_for_network(self, timeout: int = 60) -> bool:
+        """Ağ bağlantısı aktif olana kadar bekle"""
+        self.logger.info("Ağ bağlantısı bekleniyor...")
+        for attempt in range(timeout // 5):
+            time.sleep(5)
+            # Gateway'e ping
+            result = self.run_shell(
+                "ping -c 1 -W 2 $(ip route | grep default | awk '{print $3}' | head -1) 2>/dev/null",
+                check=False
+            )
+            if result.returncode == 0:
+                self.logger.info(f"Ağ bağlantısı aktif ({(attempt+1)*5}s)")
+                return True
+        self.logger.warning("Gateway'e ulaşılamadı")
+        return False
+    
+    def _is_fully_configured(self) -> bool:
+        """Tüm network yapılandırması tamamlanmış mı?"""
+        # NM kurulu ve aktif mi?
+        if not self._is_nm_installed() or not self._is_nm_active():
+            return False
+        
+        # cloud-init devre dışı mı?
+        if not self._is_cloud_init_disabled():
+            return False
+        
+        # Netplan doğru yapılandırılmış mı?
+        netplan_file = '/etc/netplan/01-network-manager.yaml'
+        try:
+            with open(netplan_file, 'r') as f:
+                content = f.read()
+                if 'use-dns: false' not in content:
+                    return False
+        except Exception:
+            return False
+        
+        # resolved.conf doğru mu?
+        try:
+            with open('/etc/systemd/resolved.conf', 'r') as f:
+                content = f.read()
+                if 'Domains=~.' not in content:
+                    return False
+        except Exception:
+            return False
+        
+        # networkd masked mı?
+        if not self._is_networkd_masked():
+            return False
+        
+        return True
+    
     # =========================================================================
     # YAPILANDIRMA FONKSİYONLARI
     # =========================================================================
@@ -160,6 +220,13 @@ class NetworkModule(BaseModule):
         """
         try:
             # =================================================================
+            # HIZLI KONTROL - Zaten yapılandırılmışsa atla
+            # =================================================================
+            if self._is_fully_configured():
+                self.logger.info("Network zaten yapılandırılmış ✓")
+                return True, "Network zaten yapılandırılmış"
+            
+            # =================================================================
             # 1. NetworkManager Kurulumu
             # =================================================================
             if not self._is_nm_installed():
@@ -191,16 +258,28 @@ class NetworkModule(BaseModule):
             # =================================================================
             # 4. Netplan Yapılandırma
             # =================================================================
-            if not self._is_netplan_nm_configured():
-                self.logger.info("Netplan yapılandırılıyor...")
-                netplan_content = """# Network configuration managed by NetworkManager
+            self.logger.info("Netplan yapılandırılıyor...")
+            
+            # Interface ve DNS bilgilerini al
+            interface = self._get_default_interface()
+            dns_servers = self.get_config('network.dns_servers', ['8.8.8.8', '8.8.4.4'])
+            dns_yaml = '\n'.join([f'          - {dns}' for dns in dns_servers])
+            
+            netplan_content = f"""# Network configuration managed by NetworkManager
 network:
   version: 2
   renderer: NetworkManager
+  ethernets:
+    {interface}:
+      dhcp4: true
+      dhcp4-overrides:
+        use-dns: false
+      nameservers:
+        addresses:
+{dns_yaml}
 """
-                self.write_file('/etc/netplan/01-network-manager.yaml', netplan_content)
-            else:
-                self.logger.info("Netplan zaten yapılandırılmış")
+            self.write_file('/etc/netplan/01-network-manager.yaml', netplan_content)
+            self.logger.info(f"Netplan yapılandırıldı (interface: {interface})")
             
             # =================================================================
             # 5. Eski Netplan Dosyalarını Taşı
@@ -215,6 +294,10 @@ network:
             result = self.run_command(['/usr/sbin/netplan', 'apply'], check=False)
             if result.returncode != 0:
                 self.logger.warning(f"netplan apply uyarısı: {result.stderr}")
+            
+            # Ağ stabilize olana kadar bekle
+            if not self._wait_for_network(timeout=60):
+                self.logger.warning("Ağ bağlantısı geçici olarak kesilmiş olabilir")
             
             # =================================================================
             # 7. systemd-networkd-wait-online MASK
@@ -250,6 +333,7 @@ DNSStubListener=yes
             
             # systemd-resolved yeniden başlat
             self.systemctl('restart', 'systemd-resolved')
+            time.sleep(3)  # DNS servisinin hazır olması için
             
             # =================================================================
             # 10. DNS Doğrulama
@@ -272,6 +356,7 @@ DNSStubListener=yes
             # 12. nmcli Bağlantı Yenileme
             # =================================================================
             self._refresh_nm_connection()
+            time.sleep(5)  # Bağlantının stabilize olması için
             
             # =================================================================
             # 13. Son Kontrol

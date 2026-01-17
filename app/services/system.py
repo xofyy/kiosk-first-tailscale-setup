@@ -253,3 +253,43 @@ class SystemService:
     def _netmask_to_cidr(self, netmask: str) -> int:
         """Netmask'i CIDR notasyonuna çevir"""
         return sum([bin(int(x)).count('1') for x in netmask.split('.')])
+    
+    def reset_to_dhcp(self, interface: str) -> bool:
+        """
+        DHCP'ye geri dön.
+        Statik IP ayarını kaldırıp DHCP client'ı yeniden başlatır.
+        """
+        try:
+            # IP'leri temizle
+            subprocess.run(
+                ['ip', 'addr', 'flush', 'dev', interface],
+                check=True,
+                timeout=10
+            )
+            
+            # Default route'u temizle
+            subprocess.run(
+                ['ip', 'route', 'del', 'default'],
+                check=False,  # Route yoksa hata verebilir
+                timeout=10
+            )
+            
+            # DHCP client'ı release et
+            subprocess.run(
+                ['dhclient', '-r', interface],
+                check=False,
+                timeout=10
+            )
+            
+            # DHCP client'ı yeniden başlat
+            subprocess.run(
+                ['dhclient', interface],
+                check=True,
+                timeout=30
+            )
+            
+            return True
+            
+        except Exception as e:
+            print(f"DHCP hatası: {e}")
+            return False

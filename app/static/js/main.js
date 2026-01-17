@@ -276,6 +276,39 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    
+    // DHCP Reset Button Handler
+    const dhcpResetBtn = document.getElementById('dhcp-reset-btn');
+    if (dhcpResetBtn) {
+        dhcpResetBtn.addEventListener('click', async () => {
+            const interfaceSelect = document.querySelector('#temp-ip-form select[name="interface"]');
+            const iface = interfaceSelect ? interfaceSelect.value : 'eth0';
+            
+            if (!confirm('DHCP\'ye dönmek istediğinize emin misiniz?\n\nBu işlem mevcut IP ayarlarını kaldıracak ve DHCP\'den yeni IP alacaktır.')) {
+                return;
+            }
+            
+            dhcpResetBtn.disabled = true;
+            dhcpResetBtn.textContent = 'Bekleniyor...';
+            
+            try {
+                const result = await api.post('/network/reset-dhcp', { interface: iface });
+                
+                if (result.success) {
+                    showToast('DHCP aktif edildi, sayfa yenileniyor...', 'success');
+                    setTimeout(() => location.reload(), 3000);
+                } else {
+                    showToast(result.error || 'DHCP hatası', 'error');
+                    dhcpResetBtn.disabled = false;
+                    dhcpResetBtn.textContent = 'DHCP\'ye Dön';
+                }
+            } catch (error) {
+                showToast('DHCP hatası', 'error');
+                dhcpResetBtn.disabled = false;
+                dhcpResetBtn.textContent = 'DHCP\'ye Dön';
+            }
+        });
+    }
 });
 
 // =============================================================================
