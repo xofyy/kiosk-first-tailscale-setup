@@ -1,0 +1,124 @@
+# ==========================
+# Python
+# ==========================
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv/
+
+# ==========================
+# Flask
+# ==========================
+instance/
+.webassets-cache
+
+# ==========================
+# IDE / Editor
+# ==========================
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.pydevproject
+.settings/
+*.sublime-project
+*.sublime-workspace
+.cursor/
+
+# ==========================
+# OS Generated
+# ==========================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ==========================
+# Logs
+# ==========================
+*.log
+logs/
+log/
+
+# ==========================
+# Test / Coverage
+# ==========================
+.tox/
+.coverage
+.coverage.*
+htmlcov/
+.pytest_cache/
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+
+# ==========================
+# Project Specific
+# ==========================
+# Local config (contains secrets like registry passwords)
+config/config.yaml
+config/local.yaml
+
+# Runtime files
+*.pid
+*.sock
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+*.backup
+
+# SSH keys (if accidentally placed here)
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Database files
+*.db
+*.sqlite
+*.sqlite3
+
+# ==========================
+# Docker (local testing)
+# ==========================
+docker-compose.override.yml
+.docker/
+
+# ==========================
+# Node (if any frontend tooling)
+# ==========================
+node_modules/
+npm-debug.log
+yarn-error.log

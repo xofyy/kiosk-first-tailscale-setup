@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Loglar - Kiosk Setup Panel{% endblock %}
+
+{% block content %}
+<div class="logs-page">
+    <div class="logs-header">
+        <h2 class="page-title">Sistem Logları</h2>
+        <div class="logs-actions">
+            <select id="module-select" class="select-input" onchange="changeModule(this.value)">
+                <option value="">Tüm Loglar (main.log)</option>
+                {% for mod in available_modules %}
+                <option value="{{ mod }}" {% if mod == current_module %}selected{% endif %}>
+                    {{ mod | capitalize }}
+                </option>
+                {% endfor %}
+            </select>
+            <button class="btn btn-secondary" onclick="refreshLogs()">Yenile</button>
+            <label class="checkbox-label">
+                <input type="checkbox" id="auto-refresh" checked>
+                Otomatik yenile
+            </label>
+            <label class="checkbox-label">
+                <input type="checkbox" id="auto-scroll" checked>
+                Otomatik kaydır
+            </label>
+        </div>
+    </div>
+    
+    <div class="logs-container" id="logs-container">
+        <pre class="logs-content" id="logs-content">{% for line in logs %}{{ line }}{% endfor %}</pre>
+    </div>
+    
+    <div class="logs-footer">
+        <span id="log-status">{{ logs|length }} satır gösteriliyor</span>
+        <span id="last-update">Son güncelleme: şimdi</span>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    const container = document.getElementById('logs-container');
+    const logsContent = document.getElementById('logs-content');
+    const autoScroll = document.getElementById('auto-scroll');
+    const autoRefresh = document.getElementById('auto-refresh');
+    const logStatus = document.getElementById('log-status');
+    const lastUpdate = document.getElementById('last-update');
+    
+    // Mevcut modül
+    let currentModule = '{{ current_module }}';
+    
+    // Sayfa yüklendiğinde scroll
+    if (autoScroll.checked) {
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    // Modül değiştir
+    function changeModule(moduleName) {
+        currentModule = moduleName;
+        const url = moduleName ? `/logs?module=${moduleName}` : '/logs';
+        window.location.href = url;
+    }
+    
+    // Log'ları yenile (AJAX)
+    async function refreshLogs() {
+        try {
+            const url = currentModule 
+                ? `/api/modules/${currentModule}/logs?lines=200`
+                : '/logs';
+            
+            if (currentModule) {
+                // API'den al (JSON)
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.logs) {
+                    logsContent.textContent = data.logs.join('\n');
+                    logStatus.textContent = `${data.logs.length} satır gösteriliyor`;
+                }
+            } else {
+                // HTML sayfasından al
+                const response = await fetch(url);
+                const html = await response.text();
+                const parser = new DOMParser();
+                const doc = parser.parseFromString(html, 'text/html');
+                const newContent = doc.querySelector('.logs-content');
+                
+                if (newContent) {
+                    logsContent.innerHTML = newContent.innerHTML;
+                }
+            }
+            
+            // Scroll
+            if (autoScroll.checked) {
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            // Update time
+            const now = new Date();
+            lastUpdate.textContent = `Son güncelleme: ${now.toLocaleTimeString('tr-TR')}`;
+            
+        } catch (error) {
+            console.error('Log yenileme hatası:', error);
+        }
+    }
+    
+    // Otomatik yenileme (3 saniyede bir)
+    let refreshInterval = null;
+    
+    function startAutoRefresh() {
+        if (refreshInterval) return;
+        refreshInterval = setInterval(() => {
+            if (document.hidden) return;
+            if (!autoRefresh.checked) return;
+            refreshLogs();
+        }, 3000);
+    }
+    
+    function stopAutoRefresh() {
+        if (refreshInterval) {
+            clearInterval(refreshInterval);
+            refreshInterval = null;
+        }
+    }
+    
+    // Checkbox event listener
+    autoRefresh.addEventListener('change', (e) => {
+        if (e.target.checked) {
+            startAutoRefresh();
+        } else {
+            stopAutoRefresh();
+        }
+    });
+    
+    // Sayfa görünürlük değişince
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopAutoRefresh();
+        } else if (autoRefresh.checked) {
+            startAutoRefresh();
+            refreshLogs(); // Hemen bir kere yenile
+        }
+    });
+    
+    // Başlat
+    if (autoRefresh.checked) {
+        startAutoRefresh();
+    }
+</script>
+{% endblock %}

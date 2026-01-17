@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block title %}{{ module.display_name }} - Kiosk Setup Panel{% endblock %}
+
+{% block content %}
+<div class="module-detail-page">
+    <a href="{{ url_for('pages.index') }}" class="back-link">← Geri</a>
+    
+    <div class="module-detail-card">
+        <div class="module-detail-header">
+            <span class="module-order-badge">{{ module.order }}</span>
+            <h2>{{ module.display_name }}</h2>
+        </div>
+        
+        <p class="module-description">{{ module.description }}</p>
+        
+        <div class="module-meta">
+            {% if module.dependencies %}
+            <div class="meta-item">
+                <strong>Bağımlılıklar:</strong>
+                <span>{{ module.dependencies | join(', ') }}</span>
+            </div>
+            {% endif %}
+            
+            <div class="meta-item">
+                <strong>Durum:</strong>
+                {% if status == 'completed' %}
+                <span class="status-badge success">Tamamlandı</span>
+                {% elif status == 'installing' %}
+                <span class="status-badge warning">Kuruluyor</span>
+                {% elif status == 'failed' %}
+                <span class="status-badge error">Hata</span>
+                {% elif status == 'reboot_required' %}
+                <span class="status-badge info">Reboot Gerekli</span>
+                {% elif status == 'mok_pending' %}
+                <span class="status-badge info">MOK Onayı Bekliyor</span>
+                {% else %}
+                <span class="status-badge">Bekliyor</span>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="module-actions">
+            {% if status == 'completed' %}
+            <button class="btn btn-secondary" disabled>Kurulum Tamamlandı</button>
+            {% elif status == 'installing' %}
+            <button class="btn btn-secondary" disabled>
+                <span class="spinner"></span> Kuruluyor...
+            </button>
+            {% elif status == 'reboot_required' or status == 'mok_pending' %}
+            <button class="btn btn-warning btn-lg btn-reboot" onclick="rebootSystem()">
+                Sistemi Yeniden Başlat
+            </button>
+            {% else %}
+            <button class="btn btn-primary btn-lg" onclick="installModule('{{ module.name }}')">
+                Kurulumu Başlat
+            </button>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modules.js') }}"></script>
+{% endblock %}

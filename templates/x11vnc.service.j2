@@ -1,0 +1,17 @@
+# Kiosk Setup Panel - x11vnc Service
+# Generated automatically - do not edit manually
+
+[Unit]
+Description=x11vnc VNC Server
+After=display-manager.service network.target
+
+[Service]
+Type=simple
+User={{ kiosk_user }}
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/x11vnc -display :0 -forever -shared {{ '-localhost' if localhost_only else '' }} -rfbport {{ vnc_port }} {{ '-rfbauth ' + vnc_passwd_file if vnc_password else '' }} -noxdamage
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
