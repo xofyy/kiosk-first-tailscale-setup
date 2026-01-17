@@ -58,6 +58,55 @@ EndSection
         self.write_file(conf_path, touch_conf)
         self.logger.info("Touch config güncellendi")
     
+    def _set_kiosk_password(self, password: str) -> bool:
+        """
+        Kiosk kullanıcı şifresini ayarla
+        Birden fazla yöntem deneyerek hata toleranslı çalışır
+        """
+        if not password:
+            self.logger.warning("Kiosk şifresi belirtilmemiş!")
+            return True  # Şifre yoksa hata değil, devam et
+        
+        self.logger.info("Kiosk kullanıcı şifresi ayarlanıyor...")
+        
+        # Yöntem 1: chpasswd (tercih edilen, hızlı)
+        if os.path.exists('/usr/sbin/chpasswd'):
+            result = self.run_shell(
+                f'echo "kiosk:{password}" | /usr/sbin/chpasswd',
+                check=False
+            )
+            if result.returncode == 0:
+                self.logger.info("Şifre ayarlandı (chpasswd)")
+                return True
+            self.logger.warning(f"chpasswd başarısız: {result.stderr}")
+        
+        # Yöntem 2: passwd paketi kur ve tekrar dene
+        self.logger.info("chpasswd bulunamadı, passwd paketi kuruluyor...")
+        self.apt_install(['passwd'])
+        
+        if os.path.exists('/usr/sbin/chpasswd'):
+            result = self.run_shell(
+                f'echo "kiosk:{password}" | /usr/sbin/chpasswd',
+                check=False
+            )
+            if result.returncode == 0:
+                self.logger.info("Şifre ayarlandı (chpasswd)")
+                return True
+            self.logger.warning(f"chpasswd tekrar başarısız: {result.stderr}")
+        
+        # Yöntem 3: openssl + usermod (fallback)
+        self.logger.info("Alternatif yöntem deneniyor (usermod)...")
+        result = self.run_shell(
+            f'usermod --password $(openssl passwd -6 "{password}") kiosk',
+            check=False
+        )
+        if result.returncode == 0:
+            self.logger.info("Şifre ayarlandı (usermod)")
+            return True
+        
+        self.logger.error(f"Şifre ayarlanamadı! Son hata: {result.stderr}")
+        return False
+    
     def install(self) -> Tuple[bool, str]:
         """
         Kiosk yapılandırması
@@ -76,11 +125,8 @@ EndSection
             # =================================================================
             kiosk_password = self.get_config('passwords.kiosk', '')
             
-            if kiosk_password:
-                self.logger.info("Kiosk kullanıcı şifresi ayarlanıyor...")
-                self.run_shell(f'echo "kiosk:{kiosk_password}" | chpasswd')
-            else:
-                self.logger.warning("Kiosk kullanıcı şifresi belirtilmemiş! SSH erişimi için şifre gerekli.")
+            if not self._set_kiosk_password(kiosk_password):
+                return False, "Kiosk şifresi ayarlanamadı"
             
             # =================================================================
             # 2. GRUB Rotation (console için)

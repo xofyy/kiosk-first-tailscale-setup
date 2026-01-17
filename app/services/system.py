@@ -215,6 +215,10 @@ class SystemService:
         Bu ayar NetworkManager kurulana kadar geçerlidir.
         """
         try:
+            # Önce dhclient'i durdur (yoksa IP'yi geri alır)
+            subprocess.run(['dhclient', '-r', interface], check=False)
+            subprocess.run(['pkill', '-f', f'dhclient.*{interface}'], check=False)
+            
             # IP ayarla
             subprocess.run(
                 ['ip', 'addr', 'flush', 'dev', interface],

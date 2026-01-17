@@ -6,6 +6,8 @@ Merkezi ayar yönetimi modülü
 import os
 import logging
 import yaml
+import tempfile
+import shutil
 from typing import Any, Dict, Optional
 from pathlib import Path
 
@@ -67,9 +69,9 @@ class Config:
             self._config = old_config
     
     def save(self) -> bool:
-        """Config'i dosyaya kaydet (güvenli - boş config kaydetmez)"""
+        """Config'i dosyaya kaydet (atomic write - race condition önlenir)"""
         try:
-            # Boş veya çok küçük config kaydetme (güvenlik)
+            # Validasyonlar
             if not self._config:
                 logger.error("Config kaydetme ENGELLENDI: config boş!")
                 return False
@@ -78,19 +80,36 @@ class Config:
                 logger.error(f"Config kaydetme ENGELLENDI: config çok küçük (keys: {list(self._config.keys())})")
                 return False
             
-            # modules bölümü olmalı
             if 'modules' not in self._config:
                 logger.error("Config kaydetme ENGELLENDI: 'modules' bölümü eksik!")
                 return False
             
             # Dizini oluştur
-            os.makedirs(os.path.dirname(CONFIG_FILE), exist_ok=True)
+            dir_name = os.path.dirname(CONFIG_FILE)
+            os.makedirs(dir_name, exist_ok=True)
             
-            with open(CONFIG_FILE, 'w') as f:
-                yaml.dump(self._config, f, default_flow_style=False, allow_unicode=True)
-            
-            logger.debug(f"Config kaydedildi ({len(self._config)} bölüm)")
-            return True
+            # 1. Geçici dosyaya yaz
+            fd, tmp_path = tempfile.mkstemp(dir=dir_name, suffix='.yaml')
+            try:
+                with os.fdopen(fd, 'w') as f:
+                    yaml.dump(self._config, f, default_flow_style=False, allow_unicode=True)
+                
+                # 2. Backup oluştur
+                if os.path.exists(CONFIG_FILE):
+                    shutil.copy(CONFIG_FILE, CONFIG_FILE + '.bak')
+                
+                # 3. Atomic rename
+                os.rename(tmp_path, CONFIG_FILE)
+                
+                logger.debug(f"Config kaydedildi ({len(self._config)} bölüm)")
+                return True
+                
+            except Exception:
+                # Hata durumunda geçici dosyayı sil
+                if os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+                raise
+                
         except Exception as e:
             logger.exception(f"Config kaydetme HATASI: {e}")
             return False

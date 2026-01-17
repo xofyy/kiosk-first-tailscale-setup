@@ -3,6 +3,8 @@ Kiosk Setup Panel - Page Routes
 HTML sayfa endpoint'leri
 """
 
+import os
+
 from flask import Blueprint, render_template, redirect, url_for
 
 from app.config import config
@@ -15,7 +17,7 @@ pages_bp = Blueprint('pages', __name__)
 @pages_bp.route('/')
 def index():
     """Ana sayfa - Kurulum paneli"""
-    config.reload()  # Güncel config'i oku (multi-worker cache sorunu için)
+    # config.reload() kaldırıldı - atomic write sayesinde gerek yok
     
     # Sistem bilgilerini al (internet kontrolü YAPMADAN - hızlı sayfa yüklemesi için)
     # Internet bilgileri JavaScript ile async olarak güncellenir (main.js)
@@ -110,8 +112,8 @@ def services():
         if not status.get('internal', False)
     }
     
-    # Nginx modülü kurulu mu?
-    nginx_installed = config.is_module_completed('nginx')
+    # Nginx kurulu mu? (paket bazlı veya modül bazlı)
+    nginx_installed = os.path.exists('/usr/sbin/nginx') or config.is_module_completed('nginx')
     
     return render_template(
         'services.html',
