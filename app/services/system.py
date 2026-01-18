@@ -242,10 +242,12 @@ class SystemService:
         # 3. UYGULA - Sırayla işlemleri yap
         try:
             # DHCP'yi durdur (varsa, hata vermez)
-            subprocess.run(
-                ['dhclient', '-r', interface],
-                check=False, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, timeout=10
-            )
+            dhclient = self._find_dhclient()
+            if dhclient:
+                subprocess.run(
+                    [dhclient, '-r', interface],
+                    check=False, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, timeout=10
+                )
             subprocess.run(
                 ['pkill', '-f', f'dhclient.*{interface}'],
                 check=False, stderr=subprocess.DEVNULL, timeout=5
