@@ -49,18 +49,19 @@ class CollectorModule(BaseModule):
             ])
             
             # 4. pip, setuptools, wheel güncelle (UNKNOWN sorunu için şart)
+            # NOT: /usr/bin/pip3 kullanıyoruz çünkü panel virtualenv içinde çalışıyor
             self.logger.info("pip, setuptools, wheel güncelleniyor...")
-            self.run_shell('pip3 install --upgrade pip setuptools wheel')
+            self.run_shell('/usr/bin/pip3 install --upgrade pip setuptools wheel')
             
             # 5. UNKNOWN paketini kaldır (varsa)
-            self.run_shell('pip3 uninstall -y UNKNOWN 2>/dev/null || true')
+            self.run_shell('/usr/bin/pip3 uninstall -y UNKNOWN 2>/dev/null || true')
             
             # 6. Build cache temizle (tüm egg-info dizinleri dahil)
             self.run_shell(f'rm -rf {collector_dir}/build {collector_dir}/*.egg-info')
             
             # 7. collector-agent'ı pip ile kur
             self.logger.info("collector-agent paketi kuruluyor...")
-            self.run_shell(f'cd {collector_dir} && pip3 install --no-cache-dir --force-reinstall .')
+            self.run_shell(f'cd {collector_dir} && /usr/bin/pip3 install --no-cache-dir --force-reinstall .')
             
             # 8. Config dizini ve dosyası oluştur
             interval = self.get_config('collector.interval', 30)

@@ -42,18 +42,19 @@ class NetmonModule(BaseModule):
             ])
             
             # 3. pip, setuptools, wheel güncelle (UNKNOWN sorunu için şart)
+            # NOT: /usr/bin/pip3 kullanıyoruz çünkü panel virtualenv içinde çalışıyor
             self.logger.info("pip, setuptools, wheel güncelleniyor...")
-            self.run_shell('pip3 install --upgrade pip setuptools wheel')
+            self.run_shell('/usr/bin/pip3 install --upgrade pip setuptools wheel')
             
             # 4. UNKNOWN paketini kaldır (varsa)
-            self.run_shell('pip3 uninstall -y UNKNOWN 2>/dev/null || true')
+            self.run_shell('/usr/bin/pip3 uninstall -y UNKNOWN 2>/dev/null || true')
             
             # 5. Build cache temizle (tüm egg-info dizinleri dahil)
             self.run_shell(f'rm -rf {netmon_dir}/build {netmon_dir}/*.egg-info')
             
             # 6. netmon'u pip ile kur (CLI aracını oluşturur: /usr/local/bin/netmon)
             self.logger.info("netmon paketi kuruluyor...")
-            self.run_shell(f'cd {netmon_dir} && pip3 install --no-cache-dir --force-reinstall .')
+            self.run_shell(f'cd {netmon_dir} && /usr/bin/pip3 install --no-cache-dir --force-reinstall .')
             
             # 7. Config dosyası oluştur
             db_write_interval = self.get_config('netmon.db_write_interval', 300)
