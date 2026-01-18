@@ -440,12 +440,12 @@ def set_temporary_ip():
     
     try:
         system = SystemService()
-        success = system.set_temporary_ip(interface, ip, netmask, gateway, dns)
+        result = system.set_temporary_ip(interface, ip, netmask, gateway, dns)
         
-        if success:
+        if result['success']:
             return jsonify({'success': True, 'message': 'IP ayarlandı'})
         else:
-            return jsonify({'success': False, 'error': 'IP ayarlanamadı'}), 500
+            return jsonify(result), 400
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
@@ -469,12 +469,12 @@ def reset_to_dhcp():
     
     try:
         system = SystemService()
-        success = system.reset_to_dhcp(interface)
+        result = system.reset_to_dhcp(interface)
         
-        if success:
+        if result['success']:
             return jsonify({'success': True, 'message': 'DHCP aktif edildi'})
         else:
-            return jsonify({'success': False, 'error': 'DHCP başarısız'}), 500
+            return jsonify(result), 400
             
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500

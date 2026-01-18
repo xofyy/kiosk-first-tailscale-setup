@@ -6,6 +6,7 @@ Sistem bilgileri ve yardımcı fonksiyonlar
 import subprocess
 import socket
 import os
+import ipaddress
 from typing import Dict, Any, Optional
 
 
@@ -209,91 +210,196 @@ class SystemService:
         netmask: str,
         gateway: str,
         dns: str
-    ) -> bool:
+    ) -> dict:
         """
-        Geçici statik IP ayarla.
+        Geçici statik IP ayarla - korumalı versiyon.
         Bu ayar NetworkManager kurulana kadar geçerlidir.
+        
+        Returns: {'success': bool, 'error': str|None}
         """
+        
+        # 1. VALIDATION - Önce kontrol et, sonra uygula
+        
+        # Interface var mı?
+        if not os.path.exists(f'/sys/class/net/{interface}'):
+            return {'success': False, 'error': f'Interface bulunamadı: {interface}'}
+        
+        # IP formatı geçerli mi?
         try:
-            # Önce dhclient'i durdur (yoksa IP'yi geri alır)
-            subprocess.run(['dhclient', '-r', interface], check=False)
-            subprocess.run(['pkill', '-f', f'dhclient.*{interface}'], check=False)
+            ip_obj = ipaddress.ip_address(ip)
+            gw_obj = ipaddress.ip_address(gateway)
+            network = ipaddress.ip_network(f"{ip}/{netmask}", strict=False)
+        except ValueError as e:
+            return {'success': False, 'error': f'Geçersiz IP formatı: {e}'}
+        
+        # Gateway aynı subnet'te mi?
+        if gw_obj not in network:
+            return {'success': False, 'error': f"Gateway ({gateway}) IP subnet'inde değil"}
+        
+        # 2. BACKUP - Mevcut durumu kaydet
+        backup = self._backup_network_state(interface)
+        
+        # 3. UYGULA - Sırayla işlemleri yap
+        try:
+            # DHCP'yi durdur (varsa, hata vermez)
+            subprocess.run(
+                ['dhclient', '-r', interface],
+                check=False, stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL, timeout=10
+            )
+            subprocess.run(
+                ['pkill', '-f', f'dhclient.*{interface}'],
+                check=False, stderr=subprocess.DEVNULL, timeout=5
+            )
             
-            # IP ayarla
+            # Mevcut IP'yi temizle
             subprocess.run(
                 ['ip', 'addr', 'flush', 'dev', interface],
-                check=True
+                check=True, timeout=10
             )
             
-            # CIDR hesapla
+            # Yeni IP ekle
             cidr = self._netmask_to_cidr(netmask)
-            
             subprocess.run(
                 ['ip', 'addr', 'add', f'{ip}/{cidr}', 'dev', interface],
-                check=True
+                check=True, timeout=10
             )
-            
             subprocess.run(
                 ['ip', 'link', 'set', interface, 'up'],
-                check=True
+                check=True, timeout=10
             )
             
-            # Gateway ayarla
+            # ÖNCE mevcut route'u sil, SONRA yenisini ekle
+            subprocess.run(
+                ['ip', 'route', 'del', 'default'],
+                check=False, stderr=subprocess.DEVNULL, timeout=10
+            )
             subprocess.run(
                 ['ip', 'route', 'add', 'default', 'via', gateway],
-                check=False  # Zaten varsa hata verebilir
+                check=True, timeout=10
             )
             
-            # DNS ayarla (geçici)
+            # DNS ayarla
             with open('/etc/resolv.conf', 'w') as f:
                 f.write(f"nameserver {dns}\n")
             
-            return True
+            return {'success': True, 'error': None}
             
-        except Exception as e:
-            print(f"IP ayarlama hatası: {e}")
-            return False
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
+            # 4. ROLLBACK - Hata durumunda geri al
+            error_msg = f"IP ayarlama hatası: {e}"
+            rollback_ok = self._rollback_network(interface, backup)
+            
+            if rollback_ok:
+                return {'success': False, 'error': f'{error_msg} (eski ayarlar geri yüklendi)'}
+            else:
+                return {'success': False, 'error': f'{error_msg} (UYARI: Geri yükleme başarısız!)'}
     
     def _netmask_to_cidr(self, netmask: str) -> int:
         """Netmask'i CIDR notasyonuna çevir"""
         return sum([bin(int(x)).count('1') for x in netmask.split('.')])
     
-    def reset_to_dhcp(self, interface: str) -> bool:
+    def reset_to_dhcp(self, interface: str) -> dict:
         """
-        DHCP'ye geri dön.
+        DHCP'ye geri dön - korumalı versiyon.
         Statik IP ayarını kaldırıp DHCP client'ı yeniden başlatır.
+        
+        Returns: {'success': bool, 'error': str|None}
         """
+        
+        # Interface kontrolü
+        if not os.path.exists(f'/sys/class/net/{interface}'):
+            return {'success': False, 'error': f'Interface bulunamadı: {interface}'}
+        
+        # dhclient kontrolü - ÖNCE kontrol et, yoksa hiçbir şey yapma!
+        dhclient = self._find_dhclient()
+        if not dhclient:
+            return {'success': False, 'error': 'dhclient bulunamadı! isc-dhcp-client paketi gerekli.'}
+        
         try:
-            # IP'leri temizle
+            # IP temizle
             subprocess.run(
                 ['ip', 'addr', 'flush', 'dev', interface],
-                check=True,
-                timeout=10
+                check=True, timeout=10
             )
             
-            # Default route'u temizle
+            # Route temizle
             subprocess.run(
                 ['ip', 'route', 'del', 'default'],
-                check=False,  # Route yoksa hata verebilir
-                timeout=10
+                check=False, stderr=subprocess.DEVNULL, timeout=10
             )
             
-            # DHCP client'ı release et
+            # DHCP release
             subprocess.run(
-                ['dhclient', '-r', interface],
-                check=False,
-                timeout=10
+                [dhclient, '-r', interface],
+                check=False, timeout=10
             )
             
-            # DHCP client'ı yeniden başlat
+            # DHCP başlat
             subprocess.run(
-                ['dhclient', interface],
-                check=True,
-                timeout=30
+                [dhclient, interface],
+                check=True, timeout=30
             )
             
-            return True
+            return {'success': True, 'error': None}
             
-        except Exception as e:
-            print(f"DHCP hatası: {e}")
+        except subprocess.CalledProcessError as e:
+            return {'success': False, 'error': f'DHCP hatası: {e}'}
+        except subprocess.TimeoutExpired:
+            return {'success': False, 'error': 'DHCP zaman aşımı (30s)'}
+    
+    def _backup_network_state(self, interface: str) -> dict:
+        """Mevcut ağ durumunu yedekle"""
+        backup = {}
+        try:
+            # Mevcut IP bilgisi
+            result = subprocess.run(
+                ['ip', '-4', 'addr', 'show', interface],
+                capture_output=True, text=True, timeout=5
+            )
+            backup['ip_info'] = result.stdout
+            
+            # Mevcut default route
+            result = subprocess.run(
+                ['ip', 'route', 'show', 'default'],
+                capture_output=True, text=True, timeout=5
+            )
+            backup['default_route'] = result.stdout.strip()
+            
+            # Mevcut DNS
+            if os.path.exists('/etc/resolv.conf'):
+                with open('/etc/resolv.conf', 'r') as f:
+                    backup['dns'] = f.read()
+        except Exception:
+            pass
+        return backup
+    
+    def _rollback_network(self, interface: str, backup: dict) -> bool:
+        """Ağ yapılandırmasını geri yükle (DHCP ile)"""
+        try:
+            # DNS'i geri yükle
+            if 'dns' in backup:
+                with open('/etc/resolv.conf', 'w') as f:
+                    f.write(backup['dns'])
+            
+            # dhclient ile yeniden IP al (en güvenli yol)
+            dhclient = self._find_dhclient()
+            
+            if dhclient:
+                subprocess.run(
+                    ['ip', 'addr', 'flush', 'dev', interface],
+                    check=False, timeout=10
+                )
+                subprocess.run(
+                    [dhclient, interface],
+                    check=True, timeout=30
+                )
+                return True
+            
             return False
+        except Exception:
+            return False
+    
+    def _find_dhclient(self) -> Optional[str]:
+        """dhclient binary'sini bul"""
+        paths = ['/sbin/dhclient', '/usr/sbin/dhclient']
+        return next((p for p in paths if os.path.exists(p)), None)

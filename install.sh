@@ -124,6 +124,7 @@ PACKAGES=(
     
     # Network araçları
     net-tools
+    isc-dhcp-client
     iputils-ping
 )
 
@@ -543,7 +544,7 @@ echo "  - Yerel: http://localhost:8080"
 echo "  - Ağdan: http://$(hostname -I | awk '{print $1}'):8080"
 echo ""
 echo -e "${CYAN}Sonraki Adımlar:${NC}"
-echo "  1. Sistemi yeniden başlatın: ${YELLOW}sudo reboot${NC}"
+echo -e "  1. Sistemi yeniden başlatın: ${YELLOW}sudo reboot${NC}"
 echo "  2. Panel otomatik olarak açılacak"
 echo "  3. Modülleri sırasıyla kurun"
 echo ""
