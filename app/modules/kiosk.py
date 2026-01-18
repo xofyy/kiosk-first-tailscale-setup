@@ -27,13 +27,16 @@ class KioskModule(BaseModule):
     order = 6
     dependencies = ["cockpit"]
     
-    def _configure_touch(self, vendor_id: str, matrix: str) -> None:
+    def _configure_touch(self, vendor_id: str, matrix: str) -> bool:
         """
         Xorg touch config dosyasını güncelle (idempotent)
         
         Args:
             vendor_id: Touch cihazının USB vendor:product ID'si (örn: 222a:0001)
             matrix: TransformationMatrix değeri (örn: 0 1 0 -1 0 1 0 0 1)
+        
+        Returns:
+            bool: Başarılı mı
         """
         touch_conf = f'''Section "InputClass"
     Identifier "Touchscreen Rotation"
@@ -46,17 +49,24 @@ EndSection
         
         # İdempotent: Sadece değişiklik varsa yaz
         if os.path.exists(conf_path):
-            with open(conf_path) as f:
-                if f.read().strip() == touch_conf.strip():
-                    self.logger.info("Touch config zaten güncel")
-                    return
+            try:
+                with open(conf_path) as f:
+                    if f.read().strip() == touch_conf.strip():
+                        self.logger.info("Touch config zaten güncel")
+                        return True
+            except IOError as e:
+                self.logger.warning(f"Mevcut touch config okunamadı: {e}")
         
         # Dizini oluştur
         os.makedirs('/etc/X11/xorg.conf.d', exist_ok=True)
         
         # Config dosyasını yaz
-        self.write_file(conf_path, touch_conf)
+        if not self.write_file(conf_path, touch_conf):
+            self.logger.warning("Touch config yazılamadı")
+            return False
+        
         self.logger.info("Touch config güncellendi")
+        return True
     
     def _set_kiosk_password(self, password: str) -> bool:
         """
@@ -133,7 +143,8 @@ EndSection
             # =================================================================
             grub_rotation = self.get_config('kiosk.grub_rotation', 1)
             self.logger.info(f"GRUB rotation ayarlanıyor: {grub_rotation}")
-            self.configure_grub({'grub_rotation': grub_rotation})
+            if not self.configure_grub({'grub_rotation': grub_rotation}):
+                self.logger.warning("GRUB rotation ayarlanamadı")
             
             # =================================================================
             # 3. Touch Matrix - Xorg Config
@@ -141,7 +152,8 @@ EndSection
             touch_vendor = self.get_config('kiosk.touch_vendor_id', '222a:0001')
             touch_matrix = self.get_config('kiosk.touch_matrix', '0 1 0 -1 0 1 0 0 1')
             self.logger.info(f"Touch config ayarlanıyor: {touch_vendor}")
-            self._configure_touch(touch_vendor, touch_matrix)
+            if not self._configure_touch(touch_vendor, touch_matrix):
+                self.logger.warning("Touch config ayarlanamadı")
             
             # =================================================================
             # 4. Bilgilendirme

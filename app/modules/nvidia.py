@@ -17,7 +17,7 @@ from typing import Tuple
 from app.modules import register_module
 from app.modules.base import BaseModule
 from app.services.system import SystemService
-from app.config import config
+# DIP: Global config import kaldırıldı, self._config kullanılıyor
 
 
 @register_module
@@ -154,7 +154,7 @@ class NvidiaModule(BaseModule):
         6. Secure Boot yoksa → reboot_required
         """
         driver_version = self.get_config('nvidia.driver_version', '535')
-        current_status = config.get_module_status(self.name)
+        current_status = self._config.get_module_status(self.name)
         
         # =====================================================================
         # 1. GPU Kontrolü
@@ -189,7 +189,7 @@ class NvidiaModule(BaseModule):
             # Hala çalışmıyor - MOK onayı yapılmamış
             self.logger.warning("MOK onayı hala bekleniyor")
             # Status'u mok_pending olarak bırak
-            config.set_module_status(self.name, 'mok_pending')
+            self._config.set_module_status(self.name, 'mok_pending')
             return False, "MOK onayı bekleniyor. Reboot yapın ve mavi ekranda 'Enroll MOK' seçin. Şifre: " + self.get_config('passwords.mok', '12345678')
         
         # =====================================================================
@@ -204,7 +204,7 @@ class NvidiaModule(BaseModule):
             
             # Hala çalışmıyor - reboot yapılmamış
             self.logger.warning("Reboot henüz yapılmamış")
-            config.set_module_status(self.name, 'reboot_required')
+            self._config.set_module_status(self.name, 'reboot_required')
             return False, "Değişikliklerin uygulanması için sistem yeniden başlatılmalı"
         
         # =====================================================================
@@ -226,12 +226,14 @@ class NvidiaModule(BaseModule):
         # =====================================================================
         # 6. GRUB Yapılandırması (quiet splash + nvidia modeset)
         # =====================================================================
-        self.configure_grub({'nvidia_modeset': True})
+        if not self.configure_grub({'nvidia_modeset': True}):
+            self.logger.warning("GRUB yapılandırması başarısız")
         
         # =====================================================================
         # 7. nvidia-persistenced Servisi
         # =====================================================================
-        self.systemctl('enable', 'nvidia-persistenced')
+        if not self.systemctl('enable', 'nvidia-persistenced'):
+            self.logger.warning("nvidia-persistenced enable edilemedi")
         
         # =====================================================================
         # 8. Secure Boot ve MOK Durumu
@@ -241,14 +243,14 @@ class NvidiaModule(BaseModule):
             
             if self._setup_mok():
                 self.logger.info("MOK kaydedildi, reboot sonrası onay gerekecek")
-                config.set_module_status(self.name, 'mok_pending')
+                self._config.set_module_status(self.name, 'mok_pending')
                 mok_password = self.get_config('passwords.mok', '12345678')
                 return False, f"NVIDIA kuruldu. Reboot sonrası mavi ekranda 'Enroll MOK' seçin. Şifre: {mok_password}"
             else:
                 self.logger.warning("MOK ayarlanamadı, yine de reboot gerekli")
-                config.set_module_status(self.name, 'reboot_required')
+                self._config.set_module_status(self.name, 'reboot_required')
                 return False, "NVIDIA kuruldu. MOK ayarlanamadı, reboot gerekli"
         else:
             self.logger.info("Secure Boot kapalı, sadece reboot gerekli")
-            config.set_module_status(self.name, 'reboot_required')
+            self._config.set_module_status(self.name, 'reboot_required')
             return False, "NVIDIA kuruldu. Değişikliklerin uygulanması için reboot gerekli"

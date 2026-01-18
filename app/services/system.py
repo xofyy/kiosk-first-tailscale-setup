@@ -3,11 +3,15 @@ Kiosk Setup Panel - System Service
 Sistem bilgileri ve yardımcı fonksiyonlar
 """
 
+import json
+import logging
 import subprocess
 import socket
 import os
 import ipaddress
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class SystemService:
@@ -52,16 +56,22 @@ class SystemService:
     
     def get_ip_address(self) -> Optional[str]:
         """Ana IP adresini al"""
+        s = None
         try:
             # Default route üzerinden IP al
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             s.settimeout(0.3)  # 300ms timeout - hızlı UI güncellemesi için
             s.connect(("8.8.8.8", 80))
-            ip = s.getsockname()[0]
-            s.close()
-            return ip
-        except Exception:
+            return s.getsockname()[0]
+        except Exception as e:
+            logger.debug(f"IP adresi alınamadı: {e}")
             return None
+        finally:
+            if s:
+                try:
+                    s.close()
+                except Exception:
+                    pass
     
     def get_tailscale_ip(self) -> Optional[str]:
         """Tailscale IP adresini al"""
@@ -74,8 +84,8 @@ class SystemService:
             )
             if result.returncode == 0:
                 return result.stdout.strip()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Tailscale IP alınamadı: {e}")
         return None
     
     def get_network_interfaces(self) -> Dict[str, Dict[str, str]]:
@@ -91,7 +101,6 @@ class SystemService:
             )
             
             if result.returncode == 0:
-                import json
                 data = json.loads(result.stdout)
                 
                 for iface in data:
@@ -115,8 +124,8 @@ class SystemService:
                         'mac': iface.get('address', 'N/A')
                     }
                     
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Network interfaces alınamadı: {e}")
         
         return interfaces
     
@@ -156,7 +165,8 @@ class SystemService:
             else:
                 return f"{minutes}d"
                 
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Uptime alınamadı: {e}")
             return "N/A"
     
     def get_memory_info(self) -> Dict[str, Any]:
@@ -182,7 +192,8 @@ class SystemService:
                 'percent': int((used / total) * 100) if total > 0 else 0
             }
             
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Memory bilgisi alınamadı: {e}")
             return {'total_mb': 0, 'used_mb': 0, 'free_mb': 0, 'percent': 0}
     
     def get_disk_info(self) -> Dict[str, Any]:
@@ -200,7 +211,8 @@ class SystemService:
                 'percent': int((used / total) * 100) if total > 0 else 0
             }
             
-        except Exception:
+        except Exception as e:
+            logger.debug(f"Disk bilgisi alınamadı: {e}")
             return {'total_gb': 0, 'used_gb': 0, 'free_gb': 0, 'percent': 0}
     
     def set_temporary_ip(
@@ -371,8 +383,8 @@ class SystemService:
             if os.path.exists('/etc/resolv.conf'):
                 with open('/etc/resolv.conf', 'r') as f:
                     backup['dns'] = f.read()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Network backup alınamadı: {e}")
         return backup
     
     def _rollback_network(self, interface: str, backup: dict) -> bool:
@@ -398,7 +410,8 @@ class SystemService:
                 return True
             
             return False
-        except Exception:
+        except Exception as e:
+            logger.warning(f"Network rollback başarısız: {e}")
             return False
     
     def _find_dhclient(self) -> Optional[str]:

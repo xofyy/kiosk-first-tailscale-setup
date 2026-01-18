@@ -3,9 +3,12 @@ Kiosk Setup Panel - Service Checker
 Servis durum kontrolü (systemd, port)
 """
 
+import logging
 import socket
 import subprocess
 from typing import Dict, Any, Optional
+
+logger = logging.getLogger(__name__)
 
 
 def check_systemd_service(service_name: str) -> bool:
@@ -26,7 +29,8 @@ def check_systemd_service(service_name: str) -> bool:
             timeout=5
         )
         return result.returncode == 0
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Systemd servis kontrolü başarısız ({service_name}): {e}")
         return False
 
 
@@ -42,14 +46,21 @@ def check_port_open(port: int, host: str = '127.0.0.1', timeout: float = 2.0) ->
     Returns:
         bool: Port açık mı?
     """
+    sock = None
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(timeout)
         result = sock.connect_ex((host, port))
-        sock.close()
         return result == 0
-    except Exception:
+    except Exception as e:
+        logger.debug(f"Port kontrol hatası ({host}:{port}): {e}")
         return False
+    finally:
+        if sock:
+            try:
+                sock.close()
+            except Exception:
+                pass
 
 
 def check_service_status(service_config: Dict[str, Any]) -> Dict[str, Any]:
@@ -83,11 +94,19 @@ def check_service_status(service_config: Dict[str, Any]) -> Dict[str, Any]:
         }
     
     elif check_type == 'port' and check_value:
-        active = check_port_open(int(check_value))
-        return {
-            "active": active,
-            "status": "running" if active else "stopped"
-        }
+        try:
+            port_num = int(check_value)
+            active = check_port_open(port_num)
+            return {
+                "active": active,
+                "status": "running" if active else "stopped"
+            }
+        except (ValueError, TypeError) as e:
+            logger.warning(f"Geçersiz port değeri: {check_value} - {e}")
+            return {
+                "active": False,
+                "status": "unknown"
+            }
     
     # Bilinmeyen tip veya değer eksik
     return {

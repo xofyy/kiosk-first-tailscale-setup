@@ -11,7 +11,7 @@ from datetime import datetime
 
 from app.modules import register_module
 from app.modules.base import BaseModule
-from app.config import config
+# DIP: Global config import kaldırıldı, self._config kullanılıyor
 
 
 @register_module
@@ -129,7 +129,8 @@ class DockerModule(BaseModule):
     "storage-driver": "overlay2"
 }
 """
-            self.write_file('/etc/docker/daemon.json', daemon_config)
+            if not self.write_file('/etc/docker/daemon.json', daemon_config):
+                return False, "Docker daemon.json yazılamadı"
             
             # 6. NVIDIA Container Toolkit (sadece NVIDIA varsa)
             if nvidia_available:
@@ -161,8 +162,10 @@ class DockerModule(BaseModule):
                             self.run_shell('nvidia-ctk runtime configure --runtime=docker || true')
             
             # 7. Docker servisini başlat
-            self.systemctl('enable', 'docker')
-            self.systemctl('restart', 'docker')
+            if not self.systemctl('enable', 'docker'):
+                self.logger.warning("Docker enable edilemedi")
+            if not self.systemctl('restart', 'docker'):
+                self.logger.warning("Docker yeniden başlatılamadı")
             
             # 8. Kurulum doğrulaması
             time.sleep(2)
@@ -185,10 +188,13 @@ class DockerModule(BaseModule):
             # 10. Registry login
             if registry_user and registry_pass:
                 self.logger.info(f"Registry login: {registry_url}")
-                self.run_shell(
+                result = self.run_shell(
                     f'echo "{registry_pass}" | docker login {registry_url} '
-                    f'-u {registry_user} --password-stdin'
+                    f'-u {registry_user} --password-stdin',
+                    check=False
                 )
+                if result.returncode != 0:
+                    self.logger.warning(f"Registry login başarısız: {result.stderr}")
             
             # 11. docker-compose.yml oluştur
             self.logger.info("docker-compose.yml oluşturuluyor...")
@@ -211,7 +217,8 @@ services:
     volumes:
       - {mongodb_data_path}:/data/db
 """
-            self.write_file(f'{compose_path}/docker-compose.yml', compose_content)
+            if not self.write_file(f'{compose_path}/docker-compose.yml', compose_content):
+                return False, "docker-compose.yml yazılamadı"
             
             # 12. Docker compose up
             self.logger.info("MongoDB container başlatılıyor...")
@@ -264,8 +271,8 @@ services:
                 self.logger.warning("pymongo bulunamadı, MongoDB kaydı atlanıyor")
                 return
             
-            kiosk_id = config.get_kiosk_id()
-            hardware_id = config.get_hardware_id()
+            kiosk_id = self._config.get_kiosk_id()
+            hardware_id = self._config.get_hardware_id()
             
             if not kiosk_id:
                 self.logger.warning("Kiosk ID bulunamadı, MongoDB kaydı atlanıyor")
@@ -311,8 +318,12 @@ services:
             # 1. Services.json'dan mevcut servisleri oku
             services = {}
             if os.path.exists(self.SERVICES_FILE):
-                with open(self.SERVICES_FILE, 'r') as f:
-                    services = json.load(f)
+                try:
+                    with open(self.SERVICES_FILE, 'r') as f:
+                        services = json.load(f)
+                except (json.JSONDecodeError, IOError) as e:
+                    self.logger.warning(f"Services.json okunamadı: {e}")
+                    services = {}
             
             # 2. Mechatronic ekle
             services['mechcontroller'] = {

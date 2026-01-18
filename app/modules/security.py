@@ -33,7 +33,9 @@ class SecurityModule(BaseModule):
             self.logger.info("UFW kuralları yapılandırılıyor...")
             
             # Önce sıfırla
-            self.run_shell('/usr/sbin/ufw --force reset')
+            result = self.run_shell('/usr/sbin/ufw --force reset', check=False)
+            if result.returncode != 0:
+                self.logger.warning(f"UFW reset başarısız: {result.stderr}")
             
             # Varsayılan politikalar
             self.run_command(['/usr/sbin/ufw', 'default', 'deny', 'incoming'])
@@ -57,7 +59,9 @@ class SecurityModule(BaseModule):
             self.run_shell('/usr/sbin/ufw deny 22/tcp comment "Deny SSH from LAN"')
             
             # UFW'yi etkinleştir
-            self.run_shell('/usr/sbin/ufw --force enable')
+            result = self.run_shell('/usr/sbin/ufw --force enable', check=False)
+            if result.returncode != 0:
+                return False, f"UFW etkinleştirilemedi: {result.stderr}"
             
             # 3. SSH yapılandırması
             self.logger.info("SSH güvenlik yapılandırması...")
@@ -102,10 +106,12 @@ ClientAliveCountMax 2
 # Detaylı log (güvenlik izleme için)
 LogLevel VERBOSE
 """
-            self.write_file('/etc/ssh/sshd_config.d/99-tailscale-only.conf', ssh_config)
+            if not self.write_file('/etc/ssh/sshd_config.d/99-tailscale-only.conf', ssh_config):
+                return False, "SSH config yazılamadı"
             
             # SSH servisini yeniden başlat
-            self.systemctl('restart', 'sshd')
+            if not self.systemctl('restart', 'sshd'):
+                self.logger.warning("SSHD yeniden başlatılamadı")
             
             # 4. Fail2ban (opsiyonel ama önerilen)
             self.logger.info("Fail2ban kuruluyor...")
@@ -120,10 +126,13 @@ maxretry = 3
 bantime = 3600
 findtime = 600
 """
-                self.write_file('/etc/fail2ban/jail.d/sshd.conf', fail2ban_config)
-                
-                self.systemctl('enable', 'fail2ban')
-                self.systemctl('restart', 'fail2ban')
+                if not self.write_file('/etc/fail2ban/jail.d/sshd.conf', fail2ban_config):
+                    self.logger.warning("Fail2ban config yazılamadı")
+                else:
+                    if not self.systemctl('enable', 'fail2ban'):
+                        self.logger.warning("fail2ban enable edilemedi")
+                    if not self.systemctl('restart', 'fail2ban'):
+                        self.logger.warning("fail2ban yeniden başlatılamadı")
             
             self.logger.info("Güvenlik yapılandırması tamamlandı")
             return True, "UFW ve SSH güvenlik yapılandırması tamamlandı"

@@ -10,6 +10,7 @@ Web tabanlı sunucu yönetim paneli
 
 import json
 import os
+import time
 from typing import Tuple, Dict, Any
 
 from app.modules import register_module
@@ -153,8 +154,12 @@ server {{
             # 1. Services.json'dan mevcut servisleri oku
             services = {}
             if os.path.exists(self.SERVICES_FILE):
-                with open(self.SERVICES_FILE, 'r') as f:
-                    services = json.load(f)
+                try:
+                    with open(self.SERVICES_FILE, 'r') as f:
+                        services = json.load(f)
+                except (json.JSONDecodeError, IOError) as e:
+                    self.logger.warning(f"Services.json okunamadı, yeni oluşturulacak: {e}")
+                    services = {}
             
             # 2. Cockpit ekle
             services['cockpit'] = {
@@ -230,13 +235,16 @@ IdleTimeout = 0
 """
             
             os.makedirs('/etc/cockpit', exist_ok=True)
-            self.write_file('/etc/cockpit/cockpit.conf', cockpit_conf)
+            if not self.write_file('/etc/cockpit/cockpit.conf', cockpit_conf):
+                return False, "Cockpit config yazılamadı"
             
             # =================================================================
             # 3. Cockpit Socket Etkinleştir
             # =================================================================
-            self.systemctl('enable', 'cockpit.socket')
-            self.systemctl('start', 'cockpit.socket')
+            if not self.systemctl('enable', 'cockpit.socket'):
+                self.logger.warning("cockpit.socket enable edilemedi")
+            if not self.systemctl('start', 'cockpit.socket'):
+                self.logger.warning("cockpit.socket başlatılamadı")
             
             # =================================================================
             # 4. Polkit Kuralları
@@ -263,7 +271,8 @@ polkit.addRule(function(action, subject) {
     }
 });
 """
-            self.write_file('/etc/polkit-1/rules.d/50-kiosk-network.rules', polkit_content)
+            if not self.write_file('/etc/polkit-1/rules.d/50-kiosk-network.rules', polkit_content):
+                self.logger.warning("Polkit kuralları yazılamadı")
             
             # =================================================================
             # 5. Nginx'e Kaydet
@@ -275,7 +284,6 @@ polkit.addRule(function(action, subject) {
             # =================================================================
             # 6. Doğrulama
             # =================================================================
-            import time
             time.sleep(2)
             
             result = self.run_command(['systemctl', 'is-active', 'cockpit.socket'], check=False)

@@ -5,6 +5,7 @@ Enrollment API istemcisi
 
 import time
 import logging
+import warnings
 import requests
 from typing import Dict, Any, Optional
 
@@ -24,6 +25,17 @@ class EnrollmentService:
             'Content-Type': 'application/json',
             'Accept': 'application/json'
         })
+    
+    def close(self) -> None:
+        """Session'ı kapat"""
+        if self.session:
+            self.session.close()
+    
+    def __enter__(self):
+        return self
+    
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
     
     def enroll(self, kiosk_id: str, hardware_id: str, motherboard_uuid: str = '', mac_addresses: str = '') -> Dict[str, Any]:
         """
@@ -73,7 +85,7 @@ class EnrollmentService:
                 try:
                     error_data = response.json()
                     error_msg = error_data.get('message', 'Doğrulama hatası')
-                except:
+                except (ValueError, KeyError):
                     error_msg = 'Doğrulama hatası'
                 logger.error(f"Validation hatası: {error_msg}")
                 return {
@@ -169,28 +181,6 @@ class EnrollmentService:
                 'success': False,
                 'error': str(e)
             }
-    
-    def get_auth_key(self, hardware_id: str) -> Optional[str]:
-        """
-        Auth key al - check_status() response'undan alır.
-        
-        DEPRECATED: Bu metod artık doğrudan kullanılmamalı.
-        Auth key, check_status() veya enroll() response'unda döner.
-        Geriye uyumluluk için tutulmuştur.
-        
-        Args:
-            hardware_id: Donanım kimliği
-            
-        Returns:
-            Tailscale auth key veya None
-        """
-        # Status endpoint'inden auth_key al
-        status_result = self.check_status(hardware_id)
-        
-        if status_result.get('success') and status_result.get('status') == 'approved':
-            return status_result.get('auth_key')
-        
-        return None
     
     def wait_for_approval(
         self,

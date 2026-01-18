@@ -35,11 +35,13 @@ class NetmonModule(BaseModule):
                 self.run_shell(f'rm -rf {netmon_dir}')
             
             self.logger.info("netmon indiriliyor...")
-            self.run_command([
+            result = self.run_command([
                 'git', 'clone',
                 'https://github.com/xofyy/netmon.git',
                 netmon_dir
-            ])
+            ], check=False)
+            if result.returncode != 0:
+                return False, f"netmon repo klonlanamadı: {result.stderr}"
             
             # 3. pip, setuptools, wheel güncelle (UNKNOWN sorunu için şart)
             # NOT: /usr/bin/pip3 kullanıyoruz çünkü panel virtualenv içinde çalışıyor
@@ -54,7 +56,9 @@ class NetmonModule(BaseModule):
             
             # 6. netmon'u pip ile kur (CLI aracını oluşturur: /usr/local/bin/netmon)
             self.logger.info("netmon paketi kuruluyor...")
-            self.run_shell(f'cd {netmon_dir} && /usr/bin/pip3 install --no-cache-dir --force-reinstall .')
+            result = self.run_shell(f'cd {netmon_dir} && /usr/bin/pip3 install --no-cache-dir --force-reinstall .', check=False)
+            if result.returncode != 0:
+                return False, f"netmon paketi kurulamadı: {result.stderr}"
             
             # 7. Config dosyası oluştur
             db_write_interval = self.get_config('netmon.db_write_interval', 300)
@@ -75,19 +79,24 @@ log_level: INFO
 database_path: /var/lib/netmon/data.db
 """
             os.makedirs('/etc/netmon', exist_ok=True)
-            self.write_file('/etc/netmon/config.yaml', config_content)
+            if not self.write_file('/etc/netmon/config.yaml', config_content):
+                return False, "netmon config yazılamadı"
             
             # 8. Data dizini
             os.makedirs('/var/lib/netmon', exist_ok=True)
             
             # 9. Repo'daki systemd service dosyasını kopyala
             self.logger.info("Systemd service kuruluyor...")
-            self.run_shell(f'cp {netmon_dir}/systemd/netmon.service /etc/systemd/system/')
+            result = self.run_shell(f'cp {netmon_dir}/systemd/netmon.service /etc/systemd/system/', check=False)
+            if result.returncode != 0:
+                return False, "Systemd service dosyası kopyalanamadı"
             
             # 10. Servisi etkinleştir ve başlat
             self.run_command(['systemctl', 'daemon-reload'])
-            self.systemctl('enable', 'netmon')
-            self.systemctl('start', 'netmon')
+            if not self.systemctl('enable', 'netmon'):
+                self.logger.warning("netmon enable edilemedi")
+            if not self.systemctl('start', 'netmon'):
+                self.logger.warning("netmon başlatılamadı")
             
             # =================================================================
             # Kurulum Sonrası Doğrulama

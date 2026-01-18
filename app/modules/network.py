@@ -242,10 +242,11 @@ class NetworkModule(BaseModule):
             if not self._is_cloud_init_disabled():
                 self.logger.info("cloud-init network devre dışı bırakılıyor...")
                 cloud_init_content = "network: {config: disabled}"
-                self.write_file(
+                if not self.write_file(
                     '/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg', 
                     cloud_init_content
-                )
+                ):
+                    self.logger.warning("cloud-init config yazılamadı")
             else:
                 self.logger.info("cloud-init network zaten devre dışı")
             
@@ -278,7 +279,8 @@ network:
         addresses:
 {dns_yaml}
 """
-            self.write_file('/etc/netplan/01-network-manager.yaml', netplan_content)
+            if not self.write_file('/etc/netplan/01-network-manager.yaml', netplan_content):
+                return False, "Netplan config yazılamadı"
             self.logger.info(f"Netplan yapılandırıldı (interface: {interface})")
             
             # =================================================================
@@ -312,8 +314,10 @@ network:
             # 8. systemd-networkd Devre Dışı
             # =================================================================
             self.logger.info("systemd-networkd devre dışı bırakılıyor...")
-            self.systemctl('disable', 'systemd-networkd')
-            self.systemctl('stop', 'systemd-networkd')
+            if not self.systemctl('disable', 'systemd-networkd'):
+                self.logger.warning("systemd-networkd disable edilemedi")
+            if not self.systemctl('stop', 'systemd-networkd'):
+                self.logger.warning("systemd-networkd durdurulamadı")
             
             # =================================================================
             # 9. DNS Yapılandırma (Domains=~. dahil)
@@ -329,10 +333,12 @@ FallbackDNS=1.1.1.1 9.9.9.9
 Domains=~.
 DNSStubListener=yes
 """
-            self.write_file('/etc/systemd/resolved.conf', resolved_content)
+            if not self.write_file('/etc/systemd/resolved.conf', resolved_content):
+                return False, "DNS config yazılamadı"
             
             # systemd-resolved yeniden başlat
-            self.systemctl('restart', 'systemd-resolved')
+            if not self.systemctl('restart', 'systemd-resolved'):
+                self.logger.warning("systemd-resolved yeniden başlatılamadı")
             time.sleep(3)  # DNS servisinin hazır olması için
             
             # =================================================================
@@ -348,9 +354,12 @@ DNSStubListener=yes
             # 11. NetworkManager Servisleri
             # =================================================================
             self.logger.info("NetworkManager servisleri etkinleştiriliyor...")
-            self.systemctl('enable', 'NetworkManager')
-            self.systemctl('start', 'NetworkManager')
-            self.systemctl('enable', 'NetworkManager-wait-online')
+            if not self.systemctl('enable', 'NetworkManager'):
+                self.logger.warning("NetworkManager enable edilemedi")
+            if not self.systemctl('start', 'NetworkManager'):
+                self.logger.warning("NetworkManager başlatılamadı")
+            if not self.systemctl('enable', 'NetworkManager-wait-online'):
+                self.logger.warning("NetworkManager-wait-online enable edilemedi")
             
             # =================================================================
             # 12. nmcli Bağlantı Yenileme

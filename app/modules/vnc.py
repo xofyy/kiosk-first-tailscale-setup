@@ -39,12 +39,16 @@ class VNCModule(BaseModule):
             
             if vnc_password:
                 self.logger.info("VNC şifresi ayarlanıyor...")
-                self.run_shell(f'x11vnc -storepasswd "{vnc_password}" {vnc_dir}/passwd')
+                result = self.run_shell(f'x11vnc -storepasswd "{vnc_password}" {vnc_dir}/passwd', check=False)
+                if result.returncode != 0:
+                    self.logger.warning(f"VNC şifresi ayarlanamadı: {result.stderr}")
             else:
                 self.logger.warning("VNC şifresi belirtilmemiş! Güvenlik riski.")
             
             # Dizin sahipliği
-            self.run_shell(f'chown -R {kiosk_user}:{kiosk_user} {vnc_dir}')
+            result = self.run_shell(f'chown -R {kiosk_user}:{kiosk_user} {vnc_dir}', check=False)
+            if result.returncode != 0:
+                self.logger.warning(f"VNC dizini sahipliği ayarlanamadı: {result.stderr}")
             
             # 3. x11vnc systemd service oluştur
             vnc_port = self.get_config('vnc.port', 5900)
@@ -68,11 +72,13 @@ RestartSec=5
 [Install]
 WantedBy=multi-user.target
 """
-            self.write_file('/etc/systemd/system/x11vnc.service', service_content)
+            if not self.write_file('/etc/systemd/system/x11vnc.service', service_content):
+                return False, "x11vnc service dosyası yazılamadı"
             
             # 4. Servisi etkinleştir
             self.run_command(['systemctl', 'daemon-reload'])
-            self.systemctl('enable', 'x11vnc')
+            if not self.systemctl('enable', 'x11vnc'):
+                self.logger.warning("x11vnc enable edilemedi")
             
             # X11 çalışıyorsa servisi başlat
             try:

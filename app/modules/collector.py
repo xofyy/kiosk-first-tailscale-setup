@@ -34,19 +34,23 @@ class CollectorModule(BaseModule):
             
             # 2. prometheus-node-exporter servisini etkinleştir
             self.logger.info("Node Exporter başlatılıyor...")
-            self.systemctl('enable', 'prometheus-node-exporter')
-            self.systemctl('start', 'prometheus-node-exporter')
+            if not self.systemctl('enable', 'prometheus-node-exporter'):
+                self.logger.warning("prometheus-node-exporter enable edilemedi")
+            if not self.systemctl('start', 'prometheus-node-exporter'):
+                self.logger.warning("prometheus-node-exporter başlatılamadı")
             
             # 3. collector-agent repo'yu klonla
             if os.path.exists(collector_dir):
                 self.run_shell(f'rm -rf {collector_dir}')
             
             self.logger.info("collector-agent indiriliyor...")
-            self.run_command([
+            result = self.run_command([
                 'git', 'clone',
                 'https://github.com/xofyy/collector-agent.git',
                 collector_dir
-            ])
+            ], check=False)
+            if result.returncode != 0:
+                return False, f"collector-agent repo klonlanamadı: {result.stderr}"
             
             # 4. pip, setuptools, wheel güncelle (UNKNOWN sorunu için şart)
             # NOT: /usr/bin/pip3 kullanıyoruz çünkü panel virtualenv içinde çalışıyor
@@ -61,7 +65,9 @@ class CollectorModule(BaseModule):
             
             # 7. collector-agent'ı pip ile kur
             self.logger.info("collector-agent paketi kuruluyor...")
-            self.run_shell(f'cd {collector_dir} && /usr/bin/pip3 install --no-cache-dir --force-reinstall .')
+            result = self.run_shell(f'cd {collector_dir} && /usr/bin/pip3 install --no-cache-dir --force-reinstall .', check=False)
+            if result.returncode != 0:
+                return False, f"collector-agent paketi kurulamadı: {result.stderr}"
             
             # 8. Config dizini ve dosyası oluştur
             interval = self.get_config('collector.interval', 30)
@@ -87,16 +93,21 @@ logging:
   file: /var/log/collector-agent.log
 """
             os.makedirs('/etc/collector-agent', exist_ok=True)
-            self.write_file('/etc/collector-agent/config.yaml', config_content)
+            if not self.write_file('/etc/collector-agent/config.yaml', config_content):
+                return False, "Collector config yazılamadı"
             
             # 9. Repo'daki systemd service dosyasını kopyala
             self.logger.info("Systemd service kuruluyor...")
-            self.run_shell(f'cp {collector_dir}/systemd/collector-agent.service /etc/systemd/system/')
+            result = self.run_shell(f'cp {collector_dir}/systemd/collector-agent.service /etc/systemd/system/', check=False)
+            if result.returncode != 0:
+                return False, "Systemd service dosyası kopyalanamadı"
             
             # 10. Servisi etkinleştir ve başlat
             self.run_command(['systemctl', 'daemon-reload'])
-            self.systemctl('enable', 'collector-agent')
-            self.systemctl('start', 'collector-agent')
+            if not self.systemctl('enable', 'collector-agent'):
+                self.logger.warning("collector-agent enable edilemedi")
+            if not self.systemctl('start', 'collector-agent'):
+                self.logger.warning("collector-agent başlatılamadı")
             
             # =================================================================
             # Kurulum Sonrası Doğrulama

@@ -5,7 +5,10 @@ Hardware ID üretimi
 
 import subprocess
 import hashlib
+import logging
 from typing import Dict, Optional
+
+logger = logging.getLogger(__name__)
 
 # Absolute paths for system commands (PATH'te /usr/sbin olmayabilir)
 DMIDECODE = '/usr/sbin/dmidecode'
@@ -60,8 +63,8 @@ class HardwareService:
                 # Geçersiz değerleri filtrele
                 if serial and serial.lower() not in ['not specified', 'to be filled', 'default string', 'n/a']:
                     return serial
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Motherboard serial alınamadı: {e}")
         
         # Alternatif: system UUID
         try:
@@ -73,8 +76,8 @@ class HardwareService:
             )
             if result.returncode == 0:
                 return result.stdout.strip()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"System UUID alınamadı: {e}")
         
         return ''
     
@@ -95,8 +98,8 @@ class HardwareService:
                         serial = line.split(':')[1].strip()
                         if serial and serial.lower() not in ['not specified', 'unknown', 'n/a', 'no dimm']:
                             serials.append(serial)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"RAM serials alınamadı: {e}")
         
         return ','.join(serials) if serials else ''
     
@@ -122,8 +125,8 @@ class HardwareService:
                         serial = parts[1].strip()
                         if serial and serial.lower() not in ['n/a', 'unknown', '']:
                             serials.append(serial)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Disk serials (lsblk) alınamadı: {e}")
         
         # Fallback: udevadm ile dene (lsblk serial vermezse)
         if not serials:
@@ -155,8 +158,8 @@ class HardwareService:
                                     if serial:
                                         serials.append(serial)
                                         break
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Disk serials (udevadm) alınamadı: {e}")
         
         # Sırala (tutarlılık için) ve birleştir
         if serials:
@@ -183,8 +186,8 @@ class HardwareService:
                         'driver': parts[1],
                         'memory': parts[2]
                     }
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"GPU bilgisi alınamadı: {e}")
         
         return None
     
@@ -202,8 +205,8 @@ class HardwareService:
                         info['model'] = line.split(':')[1].strip()
                     elif line.startswith('cpu cores'):
                         info['cores'] = line.split(':')[1].strip()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"CPU bilgisi alınamadı: {e}")
         
         return info
     
@@ -212,8 +215,8 @@ class HardwareService:
         try:
             with open('/sys/class/dmi/id/product_uuid', 'r') as f:
                 return f.read().strip()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Motherboard UUID alınamadı: {e}")
         return ''
     
     def get_mac_addresses(self) -> str:
@@ -237,6 +240,6 @@ class HardwareService:
                                 macs.append(parts[i + 1])
                                 break
                 return ','.join(macs)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"MAC adresleri alınamadı: {e}")
         return ''

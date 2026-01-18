@@ -33,15 +33,22 @@ class Config:
     def _load(self) -> None:
         """Config dosyasını yükle"""
         # Önce varsayılan config'i yükle
-        if os.path.exists(DEFAULT_CONFIG_FILE):
-            with open(DEFAULT_CONFIG_FILE, 'r') as f:
-                self._config = yaml.safe_load(f) or {}
+        try:
+            if os.path.exists(DEFAULT_CONFIG_FILE):
+                with open(DEFAULT_CONFIG_FILE, 'r') as f:
+                    self._config = yaml.safe_load(f) or {}
+        except Exception as e:
+            logger.warning(f"Default config yüklenemedi: {e}")
+            self._config = {}
         
         # Sonra gerçek config'i üzerine yaz
-        if os.path.exists(CONFIG_FILE):
-            with open(CONFIG_FILE, 'r') as f:
-                user_config = yaml.safe_load(f) or {}
-                self._deep_merge(self._config, user_config)
+        try:
+            if os.path.exists(CONFIG_FILE):
+                with open(CONFIG_FILE, 'r') as f:
+                    user_config = yaml.safe_load(f) or {}
+                    self._deep_merge(self._config, user_config)
+        except Exception as e:
+            logger.warning(f"User config yüklenemedi: {e}")
     
     def _deep_merge(self, base: dict, override: dict) -> None:
         """İki dict'i derin birleştir"""
@@ -184,6 +191,11 @@ class Config:
         Returns:
             bool: Kaydetme başarılı mı
         """
+        # Status validation
+        if status not in self.MODULE_STATUSES:
+            logger.warning(f"Geçersiz modül status: {status} (geçerli: {self.MODULE_STATUSES})")
+            return False
+        
         self.set(f'modules.{module}', status)
         saved = self.save()
         
@@ -268,7 +280,10 @@ class Config:
         
         # Flag dosyası oluştur
         if complete:
-            Path('/etc/kiosk-setup/.setup-complete').touch()
+            try:
+                Path('/etc/kiosk-setup/.setup-complete').touch()
+            except Exception as e:
+                logger.warning(f"Setup complete flag dosyası oluşturulamadı: {e}")
 
 
 # Singleton instance

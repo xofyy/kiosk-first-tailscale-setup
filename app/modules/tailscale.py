@@ -11,7 +11,7 @@ from app.modules.base import BaseModule
 from app.services.system import SystemService
 from app.services.hardware import HardwareService
 from app.services.enrollment import EnrollmentService
-from app.config import config
+# DIP: Global config import kaldırıldı, self._config kullanılıyor
 
 # Sabitler
 HEADSCALE_URL = "https://headscale.xofyy.com"
@@ -33,7 +33,7 @@ class TailscaleModule(BaseModule):
             return False, "İnternet bağlantısı gerekli"
         
         # Kiosk ID gerekli
-        if not config.get_kiosk_id():
+        if not self._config.get_kiosk_id():
             return False, "Önce Kiosk ID belirlenmelidir"
         
         return True, ""
@@ -59,11 +59,11 @@ class TailscaleModule(BaseModule):
                 return False, "Hardware ID üretilemedi"
             
             # Config'e kaydet
-            config.set_hardware_id(hardware_id)
+            self._config.set_hardware_id(hardware_id)
             self.logger.info(f"Hardware ID: {hardware_id}")
             
             # 2. Kiosk ID al (önceden ayarlanmış olmalı)
-            kiosk_id = config.get_kiosk_id()
+            kiosk_id = self._config.get_kiosk_id()
             
             if not kiosk_id:
                 return False, "Kiosk ID bulunamadı"
@@ -112,7 +112,9 @@ class TailscaleModule(BaseModule):
                 self.logger.info("Tailscale zaten kurulu")
             else:
                 self.logger.info("Tailscale kuruluyor...")
-                self.run_shell('curl -fsSL https://tailscale.com/install.sh | sh')
+                result = self.run_shell('curl -fsSL https://tailscale.com/install.sh | sh', check=False)
+                if result.returncode != 0:
+                    return False, f"Tailscale kurulum scripti başarısız: {result.stderr}"
                 
                 # Kurulum doğrulaması
                 if not self._is_tailscale_installed():
@@ -121,8 +123,10 @@ class TailscaleModule(BaseModule):
             
             # 7. Tailscaled servisini başlat
             self.logger.info("Tailscaled servisi başlatılıyor...")
-            self.systemctl('enable', 'tailscaled')
-            self.systemctl('start', 'tailscaled')
+            if not self.systemctl('enable', 'tailscaled'):
+                self.logger.warning("tailscaled enable edilemedi")
+            if not self.systemctl('start', 'tailscaled'):
+                self.logger.warning("tailscaled başlatılamadı")
             
             # Servisin başlamasını bekle
             time.sleep(3)

@@ -10,7 +10,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Tuple, List, Optional
 from datetime import datetime
 
-from app.config import config
+# DIP: Config lazy import - constructor injection destekli
+# from app.config import config  # Artık __init__'de inject edilir
 
 logger = logging.getLogger(__name__)
 
@@ -70,7 +71,22 @@ class BaseModule(ABC):
     order: int = 0
     dependencies: List[str] = []
     
-    def __init__(self):
+    def __init__(self, config_instance: 'Config' = None):
+        """
+        BaseModule constructor.
+        
+        Args:
+            config_instance: Opsiyonel config nesnesi (DIP için).
+                             None ise global config kullanılır.
+                             Test için mock config geçilebilir.
+        """
+        # DIP: Dependency Injection - config dışarıdan geçilebilir
+        if config_instance is None:
+            from app.config import config as default_config
+            self._config = default_config
+        else:
+            self._config = config_instance
+        
         self.logger = setup_module_logger(self.name)
         self._log_file = os.path.join(LOG_DIR, f"{self.name}.log")
     
@@ -82,7 +98,7 @@ class BaseModule(ABC):
             'description': self.description,
             'order': self.order,
             'dependencies': self.dependencies,
-            'status': config.get_module_status(self.name)
+            'status': self._config.get_module_status(self.name)
         }
     
     def can_install(self) -> Tuple[bool, str]:
@@ -91,16 +107,16 @@ class BaseModule(ABC):
         Returns: (kurulabilir_mi, sebep)
         """
         # Zaten kurulu mu?
-        if config.is_module_completed(self.name):
+        if self._config.is_module_completed(self.name):
             return False, "Modül zaten kurulu"
         
         # Şu an kuruluyor mu?
-        if config.get_module_status(self.name) == 'installing':
+        if self._config.get_module_status(self.name) == 'installing':
             return False, "Modül kurulumu devam ediyor"
         
         # Bağımlılıklar kurulu mu?
         for dep in self.dependencies:
-            if not config.is_module_completed(dep):
+            if not self._config.is_module_completed(dep):
                 return False, f"Bağımlılık kurulu değil: {dep}"
         
         # Özel kontroller (alt sınıfta override edilebilir)
@@ -289,7 +305,6 @@ class BaseModule(ABC):
     
     def write_file(self, path: str, content: str, mode: int = 0o644) -> bool:
         """Dosya yaz"""
-        import os
         try:
             # Dizini oluştur
             os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -325,17 +340,17 @@ class BaseModule(ABC):
     
     def get_config(self, key: str, default: Any = None) -> Any:
         """Config değeri al"""
-        return config.get(key, default)
+        return self._config.get(key, default)
     
     def set_config(self, key: str, value: Any) -> None:
         """Config değeri ayarla"""
-        config.set(key, value)
-        config.save()
+        self._config.set(key, value)
+        self._config.save()
     
     def set_module_status(self, status: str) -> None:
         """Bu modülün durumunu ayarla"""
         self.logger.info(f"Modül durumu değişti: {status}")
-        config.set_module_status(self.name, status)
+        self._config.set_module_status(self.name, status)
     
     def configure_grub(self, params: Dict[str, Any] = None) -> bool:
         """
