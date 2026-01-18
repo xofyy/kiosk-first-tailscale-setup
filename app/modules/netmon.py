@@ -53,7 +53,7 @@ class NetmonModule(BaseModule):
             
             # 6. netmon'u pip ile kur (CLI aracını oluşturur: /usr/local/bin/netmon)
             self.logger.info("netmon paketi kuruluyor...")
-            self.run_shell(f'cd {netmon_dir} && pip3 install . --no-cache-dir --force-reinstall')
+            self.run_shell(f'cd {netmon_dir} && python3 setup.py install')
             
             # 7. Config dosyası oluştur
             db_write_interval = self.get_config('netmon.db_write_interval', 300)
