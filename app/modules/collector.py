@@ -60,7 +60,7 @@ class CollectorModule(BaseModule):
             
             # 7. collector-agent'ı pip ile kur
             self.logger.info("collector-agent paketi kuruluyor...")
-            self.run_shell(f'cd {collector_dir} && pip3 install . --no-cache-dir --force-reinstall')
+            self.run_shell(f'cd {collector_dir} && python3 setup.py install')
             
             # 8. Config dizini ve dosyası oluştur
             interval = self.get_config('collector.interval', 30)
