@@ -476,7 +476,7 @@ xset -dpms
 xset s noblank
 
 # Setup tamamlanmış mı kontrol et
-if [[ -f /etc/kiosk-setup/.setup-complete ]]; then
+if [ -f /etc/kiosk-setup/.setup-complete ]; then
     # Kiosk modunda başlat
     /usr/local/bin/chromium-kiosk.sh &
 else

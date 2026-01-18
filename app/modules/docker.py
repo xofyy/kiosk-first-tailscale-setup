@@ -48,27 +48,34 @@ class DockerModule(BaseModule):
             self.logger.info("Docker repository ekleniyor...")
             
             # Gerekli paketler
-            self.apt_install([
+            if not self.apt_install([
                 'ca-certificates', 'curl', 'gnupg',
                 'python3-pip', 'python3-docker', 'python3-pymongo'
-            ])
+            ]):
+                return False, "Docker bağımlılıkları kurulamadı"
             
             # GPG key
             self.run_shell('install -m 0755 -d /etc/apt/keyrings')
-            self.run_shell(
+            result = self.run_shell(
                 'curl -fsSL https://download.docker.com/linux/ubuntu/gpg | '
-                'gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes'
+                'gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes',
+                check=False
             )
+            if result.returncode != 0:
+                return False, f"Docker GPG key indirilemedi: {result.stderr}"
             self.run_shell('chmod a+r /etc/apt/keyrings/docker.gpg')
             
             # Repo ekle
-            self.run_shell(
+            result = self.run_shell(
                 'echo "deb [arch=$(dpkg --print-architecture) '
                 'signed-by=/etc/apt/keyrings/docker.gpg] '
                 'https://download.docker.com/linux/ubuntu '
                 '$(. /etc/os-release && echo $VERSION_CODENAME) stable" | '
-                'tee /etc/apt/sources.list.d/docker.list > /dev/null'
+                'tee /etc/apt/sources.list.d/docker.list > /dev/null',
+                check=False
             )
+            if result.returncode != 0:
+                return False, f"Docker repo eklenemedi: {result.stderr}"
             
             # 3. Docker paketlerini kur
             self.logger.info("Docker kuruluyor...")
@@ -128,23 +135,30 @@ class DockerModule(BaseModule):
             if nvidia_available:
                 self.logger.info("NVIDIA Container Toolkit kuruluyor...")
                 
-                # NVIDIA repo
-                self.run_shell(
+                # NVIDIA repo - network hatası olabilir
+                result = self.run_shell(
                     'curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | '
-                    'gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes'
+                    'gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes',
+                    check=False
                 )
-                
-                self.run_shell(
-                    'curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | '
-                    'sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" | '
-                    'tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null'
-                )
-                
-                self.run_command(['apt-get', 'update', '-qq'])
-                self.apt_install(['nvidia-container-toolkit'])
-                
-                # nvidia-ctk yapılandırması
-                self.run_shell('nvidia-ctk runtime configure --runtime=docker || true')
+                if result.returncode != 0:
+                    self.logger.warning(f"NVIDIA GPG key indirilemedi: {result.stderr}")
+                else:
+                    result = self.run_shell(
+                        'curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | '
+                        'sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" | '
+                        'tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null',
+                        check=False
+                    )
+                    if result.returncode != 0:
+                        self.logger.warning(f"NVIDIA repo eklenemedi: {result.stderr}")
+                    else:
+                        self.run_command(['apt-get', 'update', '-qq'])
+                        if not self.apt_install(['nvidia-container-toolkit']):
+                            self.logger.warning("NVIDIA Container Toolkit kurulamadı")
+                        else:
+                            # nvidia-ctk yapılandırması
+                            self.run_shell('nvidia-ctk runtime configure --runtime=docker || true')
             
             # 7. Docker servisini başlat
             self.systemctl('enable', 'docker')
@@ -202,7 +216,9 @@ services:
             # 12. Docker compose up
             self.logger.info("MongoDB container başlatılıyor...")
             
-            self.run_shell(f'cd {compose_path} && docker compose up -d')
+            result = self.run_shell(f'cd {compose_path} && docker compose up -d', check=False)
+            if result.returncode != 0:
+                return False, f"Docker compose başlatılamadı: {result.stderr}"
             
             # 12.1 MongoDB hazır olana kadar bekle (60 saniye timeout)
             self.logger.info("MongoDB'nin hazır olması bekleniyor...")
@@ -227,7 +243,8 @@ services:
             self._save_kiosk_id_to_mongodb()
             
             # 14. Mechatronic Controller'ı Nginx'e kaydet
-            self._register_mechatronic_to_nginx()
+            if not self._register_mechatronic_to_nginx():
+                self.logger.warning("Mechatronic nginx kaydı başarısız (kurulum devam ediyor)")
             
             self.logger.info("Docker kurulumu tamamlandı")
             return True, "Docker, NVIDIA Container Toolkit ve MongoDB kuruldu"
@@ -238,6 +255,7 @@ services:
     
     def _save_kiosk_id_to_mongodb(self) -> None:
         """Kiosk ID'yi MongoDB'ye kaydet"""
+        client = None
         try:
             import socket
             try:
@@ -272,11 +290,13 @@ services:
                 upsert=True
             )
             
-            client.close()
             self.logger.info(f"Kiosk ID MongoDB'ye kaydedildi: {kiosk_id}")
             
         except Exception as e:
             self.logger.warning(f"MongoDB kayıt hatası: {e}")
+        finally:
+            if client:
+                client.close()
     
     def _register_mechatronic_to_nginx(self) -> bool:
         """Mechatronic Controller'ı Nginx config'e ekle"""
