@@ -58,12 +58,12 @@ export DEBIAN_FRONTEND=noninteractive
 export APT_LISTCHANGES_FRONTEND=none
 
 # =============================================================================
-# ROOT KONTROLÜ
+# ROOT CHECK
 # =============================================================================
 
 if [[ $EUID -ne 0 ]]; then
-    error "Bu script root olarak çalıştırılmalıdır!"
-    echo "Kullanım: sudo bash install.sh"
+    error "This script must be run as root!"
+    echo "Usage: sudo bash install.sh"
     exit 1
 fi
 
@@ -88,7 +88,7 @@ echo ""
 info "Sistem güncelleniyor..."
 apt-get update -qq
 apt-get upgrade -y -qq
-log "Sistem güncellendi"
+log "System updated"
 
 # =============================================================================
 # 2. TEMEL PAKETLER
@@ -133,11 +133,11 @@ PACKAGES=(
 
 for pkg in "${PACKAGES[@]}"; do
     if ! dpkg -l | grep -q "^ii  $pkg "; then
-        apt-get install -y -qq "$pkg" 2>/dev/null || warn "Paket kurulamadı: $pkg"
+        apt-get install -y -qq "$pkg" 2>/dev/null || warn "Package could not be installed: $pkg"
     fi
 done
 
-log "Temel paketler kuruldu"
+log "Base packages installed"
 
 # =============================================================================
 # 3. KIOSK KULLANICI OLUŞTURMA
@@ -149,9 +149,9 @@ if ! id "$KIOSK_USER" &>/dev/null; then
     useradd -m -s /bin/bash "$KIOSK_USER"
     # video ve audio gruplarına ekle
     usermod -aG video,audio,input,tty "$KIOSK_USER"
-    log "Kullanıcı oluşturuldu: $KIOSK_USER"
+    log "User created: $KIOSK_USER"
 else
-    log "Kullanıcı zaten mevcut: $KIOSK_USER"
+    log "User already exists: $KIOSK_USER"
 fi
 
 # =============================================================================
@@ -176,35 +176,35 @@ KIOSK_LOG_DIR="/var/log/kiosk-setup"
 mkdir -p "$KIOSK_LOG_DIR"
 chmod 755 "$KIOSK_LOG_DIR"
 
-log "Dizinler oluşturuldu"
+log "Directories created"
 
 # =============================================================================
 # 5. UYGULAMA DOSYALARINI KOPYALA
 # =============================================================================
 
-info "Uygulama dosyaları kopyalanıyor..."
+info "Copying application files..."
 
-# Eğer script bir clone dizininde çalışıyorsa
+# If script is running in a clone directory
 if [[ -d "$SCRIPT_DIR/app" ]]; then
     cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
     cp -r "$SCRIPT_DIR/templates" "$INSTALL_DIR/" 2>/dev/null || true
     cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
-    log "Dosyalar kopyalandı: $SCRIPT_DIR -> $INSTALL_DIR"
+    log "Files copied: $SCRIPT_DIR -> $INSTALL_DIR"
 fi
 
-# NOT: Config artık MongoDB'de tutuluyor (Docker bölümünde oluşturuluyor)
+# NOTE: Config is now stored in MongoDB (created in Docker section)
 
 # =============================================================================
 # 6. PYTHON VIRTUAL ENVIRONMENT
 # =============================================================================
 
-info "Python virtual environment oluşturuluyor..."
+info "Creating Python virtual environment..."
 
 if [[ ! -d "$INSTALL_DIR/venv" ]]; then
     python3 -m venv "$INSTALL_DIR/venv"
-    log "Yeni venv oluşturuldu"
+    log "New venv created"
 else
-    log "Venv zaten mevcut: $INSTALL_DIR/venv"
+    log "Venv already exists: $INSTALL_DIR/venv"
 fi
 
 source "$INSTALL_DIR/venv/bin/activate"
@@ -213,7 +213,7 @@ pip install --upgrade pip -q
 pip install -r "$INSTALL_DIR/requirements.txt" -q
 
 deactivate
-log "Python ortamı hazır"
+log "Python environment ready"
 
 # =============================================================================
 # 7. SCRIPTLERİ KOPYALA
@@ -236,9 +236,9 @@ if [[ -d "$SCRIPT_DIR/scripts" ]]; then
     done
     
     if [[ $SCRIPTS_UPDATED -gt 0 ]]; then
-        log "$SCRIPTS_UPDATED script güncellendi"
+        log "$SCRIPTS_UPDATED scripts updated"
     else
-        log "Scriptler zaten güncel"
+        log "Scripts already up to date"
     fi
 fi
 
@@ -270,9 +270,9 @@ EndSection"
 
 if [[ ! -f "$TOUCH_CONF" ]] || [[ "$(cat "$TOUCH_CONF")" != "$TOUCH_CONF_CONTENT" ]]; then
     echo "$TOUCH_CONF_CONTENT" > "$TOUCH_CONF"
-    log "Xorg touch rotation config oluşturuldu"
+    log "Xorg touch rotation config created"
 else
-    log "Xorg touch rotation config zaten güncel"
+    log "Xorg touch rotation config already up to date"
 fi
 
 # =============================================================================
@@ -298,7 +298,7 @@ cat > "$CHROME_POLICY_DIR/kiosk-policy.json" << 'EOF'
 }
 EOF
 
-log "Chromium policy oluşturuldu"
+log "Chromium policy created"
 
 # =============================================================================
 # 10. NGINX REVERSE PROXY
@@ -434,11 +434,11 @@ ln -sf /etc/nginx/sites-available/kiosk-panel /etc/nginx/sites-enabled/
 systemctl enable nginx
 systemctl restart nginx
 
-# Doğrulama
+# Verification
 if systemctl is-active --quiet nginx; then
     log "Nginx reverse proxy hazır (port: 4444)"
 else
-    warn "Nginx başlatılamadı"
+    warn "Nginx could not be started"
 fi
 
 # =============================================================================
@@ -469,12 +469,12 @@ RestartSec=5
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-log "kiosk-panel.service oluşturuldu/güncellendi"
+log "kiosk-panel.service created/updated"
 
 # Enable service
 systemctl enable kiosk-panel.service 2>/dev/null || true
 
-log "Systemd servisleri hazır"
+log "Systemd services ready"
 
 # =============================================================================
 # 12. TTY1 AUTOLOGIN
@@ -490,7 +490,7 @@ ExecStart=
 ExecStart=-/sbin/agetty --autologin $KIOSK_USER --noclear %I \$TERM
 EOF
 
-log "TTY1 autologin yapılandırıldı"
+log "TTY1 autologin configured"
 
 # =============================================================================
 # 13. KIOSK KULLANICI YAPILANDIRMASI
@@ -513,9 +513,9 @@ if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
     done
 fi
 EOF
-    log ".bash_profile oluşturuldu"
+    log ".bash_profile created"
 else
-    log ".bash_profile zaten mevcut, atlanıyor"
+    log ".bash_profile already exists, skipping"
 fi
 
 # .xinitrc (sadece yoksa oluştur)
@@ -531,9 +531,9 @@ if [[ ! -f "$KIOSK_HOME/.xinitrc" ]]; then
 exec openbox-session
 EOF
     chmod +x "$KIOSK_HOME/.xinitrc"
-    log ".xinitrc oluşturuldu"
+    log ".xinitrc created"
 else
-    log ".xinitrc zaten mevcut, atlanıyor"
+    log ".xinitrc already exists, skipping"
 fi
 
 # Openbox config dizini
@@ -565,9 +565,9 @@ else
 fi
 EOF
     chmod +x "$KIOSK_HOME/.config/openbox/autostart"
-    log "openbox/autostart oluşturuldu"
+    log "openbox/autostart created"
 else
-    log "openbox/autostart zaten mevcut, atlanıyor"
+    log "openbox/autostart already exists, skipping"
 fi
 
 # Openbox rc.xml - keybindings (sadece yoksa oluştur)
@@ -592,15 +592,15 @@ if [[ ! -f "$KIOSK_HOME/.config/openbox/rc.xml" ]]; then
   </applications>
 </openbox_config>
 EOF
-    log "openbox/rc.xml oluşturuldu"
+    log "openbox/rc.xml created"
 else
-    log "openbox/rc.xml zaten mevcut, atlanıyor"
+    log "openbox/rc.xml already exists, skipping"
 fi
 
 # Sahipliği ayarla
 chown -R "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
 
-log "Kiosk kullanıcı yapılandırması tamamlandı"
+log "Kiosk user configuration completed"
 
 # =============================================================================
 # 14. SERVİS ENABLE (Docker/MongoDB sonrası başlatılacak)
@@ -626,7 +626,7 @@ CLOUD_INIT_FILE="/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg"
 if [[ ! -f "$CLOUD_INIT_FILE" ]]; then
     mkdir -p /etc/cloud/cloud.cfg.d
     echo "network: {config: disabled}" > "$CLOUD_INIT_FILE"
-    log "cloud-init network devre dışı bırakıldı"
+    log "cloud-init network disabled"
 fi
 
 # Varsayılan interface'i bul
@@ -685,17 +685,17 @@ systemctl enable NetworkManager-wait-online 2>/dev/null || true
 info "DNS bağlantısı doğrulanıyor..."
 for i in $(seq 1 15); do
     if ping -c 1 -W 2 8.8.8.8 &>/dev/null && ping -c 1 -W 2 google.com &>/dev/null; then
-        log "DNS çalışıyor"
+        log "DNS working"
         break
     fi
     sleep 2
 done
 
-# Doğrulama
+# Verification
 if systemctl is-active --quiet NetworkManager; then
-    log "Network yapılandırması tamamlandı"
+    log "Network configuration completed"
 else
-    warn "NetworkManager başlatılamadı"
+    warn "NetworkManager could not be started"
 fi
 
 # =============================================================================
@@ -706,20 +706,20 @@ info "Tailscale kuruluyor..."
 
 if ! command -v tailscale &> /dev/null; then
     curl -fsSL https://tailscale.com/install.sh | sh
-    log "Tailscale kuruldu"
+    log "Tailscale installed"
 else
-    log "Tailscale zaten kurulu"
+    log "Tailscale already installed"
 fi
 
-# Servisi etkinleştir ve başlat
+# Enable and start service
 systemctl enable tailscaled 2>/dev/null || true
 systemctl start tailscaled 2>/dev/null || true
 
-# Doğrulama
+# Verification
 if systemctl is-active --quiet tailscaled; then
-    log "Tailscale hazır (enrollment panelden yapılacak)"
+    log "Tailscale ready (enrollment will be done from panel)"
 else
-    warn "Tailscaled başlatılamadı"
+    warn "Tailscaled could not be started"
 fi
 
 # =============================================================================
@@ -780,11 +780,11 @@ EOF
 
 # NOT: Nginx config ve services.json Section 10'da oluşturuldu (Panel + Mechatronic + Cockpit)
 
-# Doğrulama
+# Verification
 if systemctl is-active --quiet cockpit.socket; then
-    log "Cockpit kuruldu"
+    log "Cockpit installed"
 else
-    warn "Cockpit socket başlatılamadı"
+    warn "Cockpit socket could not be started"
 fi
 
 # =============================================================================
@@ -865,7 +865,7 @@ Section "Device"
     Option "ShadowFB" "true"
 EndSection
 FBDEV_EOF
-    log "FBDEV rotation config oluşturuldu"
+    log "FBDEV rotation config created"
 }
 
 # FBDEV config sil (nvidia/nouveau çalışıyorsa gerekli değil)
@@ -880,7 +880,7 @@ log "NVIDIA fallback kontrolü başlıyor..."
 
 # nvidia modülü zaten yüklü mü?
 if lsmod | grep -q "^nvidia "; then
-    log "NVIDIA modülü yüklü, fallback gerekmiyor"
+    log "NVIDIA module loaded, fallback not needed"
     remove_fbdev_config
     exit 0
 fi
@@ -888,7 +888,7 @@ fi
 # nvidia yüklenebilir mi dene
 modprobe nvidia 2>/dev/null
 if lsmod | grep -q "^nvidia "; then
-    log "NVIDIA modülü başarıyla yüklendi"
+    log "NVIDIA module loaded successfully"
     remove_fbdev_config
     exit 0
 fi
@@ -905,21 +905,21 @@ if lsmod | grep -q "^nouveau "; then
     # DRM device oluşması için bekle
     sleep 2
     if [ -e /dev/dri/card0 ]; then
-        log "/dev/dri/card0 mevcut, GPU hazır"
+        log "/dev/dri/card0 exists, GPU ready"
     else
-        log "UYARI: /dev/dri/card0 oluşmadı"
+        log "WARNING: /dev/dri/card0 not created"
     fi
     exit 0
 fi
 
 # nouveau da yüklenemedi - muhtemelen Secure Boot lockdown
 log "HATA: nouveau da yüklenemedi (Secure Boot lockdown?)"
-log "FBDEV fallback kullanılacak, rotation Xorg config ile sağlanacak"
+log "FBDEV fallback will be used, rotation provided by Xorg config"
 
 # FBDEV rotation config oluştur
 create_fbdev_config
 
-log "NVIDIA fallback kontrolü tamamlandı"
+log "NVIDIA fallback check completed"
 EOF
 
 chmod +x /usr/local/bin/nvidia-fallback.sh
@@ -946,7 +946,7 @@ EOF
 systemctl daemon-reload
 systemctl enable nvidia-fallback.service
 
-log "NVIDIA fallback service kuruldu"
+log "NVIDIA fallback service installed"
 
 # =============================================================================
 # 19. KIOSK YAPILANDIRMASI
@@ -974,10 +974,10 @@ if [[ -f "$GRUB_FILE" ]]; then
     # Güncelle
     sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW_CMDLINE\"|" "$GRUB_FILE"
     update-grub 2>/dev/null || true
-    log "GRUB rotation ayarlandı"
+    log "GRUB rotation configured"
 fi
 
-log "Kiosk yapılandırması tamamlandı"
+log "Kiosk configuration completed"
 
 # =============================================================================
 # 20. NETMON KURULUMU
@@ -994,7 +994,7 @@ NETMON_DIR="/opt/netmon"
 
 # Klonla
 git clone https://github.com/xofyy/netmon.git "$NETMON_DIR" 2>/dev/null || {
-    warn "netmon repo klonlanamadı"
+    warn "netmon repo could not be cloned"
 }
 
 if [[ -d "$NETMON_DIR" ]]; then
@@ -1025,14 +1025,14 @@ EOF
     systemctl enable netmon 2>/dev/null || true
     systemctl start netmon 2>/dev/null || true
 
-    # Doğrulama
+    # Verification
     if systemctl is-active --quiet netmon; then
-        log "Netmon kuruldu ve çalışıyor"
+        log "Netmon installed and running"
     else
-        warn "Netmon kuruldu ama başlatılamadı"
+        warn "Netmon installed but could not be started"
     fi
 else
-    warn "Netmon kurulumu atlandı"
+    warn "Netmon installation skipped"
 fi
 
 # =============================================================================
@@ -1054,7 +1054,7 @@ COLLECTOR_DIR="/opt/collector-agent"
 
 # Klonla
 git clone https://github.com/xofyy/collector-agent.git "$COLLECTOR_DIR" 2>/dev/null || {
-    warn "collector-agent repo klonlanamadı"
+    warn "collector-agent repo could not be cloned"
 }
 
 if [[ -d "$COLLECTOR_DIR" ]]; then
@@ -1092,21 +1092,21 @@ EOF
     systemctl enable collector-agent 2>/dev/null || true
     systemctl start collector-agent 2>/dev/null || true
 
-    # Doğrulama
+    # Verification
     sleep 2
     if systemctl is-active --quiet collector-agent; then
-        log "Collector kuruldu ve çalışıyor"
+        log "Collector installed and running"
     else
-        warn "Collector kuruldu ama başlatılamadı"
+        warn "Collector installed but could not be started"
     fi
 
     if systemctl is-active --quiet prometheus-node-exporter; then
-        log "Prometheus Node Exporter çalışıyor"
+        log "Prometheus Node Exporter running"
     else
-        warn "Prometheus Node Exporter başlatılamadı"
+        warn "Prometheus Node Exporter could not be started"
     fi
 else
-    warn "Collector kurulumu atlandı"
+    warn "Collector installation skipped"
 fi
 
 # =============================================================================
@@ -1198,7 +1198,7 @@ EOF
 
 # MongoDB başlat
 cd "$COMPOSE_PATH" && docker compose up -d 2>/dev/null || {
-    warn "MongoDB başlatılamadı"
+    warn "MongoDB could not be started"
 }
 
 # MongoDB hazır olana kadar bekle
@@ -1213,7 +1213,7 @@ for i in $(seq 1 60); do
 done
 
 if [[ "$MONGO_READY" == "true" ]]; then
-    log "MongoDB hazır"
+    log "MongoDB ready"
 
     # Varsayılan settings oluştur
     docker exec local_database mongosh --eval '
@@ -1236,18 +1236,18 @@ if [[ "$MONGO_READY" == "true" ]]; then
             {upsert: true}
         );
     ' 2>/dev/null || true
-    log "MongoDB varsayılan ayarları oluşturuldu"
+    log "MongoDB default settings created"
 
     # Panel servisini başlat (artık MongoDB hazır)
     info "Panel servisi başlatılıyor..."
-    systemctl start kiosk-panel.service || warn "Panel servisi başlatılamadı"
+    systemctl start kiosk-panel.service || warn "Panel service could not be started"
 
     # Panel doğrulaması
     sleep 2
     if systemctl is-active --quiet kiosk-panel; then
-        log "Panel servisi çalışıyor"
+        log "Panel service running"
     else
-        warn "Panel servisi başlatılamadı"
+        warn "Panel service could not be started"
     fi
 else
     warn "MongoDB başlatılamadı (60 saniye timeout)"
@@ -1257,18 +1257,18 @@ fi
 
 # Docker ve MongoDB doğrulaması
 if systemctl is-active --quiet docker; then
-    log "Docker servisi çalışıyor"
+    log "Docker service running"
 else
-    warn "Docker servisi çalışmıyor"
+    warn "Docker service not running"
 fi
 
 if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "local_database"; then
-    log "MongoDB container çalışıyor"
+    log "MongoDB container running"
 else
-    warn "MongoDB container çalışmıyor"
+    warn "MongoDB container not running"
 fi
 
-log "Docker kurulumu tamamlandı"
+log "Docker installation completed"
 
 # =============================================================================
 # 23. SECURITY PAKETLERİ KURULUMU
@@ -1283,16 +1283,16 @@ apt-get install -y -qq ufw fail2ban
 # Çünkü tailscale0 interface'i enrollment sonrası oluşuyor
 # SSH ve Panel erişimi kurulum sırasında açık kalmalı
 
-log "Güvenlik paketleri kuruldu (yapılandırma tailscale modülünde)"
+log "Security packages installed (configuration in tailscale module)"
 
 # =============================================================================
-# 24. KURULUM DOĞRULAMASI (ÖZET)
+# 24. INSTALLATION VERIFICATION (SUMMARY)
 # =============================================================================
 
-info "Kurulum doğrulaması yapılıyor..."
+info "Running installation verification..."
 echo ""
 
-# Sayaçlar
+# Counters
 TOTAL_CHECKS=0
 PASSED_CHECKS=0
 FAILED_CHECKS=0
@@ -1329,62 +1329,62 @@ check_command() {
     fi
 }
 
-echo -e "${CYAN}Temel Servisler:${NC}"
+echo -e "${CYAN}Base Services:${NC}"
 check_service "nginx" "Nginx (Reverse Proxy)"
 check_service "NetworkManager" "NetworkManager"
 check_service "docker" "Docker"
 check_service "kiosk-panel" "Kiosk Panel"
 
 echo ""
-echo -e "${CYAN}Ağ Servisleri:${NC}"
+echo -e "${CYAN}Network Services:${NC}"
 check_service "tailscaled" "Tailscaled"
 check_service "cockpit.socket" "Cockpit"
 
 echo ""
-echo -e "${CYAN}Uygulama Servisleri:${NC}"
+echo -e "${CYAN}Application Services:${NC}"
 check_service "x11vnc" "VNC Server"
 check_service "netmon" "Netmon"
 check_service "collector-agent" "Collector Agent"
 check_service "prometheus-node-exporter" "Node Exporter"
 
 echo ""
-echo -e "${CYAN}Konteynerler:${NC}"
+echo -e "${CYAN}Containers:${NC}"
 check_command "docker ps --format '{{.Names}}' | grep -q local_database" "MongoDB Container"
 
 echo ""
-echo -e "${CYAN}Güvenlik:${NC}"
-check_command "which ufw" "UFW (kurulu, tailscale sonrası etkinleşecek)"
-check_command "which fail2ban-client" "Fail2ban (kurulu, tailscale sonrası yapılandırılacak)"
-echo -e "  ${YELLOW}ℹ${NC} UFW ve SSH config tailscale modülünde yapılandırılacak"
+echo -e "${CYAN}Security:${NC}"
+check_command "which ufw" "UFW (installed, will be enabled after tailscale)"
+check_command "which fail2ban-client" "Fail2ban (installed, will be configured after tailscale)"
+echo -e "  ${YELLOW}ℹ${NC} UFW and SSH config will be configured in tailscale module"
 
 echo ""
-echo -e "${CYAN}Sonuç:${NC}"
-echo -e "  Toplam: $TOTAL_CHECKS | ${GREEN}Başarılı: $PASSED_CHECKS${NC} | ${RED}Başarısız: $FAILED_CHECKS${NC}"
+echo -e "${CYAN}Result:${NC}"
+echo -e "  Total: $TOTAL_CHECKS | ${GREEN}Passed: $PASSED_CHECKS${NC} | ${RED}Failed: $FAILED_CHECKS${NC}"
 
 if [[ $FAILED_CHECKS -gt 0 ]]; then
     echo ""
-    warn "Bazı bileşenler başlatılamadı. Reboot sonrası tekrar kontrol edin."
+    warn "Some components could not be started. Check again after reboot."
 fi
 
 # =============================================================================
-# TAMAMLANDI
+# COMPLETED
 # =============================================================================
 
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║                     KURULUM TAMAMLANDI!                              ║${NC}"
+echo -e "${GREEN}║                     INSTALLATION COMPLETE!                           ║${NC}"
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
-echo -e "${CYAN}Panel Erişimi:${NC}"
-echo "  - Yerel: http://localhost:4444"
-echo "  - Ağdan: http://$(hostname -I | awk '{print $1}'):4444"
+echo -e "${CYAN}Panel Access:${NC}"
+echo "  - Local: http://localhost:4444"
+echo "  - From network: http://$(hostname -I | awk '{print $1}'):4444"
 echo ""
-echo -e "${CYAN}Sonraki Adımlar:${NC}"
-echo -e "  1. Sistemi yeniden başlatın: ${YELLOW}sudo reboot${NC}"
-echo "  2. Panel otomatik olarak açılacak"
-echo "  3. Modülleri sırasıyla kurun"
+echo -e "${CYAN}Next Steps:${NC}"
+echo -e "  1. Reboot the system: ${YELLOW}sudo reboot${NC}"
+echo "  2. Panel will open automatically"
+echo "  3. Install modules in order"
 echo ""
-echo -e "${CYAN}Log Dosyası:${NC} $LOG_FILE"
+echo -e "${CYAN}Log File:${NC} $LOG_FILE"
 echo ""
 
-log "Kurulum tamamlandı"
+log "Installation completed"

@@ -1,7 +1,7 @@
 """
 Kiosk Setup Panel - Flask Application Entry Point
 
-MongoDB tabanlı config sistemi.
+MongoDB-based config system.
 """
 
 import os
@@ -13,8 +13,8 @@ from app.modules.base import mongo_config as config
 from app.routes.pages import pages_bp
 from app.routes.api import api_bp
 
-# Logging yapılandırması
-os.makedirs('/var/log/kiosk-setup', exist_ok=True)  # Log dizinini oluştur
+# Logging configuration
+os.makedirs('/var/log/kiosk-setup', exist_ok=True)  # Create log directory
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -29,17 +29,17 @@ logger = logging.getLogger(__name__)
 
 def check_pending_modules():
     """
-    Startup'ta mok_pending ve reboot_required durumundaki modülleri kontrol et.
-    Reboot sonrası otomatik status güncelleme için.
+    Check modules with mok_pending and reboot_required status at startup.
+    For automatic status update after reboot.
     """
     config.reload()
     statuses = config.get_all_module_statuses()
-    
+
     for module_name, status in statuses.items():
         if status == 'mok_pending' or status == 'reboot_required':
-            logger.info(f"Pending modül kontrol ediliyor: {module_name} ({status})")
-            
-            # NVIDIA modülü için özel kontrol
+            logger.info(f"Checking pending module: {module_name} ({status})")
+
+            # Special check for NVIDIA module
             if module_name == 'nvidia':
                 try:
                     result = subprocess.run(
@@ -48,38 +48,38 @@ def check_pending_modules():
                         timeout=10
                     )
                     if result.returncode == 0:
-                        logger.info(f"NVIDIA çalışıyor, status completed yapılıyor")
+                        logger.info(f"NVIDIA is working, setting status to completed")
                         config.set_module_status('nvidia', 'completed')
                     else:
-                        logger.warning(f"NVIDIA henüz çalışmıyor, status korunuyor: {status}")
+                        logger.warning(f"NVIDIA not yet working, keeping status: {status}")
                 except FileNotFoundError:
-                    logger.warning("nvidia-smi bulunamadı")
+                    logger.warning("nvidia-smi not found")
                 except Exception as e:
-                    logger.warning(f"NVIDIA kontrol hatası: {e}")
+                    logger.warning(f"NVIDIA check error: {e}")
 
 
 def create_app() -> Flask:
-    """Flask uygulamasını oluştur ve yapılandır"""
-    
+    """Create and configure Flask application"""
+
     # Flask app
     app = Flask(
         __name__,
         template_folder='templates',
         static_folder='static'
     )
-    
+
     # Secret key
     app.secret_key = os.urandom(24)
-    
-    # Jinja2 ayarları
+
+    # Jinja2 settings
     app.jinja_env.auto_reload = True
     app.config['TEMPLATES_AUTO_RELOAD'] = True
-    
-    # Blueprint'leri kaydet
+
+    # Register blueprints
     app.register_blueprint(pages_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
-    
-    # Context processor - tüm template'lerde kullanılabilir değişkenler
+
+    # Context processor - variables available in all templates
     @app.context_processor
     def inject_globals():
         return {
@@ -87,16 +87,16 @@ def create_app() -> Flask:
             'is_setup_complete': config.is_setup_complete(),
             'kiosk_id': config.get_kiosk_id(),
         }
-    
-    logger.info("Kiosk Setup Panel başlatıldı")
-    
+
+    logger.info("Kiosk Setup Panel started")
+
     return app
 
 
-# Gunicorn için app instance
+# App instance for Gunicorn
 app = create_app()
 
-# Startup'ta pending modülleri kontrol et
+# Check pending modules at startup
 check_pending_modules()
 
 

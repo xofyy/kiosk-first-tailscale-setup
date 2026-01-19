@@ -1,9 +1,9 @@
 """
 Kiosk Setup Panel - Tailscale Module
-Tailscale Enrollment ve Headscale bağlantısı
+Tailscale Enrollment and Headscale connection
 
-Not: Tailscale paketi install.sh'da kuruldu.
-Bu modül sadece enrollment ve headscale bağlantısı yapar.
+Note: Tailscale package is installed in install.sh.
+This module only handles enrollment and headscale connection.
 """
 
 import time
@@ -15,119 +15,119 @@ from app.services.system import SystemService
 from app.services.hardware import HardwareService
 from app.services.enrollment import EnrollmentService
 
-# Sabitler
+# Constants
 HEADSCALE_URL = "https://headscale.xofyy.com"
-APPROVAL_TIMEOUT = 300  # 5 dakika
+APPROVAL_TIMEOUT = 300  # 5 minutes
 
 
 @register_module
 class TailscaleModule(BaseModule):
     name = "tailscale"
     display_name = "Tailscale"
-    description = "Tailscale VPN kurulumu ve Enrollment kayıt"
+    description = "Tailscale VPN setup and Enrollment registration"
     order = 2
-    dependencies = []  # NVIDIA'dan bağımsız kurulabilir
-    
+    dependencies = []  # Can be installed independently from NVIDIA
+
     def _check_prerequisites(self) -> Tuple[bool, str]:
-        """İnternet ve enrollment kontrolü"""
+        """Check internet and enrollment requirements"""
         system = SystemService()
         if not system.check_internet():
-            return False, "İnternet bağlantısı gerekli"
-        
-        # Kiosk ID gerekli
+            return False, "Internet connection required"
+
+        # Kiosk ID required
         if not self._config.get_kiosk_id():
-            return False, "Önce Kiosk ID belirlenmelidir"
-        
+            return False, "Kiosk ID must be set first"
+
         return True, ""
-    
+
     def _is_tailscale_installed(self) -> bool:
-        """Tailscale kurulu mu kontrol et"""
+        """Check if Tailscale is installed"""
         result = self.run_command(['which', 'tailscale'], check=False)
         return result.returncode == 0
-    
+
     def _is_tailscale_connected(self) -> bool:
-        """Tailscale bağlı mı kontrol et"""
+        """Check if Tailscale is connected"""
         result = self.run_command(['tailscale', 'status'], check=False)
         return result.returncode == 0
-    
+
     def install(self) -> Tuple[bool, str]:
-        """Tailscale kurulumu"""
+        """Tailscale installation"""
         try:
-            # 1. Hardware ID üret
+            # 1. Generate Hardware ID
             hardware = HardwareService()
             hardware_id = hardware.get_hardware_id()
-            
+
             if not hardware_id:
-                return False, "Hardware ID üretilemedi"
-            
-            # Config'e kaydet
+                return False, "Failed to generate Hardware ID"
+
+            # Save to config
             self._config.set_hardware_id(hardware_id)
             self.logger.info(f"Hardware ID: {hardware_id}")
-            
-            # 2. Kiosk ID al (önceden ayarlanmış olmalı)
+
+            # 2. Get Kiosk ID (should be set beforehand)
             kiosk_id = self._config.get_kiosk_id()
-            
+
             if not kiosk_id:
-                return False, "Kiosk ID bulunamadı"
-            
+                return False, "Kiosk ID not found"
+
             self.logger.info(f"Kiosk ID: {kiosk_id}")
-            
-            # 3. Enrollment API'ye kayıt
+
+            # 3. Register with Enrollment API
             enrollment = EnrollmentService()
-            
-            self.logger.info("Enrollment API'ye kayıt yapılıyor...")
-            
-            # Ek bilgileri al
+
+            self.logger.info("Registering with Enrollment API...")
+
+            # Get additional info
             motherboard_uuid = hardware.get_motherboard_uuid()
             mac_addresses = hardware.get_mac_addresses()
-            
+
             self.logger.info(f"Motherboard UUID: {motherboard_uuid}")
             self.logger.info(f"MAC Addresses: {mac_addresses}")
-            
+
             enroll_result = enrollment.enroll(
-                kiosk_id, 
+                kiosk_id,
                 hardware_id,
                 motherboard_uuid=motherboard_uuid,
                 mac_addresses=mac_addresses
             )
-            
+
             if not enroll_result['success']:
-                return False, enroll_result.get('error', 'Enrollment başarısız')
-            
-            self.logger.info(f"Enrollment durumu: {enroll_result.get('status')}")
-            
-            # 4. Zaten approved mı kontrol et (auth_key response'da olabilir)
+                return False, enroll_result.get('error', 'Enrollment failed')
+
+            self.logger.info(f"Enrollment status: {enroll_result.get('status')}")
+
+            # 4. Check if already approved (auth_key might be in response)
             auth_key = enroll_result.get('auth_key')
-            
+
             if not auth_key:
-                # 5. Onay bekle - HARDWARE_ID ile!
-                self.logger.info("Yönetici onayı bekleniyor...")
+                # 5. Wait for approval - with HARDWARE_ID!
+                self.logger.info("Waiting for admin approval...")
                 auth_key = enrollment.wait_for_approval(hardware_id, timeout=APPROVAL_TIMEOUT)
-            
+
             if not auth_key:
-                return False, "Yönetici onayı alınamadı veya zaman aşımı"
+                return False, "Admin approval not received or timeout"
 
-            self.logger.info("Yönetici onayı alındı!")
+            self.logger.info("Admin approval received!")
 
-            # 6. Tailscale kurulu mu kontrol et (install.sh'da kurulmuş olmalı)
+            # 6. Check if Tailscale is installed (should be installed by install.sh)
             if not self._is_tailscale_installed():
-                return False, "Tailscale kurulu değil! install.sh çalıştırıldı mı?"
+                return False, "Tailscale not installed! Was install.sh run?"
 
-            self.logger.info("Tailscale kurulu ✓")
+            self.logger.info("Tailscale installed")
 
-            # 7. Tailscaled servisini başlat
-            self.logger.info("Tailscaled servisi başlatılıyor...")
+            # 7. Start tailscaled service
+            self.logger.info("Starting tailscaled service...")
             if not self.systemctl('enable', 'tailscaled'):
-                self.logger.warning("tailscaled enable edilemedi")
+                self.logger.warning("Failed to enable tailscaled")
             if not self.systemctl('start', 'tailscaled'):
-                self.logger.warning("tailscaled başlatılamadı")
-            
-            # Servisin başlamasını bekle
+                self.logger.warning("Failed to start tailscaled")
+
+            # Wait for service to start
             time.sleep(3)
-            
-            # 8. Headscale'e bağlan (tam parametrelerle!)
-            self.logger.info(f"Headscale'e bağlanılıyor: {HEADSCALE_URL}")
-            
+
+            # 8. Connect to Headscale (with full parameters!)
+            self.logger.info(f"Connecting to Headscale: {HEADSCALE_URL}")
+
             result = self.run_command([
                 'tailscale', 'up',
                 '--login-server', HEADSCALE_URL,
@@ -139,84 +139,111 @@ class TailscaleModule(BaseModule):
                 '--accept-routes=false',
                 '--reset'
             ], check=False)
-            
+
             if result.returncode != 0:
-                self.logger.error(f"Tailscale up hatası: {result.stderr}")
-                return False, f"Headscale bağlantısı başarısız: {result.stderr}"
-            
-            # 9. Bağlantıyı doğrula
+                self.logger.error(f"Tailscale up error: {result.stderr}")
+                return False, f"Headscale connection failed: {result.stderr}"
+
+            # 9. Verify connection
             time.sleep(3)
-            
+
             if self._is_tailscale_connected():
-                self.logger.info("Tailscale bağlantısı doğrulandı")
-                
-                # Durum bilgisini logla
+                self.logger.info("Tailscale connection verified")
+
+                # Log status info
                 status_result = self.run_command(['tailscale', 'status'], check=False)
                 if status_result.returncode == 0:
-                    self.logger.info(f"Tailscale durumu:\n{status_result.stdout}")
+                    self.logger.info(f"Tailscale status:\n{status_result.stdout}")
             else:
-                self.logger.warning("Tailscale bağlantısı doğrulanamadı (ama işlem devam ediyor)")
-            
-            # 10. Kiosk ID'yi MongoDB'ye kaydet (diğer servisler için)
+                self.logger.warning("Tailscale connection not verified (but continuing)")
+
+            # 10. Save Kiosk ID to MongoDB (for other services)
             self._save_kiosk_id_to_mongodb(kiosk_id, hardware_id)
 
-            # 11. Güvenlik yapılandırması (UFW kuralları, SSH, fail2ban)
-            # tailscale0 interface artık mevcut, kurallar eklenebilir
+            # 11. Security configuration (UFW rules, SSH, fail2ban)
+            # tailscale0 interface is now available, rules can be added
             self._configure_security()
 
-            self.logger.info("Tailscale kurulumu tamamlandı")
-            return True, "Tailscale kuruldu ve Headscale'e bağlandı"
+            self.logger.info("Tailscale installation completed")
+            return True, "Tailscale installed and connected to Headscale"
 
         except Exception as e:
-            self.logger.error(f"Tailscale kurulum hatası: {e}")
+            self.logger.error(f"Tailscale installation error: {e}")
             return False, str(e)
 
     def _configure_security(self) -> bool:
         """
-        Tailscale bağlantısı sonrası güvenlik yapılandırması.
-        UFW kuralları, SSH config ve fail2ban ayarları.
+        Security configuration after Tailscale connection.
+        UFW rules, SSH config and fail2ban settings.
         """
-        self.logger.info("Güvenlik yapılandırması başlıyor...")
+        self.logger.info("Starting security configuration...")
 
         try:
-            # 1. UFW yapılandırması (sıfırdan)
-            self.logger.info("UFW yapılandırılıyor...")
+            # 1. UFW configuration (from scratch)
+            self.logger.info("Configuring UFW...")
 
-            # Önce sıfırla
+            # Reset first
             self.run_shell('ufw --force reset 2>/dev/null || true', check=False)
 
-            # Varsayılan politikalar
+            # Default policies
             self.run_shell('ufw default deny incoming', check=False)
             self.run_shell('ufw default allow outgoing', check=False)
             self.run_shell('ufw default deny routed', check=False)
 
-            # Tailscale0 üzerinden izinler
+            # Tailscale0 interface permissions
             ufw_rules = [
-                # Tailscale üzerinden SSH
-                'ufw allow in on tailscale0 to any port 22 proto tcp',
-                # Tailscale üzerinden VNC
-                'ufw allow in on tailscale0 to any port 5900 proto tcp',
-                # Tailscale üzerinden Panel
-                'ufw allow in on tailscale0 to any port 4444 proto tcp',
-                # Tailscale üzerinden MongoDB
-                'ufw allow in on tailscale0 to any port 27017 proto tcp',
-                # LAN'dan SSH engelle (tailscale kuralları öncelikli)
-                'ufw deny 22/tcp',
+                # SSH via Tailscale
+                ('ufw allow in on tailscale0 to any port 22 proto tcp', '22/tcp on tailscale0'),
+                # VNC via Tailscale
+                ('ufw allow in on tailscale0 to any port 5900 proto tcp', '5900/tcp on tailscale0'),
+                # Panel via Tailscale
+                ('ufw allow in on tailscale0 to any port 4444 proto tcp', '4444/tcp on tailscale0'),
+                # MongoDB via Tailscale
+                ('ufw allow in on tailscale0 to any port 27017 proto tcp', '27017/tcp on tailscale0'),
+                # Deny SSH from LAN (tailscale rules take priority)
+                ('ufw deny 22/tcp', '22/tcp'),
             ]
 
-            for rule in ufw_rules:
-                self.run_shell(f'{rule} 2>/dev/null || true', check=False)
-                self.logger.debug(f"UFW: {rule}")
+            rules_added = 0
+            for rule_cmd, rule_check in ufw_rules:
+                result = self.run_shell(rule_cmd, check=False)
+                if result.returncode == 0:
+                    self.logger.info(f"UFW rule added: {rule_check}")
+                    rules_added += 1
+                else:
+                    self.logger.error(f"Failed to add UFW rule: {rule_cmd} - {result.stderr}")
 
-            # UFW'yi etkinleştir
-            self.run_shell('ufw --force enable', check=False)
-            self.logger.info("UFW yapılandırıldı ve etkinleştirildi")
+            self.logger.info(f"UFW: {rules_added}/{len(ufw_rules)} rules added")
 
-            # 2. SSH yapılandırması (Tailscale-only)
-            self.logger.info("SSH yapılandırılıyor...")
+            # Enable UFW
+            ufw_enable_result = self.run_shell('ufw --force enable', check=False)
+            if ufw_enable_result.returncode == 0:
+                self.logger.info("UFW enabled")
+            else:
+                self.logger.error(f"Failed to enable UFW: {ufw_enable_result.stderr}")
+
+            # Verify: UFW status and rules
+            ufw_status = self.run_shell('ufw status', check=False)
+            if 'active' in ufw_status.stdout.lower():
+                self.logger.info("UFW status verified: active")
+
+                # Verify rules
+                rules_verified = 0
+                for _, rule_check in ufw_rules:
+                    if rule_check in ufw_status.stdout:
+                        rules_verified += 1
+                    else:
+                        self.logger.warning(f"UFW rule not found: {rule_check}")
+
+                self.logger.info(f"UFW rules verified: {rules_verified}/{len(ufw_rules)}")
+            else:
+                self.logger.error(f"UFW not active! Status: {ufw_status.stdout.strip()}")
+
+            # 2. SSH configuration (Tailscale-only)
+            self.logger.info("Configuring SSH...")
 
             ssh_config = """# Tailscale-only SSH Configuration
-# Bu dosya tailscale modülü tarafından oluşturuldu
+# This file was created by tailscale module
 
 PermitRootLogin yes
 PasswordAuthentication no
@@ -238,12 +265,12 @@ LogLevel VERBOSE
 """
             if self.write_file('/etc/ssh/sshd_config.d/99-tailscale-only.conf', ssh_config):
                 self.systemctl('restart', 'sshd')
-                self.logger.info("SSH yapılandırması tamamlandı")
+                self.logger.info("SSH configuration completed")
             else:
-                self.logger.warning("SSH config yazılamadı")
+                self.logger.warning("Failed to write SSH config")
 
-            # 3. Fail2ban yapılandırması
-            self.logger.info("Fail2ban yapılandırılıyor...")
+            # 3. Fail2ban configuration
+            self.logger.info("Configuring Fail2ban...")
 
             fail2ban_config = """[sshd]
 enabled = true
@@ -257,19 +284,19 @@ findtime = 600
             if self.write_file('/etc/fail2ban/jail.d/sshd.conf', fail2ban_config):
                 self.systemctl('enable', 'fail2ban')
                 self.systemctl('restart', 'fail2ban')
-                self.logger.info("Fail2ban yapılandırması tamamlandı")
+                self.logger.info("Fail2ban configuration completed")
             else:
-                self.logger.warning("Fail2ban config yazılamadı")
+                self.logger.warning("Failed to write Fail2ban config")
 
-            self.logger.info("Güvenlik yapılandırması tamamlandı")
+            self.logger.info("Security configuration completed")
             return True
 
         except Exception as e:
-            self.logger.error(f"Güvenlik yapılandırma hatası: {e}")
+            self.logger.error(f"Security configuration error: {e}")
             return False
 
     def _save_kiosk_id_to_mongodb(self, kiosk_id: str, hardware_id: str) -> None:
-        """Kiosk ID'yi MongoDB'ye kaydet"""
+        """Save Kiosk ID to MongoDB"""
         try:
             import socket
             from datetime import datetime
@@ -279,7 +306,7 @@ findtime = 600
             db = client['kiosk']
             collection = db['settings']
 
-            # Kayıt oluştur/güncelle
+            # Create/update record
             document = {
                 'kiosk_id': kiosk_id,
                 'hardware_id': hardware_id,
@@ -295,7 +322,7 @@ findtime = 600
             )
 
             client.close()
-            self.logger.info(f"Kiosk ID MongoDB'ye kaydedildi: {kiosk_id}")
+            self.logger.info(f"Kiosk ID saved to MongoDB: {kiosk_id}")
 
         except Exception as e:
-            self.logger.warning(f"MongoDB kayıt hatası: {e}")
+            self.logger.warning(f"MongoDB save error: {e}")

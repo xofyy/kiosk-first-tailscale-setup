@@ -1,8 +1,8 @@
 """
 Kiosk Setup Panel - Base Module Class
-Tüm kurulum modüllerinin temel sınıfı
+Base class for all installation modules
 
-MongoDB tabanlı config sistemi.
+MongoDB-based config system.
 """
 
 import os
@@ -14,7 +14,7 @@ from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
-# MongoDB bağlantı ayarları
+# MongoDB connection settings
 MONGO_URI = "mongodb://localhost:27017/"
 MONGO_DB = "kiosk"
 MONGO_COLLECTION = "settings"
@@ -22,8 +22,8 @@ MONGO_COLLECTION = "settings"
 
 class MongoConfig:
     """
-    MongoDB tabanlı config yönetimi.
-    Singleton pattern ile tek instance.
+    MongoDB-based config management.
+    Singleton pattern with single instance.
     """
     _instance = None
     _client = None
@@ -37,23 +37,23 @@ class MongoConfig:
         return cls._instance
 
     def _ensure_connection(self):
-        """MongoDB bağlantısını sağla"""
+        """Ensure MongoDB connection"""
         if self._client is None:
             try:
                 from pymongo import MongoClient
                 self._client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
                 self._db = self._client[MONGO_DB]
                 self._collection = self._db[MONGO_COLLECTION]
-                # Bağlantı testi
+                # Connection test
                 self._client.admin.command('ping')
             except Exception as e:
-                logger.warning(f"MongoDB bağlantı hatası: {e}")
+                logger.warning(f"MongoDB connection error: {e}")
                 self._client = None
                 self._db = None
                 self._collection = None
 
     def _get_settings(self) -> Dict[str, Any]:
-        """Settings dökümanını al"""
+        """Get settings document"""
         self._ensure_connection()
         if self._collection is None:
             return {}
@@ -62,17 +62,17 @@ class MongoConfig:
             doc = self._collection.find_one({})
             return doc if doc else {}
         except Exception as e:
-            logger.warning(f"MongoDB okuma hatası: {e}")
+            logger.warning(f"MongoDB read error: {e}")
             return {}
 
     def get(self, key: str, default: Any = None) -> Any:
         """
-        Config değeri al (noktalı notation destekli).
-        Örnek: get('modules.nvidia') veya get('kiosk_id')
+        Get config value (dot notation supported).
+        Example: get('modules.nvidia') or get('kiosk_id')
         """
         settings = self._get_settings()
 
-        # Noktalı notation desteği
+        # Dot notation support
         keys = key.split('.')
         value = settings
 
@@ -89,7 +89,7 @@ class MongoConfig:
 
     def set(self, key: str, value: Any) -> bool:
         """
-        Config değeri ayarla (noktalı notation destekli).
+        Set config value (dot notation supported).
         """
         self._ensure_connection()
         if self._collection is None:
@@ -103,19 +103,19 @@ class MongoConfig:
             )
             return True
         except Exception as e:
-            logger.warning(f"MongoDB yazma hatası: {e}")
+            logger.warning(f"MongoDB write error: {e}")
             return False
 
     def get_module_status(self, module_name: str) -> str:
-        """Modül durumunu al"""
+        """Get module status"""
         return self.get(f'modules.{module_name}', 'pending')
 
     def set_module_status(self, module_name: str, status: str) -> bool:
-        """Modül durumunu ayarla"""
+        """Set module status"""
         return self.set(f'modules.{module_name}', status)
 
     def is_module_completed(self, module_name: str) -> bool:
-        """Modül tamamlandı mı?"""
+        """Is module completed?"""
         return self.get_module_status(module_name) == 'completed'
 
     def get_kiosk_id(self) -> Optional[str]:
@@ -143,53 +143,53 @@ class MongoConfig:
         pass
 
     def get_all(self) -> Dict[str, Any]:
-        """Tüm settings'i döndür"""
+        """Return all settings"""
         settings = self._get_settings()
-        # _id alanını kaldır
+        # Remove _id field
         if '_id' in settings:
             del settings['_id']
         return settings
 
     def get_all_module_statuses(self) -> Dict[str, str]:
-        """Tüm modül durumlarını döndür"""
+        """Return all module statuses"""
         modules = self.get('modules', {})
         return modules if isinstance(modules, dict) else {}
 
     def is_setting_locked(self, key: str) -> bool:
         """
-        Ayar kilitli mi? (Artık MongoDB'de lock sistemi yok)
-        Tüm ayarlar değiştirilebilir.
+        Is setting locked? (No lock system in MongoDB anymore)
+        All settings are modifiable.
         """
         return False
 
     def set_setup_complete(self, complete: bool) -> bool:
         """
-        Kurulum tamamlandı işareti.
-        MongoDB'ye yazar ve marker dosyasını senkronize eder.
+        Setup complete flag.
+        Writes to MongoDB and syncs the marker file.
         """
         result = self.set('setup_complete', complete)
 
-        # Marker dosyasını senkronize et (openbox autostart için)
+        # Sync marker file (for openbox autostart)
         marker_file = '/etc/kiosk-setup/.setup-complete'
         try:
             if complete:
-                # Dosyayı oluştur
+                # Create file
                 os.makedirs(os.path.dirname(marker_file), exist_ok=True)
                 with open(marker_file, 'w') as f:
                     f.write(f'# Setup completed at {datetime.now().isoformat()}\n')
-                logger.info(f"Setup complete marker oluşturuldu: {marker_file}")
+                logger.info(f"Setup complete marker created: {marker_file}")
             else:
-                # Dosyayı sil
+                # Delete file
                 if os.path.exists(marker_file):
                     os.remove(marker_file)
-                    logger.info(f"Setup complete marker silindi: {marker_file}")
+                    logger.info(f"Setup complete marker deleted: {marker_file}")
         except Exception as e:
-            logger.warning(f"Marker dosyası senkronizasyon hatası: {e}")
+            logger.warning(f"Marker file sync error: {e}")
 
         return result
 
     def is_setup_complete(self) -> bool:
-        """Kurulum tamamlandı mı?"""
+        """Is setup complete?"""
         return self.get('setup_complete', False)
 
 
@@ -202,20 +202,20 @@ LOG_DIR = '/var/log/kiosk-setup'
 
 def setup_module_logger(module_name: str) -> logging.Logger:
     """
-    Modül için özel logger oluştur.
-    Her modül kendi log dosyasına yazar.
+    Create custom logger for module.
+    Each module writes to its own log file.
     """
-    # Log dizinini oluştur
+    # Create log directory
     os.makedirs(LOG_DIR, exist_ok=True)
-    
-    # Logger oluştur
+
+    # Create logger
     module_logger = logging.getLogger(f"module.{module_name}")
     module_logger.setLevel(logging.DEBUG)
-    
-    # Mevcut handler'ları temizle (tekrarlayan log'ları önle)
+
+    # Clear existing handlers (prevent duplicate logs)
     module_logger.handlers.clear()
-    
-    # Dosya handler'ı
+
+    # File handler
     log_file = os.path.join(LOG_DIR, f"{module_name}.log")
     file_handler = logging.FileHandler(log_file, encoding='utf-8')
     file_handler.setLevel(logging.DEBUG)
@@ -228,8 +228,8 @@ def setup_module_logger(module_name: str) -> logging.Logger:
     file_handler.setFormatter(formatter)
     
     module_logger.addHandler(file_handler)
-    
-    # Ayrıca main.log'a da yaz
+
+    # Also write to main.log
     main_log = os.path.join(LOG_DIR, 'main.log')
     main_handler = logging.FileHandler(main_log, encoding='utf-8')
     main_handler.setLevel(logging.INFO)
@@ -241,11 +241,11 @@ def setup_module_logger(module_name: str) -> logging.Logger:
 
 class BaseModule(ABC):
     """
-    Kurulum modülleri için abstract base class.
-    Tüm modüller bu sınıftan türetilmelidir.
+    Abstract base class for installation modules.
+    All modules must inherit from this class.
     """
-    
-    # Alt sınıflar tarafından override edilmeli
+
+    # Should be overridden by subclasses
     name: str = ""
     display_name: str = ""
     description: str = ""
@@ -257,11 +257,11 @@ class BaseModule(ABC):
         BaseModule constructor.
 
         Args:
-            config_instance: Opsiyonel config nesnesi (DIP için).
-                             None ise global mongo_config kullanılır.
-                             Test için mock config geçilebilir.
+            config_instance: Optional config object (for DIP).
+                             If None, global mongo_config is used.
+                             Mock config can be passed for testing.
         """
-        # MongoDB tabanlı config
+        # MongoDB-based config
         if config_instance is None:
             self._config = mongo_config
         else:
@@ -271,7 +271,7 @@ class BaseModule(ABC):
         self._log_file = os.path.join(LOG_DIR, f"{self.name}.log")
     
     def get_info(self) -> Dict[str, Any]:
-        """Modül bilgilerini döndür"""
+        """Return module information"""
         return {
             'name': self.name,
             'display_name': self.display_name,
@@ -283,53 +283,53 @@ class BaseModule(ABC):
     
     def can_install(self) -> Tuple[bool, str]:
         """
-        Modül kurulabilir mi kontrol et.
-        Returns: (kurulabilir_mi, sebep)
+        Check if module can be installed.
+        Returns: (can_install, reason)
         """
-        # Zaten kurulu mu?
+        # Already installed?
         if self._config.is_module_completed(self.name):
-            return False, "Modül zaten kurulu"
-        
-        # Şu an kuruluyor mu?
+            return False, "Module already installed"
+
+        # Currently installing?
         if self._config.get_module_status(self.name) == 'installing':
-            return False, "Modül kurulumu devam ediyor"
-        
-        # Bağımlılıklar kurulu mu?
+            return False, "Module installation in progress"
+
+        # Dependencies installed?
         for dep in self.dependencies:
             if not self._config.is_module_completed(dep):
-                return False, f"Bağımlılık kurulu değil: {dep}"
-        
-        # Özel kontroller (alt sınıfta override edilebilir)
+                return False, f"Dependency not installed: {dep}"
+
+        # Custom checks (can be overridden in subclass)
         can, reason = self._check_prerequisites()
         if not can:
             return False, reason
-        
-        return True, "Kurulabilir"
+
+        return True, "Can be installed"
     
     def _check_prerequisites(self) -> Tuple[bool, str]:
         """
-        Özel ön koşul kontrolleri.
-        Alt sınıflar override edebilir.
+        Custom prerequisite checks.
+        Subclasses can override.
         """
         return True, ""
     
     @abstractmethod
     def install(self) -> Tuple[bool, str]:
         """
-        Modül kurulumunu gerçekleştir.
-        Alt sınıflar tarafından implement edilmeli.
-        Returns: (başarılı_mı, mesaj)
+        Perform module installation.
+        Must be implemented by subclasses.
+        Returns: (success, message)
         """
         pass
-    
+
     def uninstall(self) -> Tuple[bool, str]:
         """
-        Modül kaldırma (opsiyonel).
-        Alt sınıflar override edebilir.
+        Module removal (optional).
+        Subclasses can override.
         """
-        return False, "Bu modül kaldırılamaz"
-    
-    # === Yardımcı Metodlar ===
+        return False, "This module cannot be removed"
+
+    # === Helper Methods ===
     
     def run_command(
         self,
@@ -338,9 +338,9 @@ class BaseModule(ABC):
         capture_output: bool = True,
         timeout: Optional[int] = None
     ) -> subprocess.CompletedProcess:
-        """Komut çalıştır"""
-        self.logger.info(f"Komut: {' '.join(command)}")
-        
+        """Run command"""
+        self.logger.info(f"Command: {' '.join(command)}")
+
         try:
             result = subprocess.run(
                 command,
@@ -351,10 +351,10 @@ class BaseModule(ABC):
             )
             return result
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Komut hatası: {e.stderr}")
+            self.logger.error(f"Command error: {e.stderr}")
             raise
         except subprocess.TimeoutExpired:
-            self.logger.error(f"Komut zaman aşımı: {command}")
+            self.logger.error(f"Command timeout: {command}")
             raise
     
     def run_shell(
@@ -364,7 +364,7 @@ class BaseModule(ABC):
         capture_output: bool = True,
         timeout: Optional[int] = None
     ) -> subprocess.CompletedProcess:
-        """Shell komutu çalıştır"""
+        """Run shell command"""
         self.logger.info(f"Shell: {command}")
         
         try:
@@ -378,7 +378,7 @@ class BaseModule(ABC):
             )
             return result
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Shell hatası: {e.stderr}")
+            self.logger.error(f"Shell error: {e.stderr}")
             raise
     
     def apt_install(self, packages: List[str]) -> bool:
@@ -391,29 +391,29 @@ class BaseModule(ABC):
         # Noninteractive environment
         env = os.environ.copy()
         env['DEBIAN_FRONTEND'] = 'noninteractive'
-        env['NEEDRESTART_MODE'] = 'a'  # Otomatik restart, sormaz
-        
+        env['NEEDRESTART_MODE'] = 'a'  # Auto restart, no prompt
+
         try:
-            # Önce update (real-time log)
-            self.logger.info("APT güncelleniyor...")
+            # First update (real-time log)
+            self.logger.info("Updating APT...")
             self._run_apt_with_logging(['apt-get', 'update', '-q'], env)
             
-            # Paketleri kur (real-time log)
-            self.logger.info(f"Paketler kuruluyor: {' '.join(packages)}")
+            # Install packages (real-time log)
+            self.logger.info(f"Installing packages: {' '.join(packages)}")
             self._run_apt_with_logging(
                 ['apt-get', 'install', '-y', '-q'] + packages,
                 env,
                 timeout=900  # 15 dakika
             )
             
-            self.logger.info("APT kurulumu tamamlandı")
+            self.logger.info("APT installation completed")
             return True
-            
+
         except subprocess.TimeoutExpired:
-            self.logger.error(f"APT kurulum zaman aşımı: {packages}")
+            self.logger.error(f"APT installation timeout: {packages}")
             return False
         except Exception as e:
-            self.logger.error(f"APT kurulum hatası: {e}")
+            self.logger.error(f"APT installation error: {e}")
             return False
     
     def _run_apt_with_logging(
@@ -422,8 +422,8 @@ class BaseModule(ABC):
         env: dict,
         timeout: int = 300
     ) -> None:
-        """APT komutunu çalıştır ve çıktıyı real-time logla"""
-        self.logger.debug(f"Çalıştırılıyor: {' '.join(command)}")
+        """Run APT command and log output in real-time"""
+        self.logger.debug(f"Running: {' '.join(command)}")
         
         process = subprocess.Popen(
             command,
@@ -437,13 +437,13 @@ class BaseModule(ABC):
         start_time = datetime.now()
         
         try:
-            # Çıktıyı satır satır oku ve logla
+            # Read and log output line by line
             for line in process.stdout:
                 line = line.rstrip()
                 if line:
                     self._log_apt_output(line)
-                
-                # Timeout kontrolü
+
+                # Timeout check
                 elapsed = (datetime.now() - start_time).total_seconds()
                 if elapsed > timeout:
                     process.kill()
@@ -460,8 +460,8 @@ class BaseModule(ABC):
             raise
     
     def _log_apt_output(self, line: str) -> None:
-        """APT çıktısını log dosyasına yaz"""
-        # Önemli satırları INFO olarak, diğerlerini DEBUG olarak logla
+        """Write APT output to log file"""
+        # Log important lines as INFO, others as DEBUG
         important_keywords = [
             'Setting up', 'Unpacking', 'Processing', 'Selecting',
             'Get:', 'Hit:', 'Fetched', 'upgraded', 'newly installed',
@@ -476,7 +476,7 @@ class BaseModule(ABC):
             self.logger.debug(f"[APT] {line}")
     
     def systemctl(self, action: str, service: str) -> bool:
-        """Systemd servis kontrolü"""
+        """Systemd service control"""
         try:
             self.run_command(['systemctl', action, service])
             return True
@@ -484,19 +484,19 @@ class BaseModule(ABC):
             return False
     
     def write_file(self, path: str, content: str, mode: int = 0o644) -> bool:
-        """Dosya yaz"""
+        """Write file"""
         try:
-            # Dizini oluştur
+            # Create directory
             os.makedirs(os.path.dirname(path), exist_ok=True)
-            
+
             with open(path, 'w') as f:
                 f.write(content)
-            
+
             os.chmod(path, mode)
-            self.logger.info(f"Dosya yazıldı: {path}")
+            self.logger.info(f"File written: {path}")
             return True
         except Exception as e:
-            self.logger.error(f"Dosya yazma hatası: {e}")
+            self.logger.error(f"File write error: {e}")
             return False
     
     def render_template(self, template_name: str, context: Dict[str, Any]) -> str:
@@ -516,35 +516,35 @@ class BaseModule(ABC):
             except Exception:
                 continue
         
-        raise FileNotFoundError(f"Template bulunamadı: {template_name}")
-    
+        raise FileNotFoundError(f"Template not found: {template_name}")
+
     def get_config(self, key: str, default: Any = None) -> Any:
-        """Config değeri al"""
+        """Get config value"""
         return self._config.get(key, default)
-    
+
     def set_config(self, key: str, value: Any) -> None:
-        """Config değeri ayarla"""
+        """Set config value"""
         self._config.set(key, value)
         self._config.save()
     
     def set_module_status(self, status: str) -> None:
-        """Bu modülün durumunu ayarla"""
-        self.logger.info(f"Modül durumu değişti: {status}")
+        """Set this module's status"""
+        self.logger.info(f"Module status changed: {status}")
         self._config.set_module_status(self.name, status)
     
     def configure_grub(self, params: Dict[str, Any] = None) -> bool:
         """
-        GRUB parametrelerini merkezi olarak yapılandır.
-        
+        Configure GRUB parameters centrally.
+
         Args:
-            params: Opsiyonel parametreler
-                - nvidia_modeset: True ise nvidia-drm.modeset=1 ekle
-                - grub_rotation: int değer ile fbcon=rotate:X ekle
-        
-        Varsayılan olarak 'quiet splash' her zaman eklenir.
-        
+            params: Optional parameters
+                - nvidia_modeset: If True, add nvidia-drm.modeset=1
+                - grub_rotation: Int value to add fbcon=rotate:X
+
+        By default 'quiet splash' is always added.
+
         Returns:
-            Başarılı mı
+            Success status
         """
         params = params or {}
         grub_file = '/etc/default/grub'
@@ -555,7 +555,7 @@ class BaseModule(ABC):
             
             original_content = grub_content
             
-            # 1. quiet splash kontrolü (her zaman)
+            # 1. quiet splash check (always)
             if 'quiet' not in grub_content or 'splash' not in grub_content:
                 # quiet splash yoksa ekle
                 if 'GRUB_CMDLINE_LINUX_DEFAULT="' in grub_content:
@@ -565,7 +565,7 @@ class BaseModule(ABC):
                     )
                     self.logger.info("GRUB: quiet splash eklendi")
             
-            # 2. nvidia-drm.modeset=1 kontrolü
+            # 2. nvidia-drm.modeset=1 check
             if params.get('nvidia_modeset') and 'nvidia-drm.modeset=1' not in grub_content:
                 grub_content = grub_content.replace(
                     'GRUB_CMDLINE_LINUX_DEFAULT="',
@@ -573,7 +573,7 @@ class BaseModule(ABC):
                 )
                 self.logger.info("GRUB: nvidia-drm.modeset=1 eklendi")
             
-            # 3. fbcon rotation kontrolü
+            # 3. fbcon rotation check
             grub_rotation = params.get('grub_rotation')
             if grub_rotation is not None and 'fbcon=rotate:' not in grub_content:
                 grub_content = grub_content.replace(
@@ -582,15 +582,15 @@ class BaseModule(ABC):
                 )
                 self.logger.info(f"GRUB: fbcon=rotate:{grub_rotation} eklendi")
             
-            # Değişiklik var mı?
+            # Any changes?
             if grub_content != original_content:
                 with open(grub_file, 'w') as f:
                     f.write(grub_content)
-                
-                # grub-mkconfig çalıştır (update-grub scripti PATH sorunu yaratıyor)
-                self.logger.info("GRUB yapılandırması güncelleniyor...")
-                
-                # Önce UEFI yolunu dene, yoksa BIOS yolu
+
+                # Run grub-mkconfig (update-grub script causes PATH issues)
+                self.logger.info("Updating GRUB configuration...")
+
+                # Try UEFI path first, then BIOS path
                 grub_cfg_paths = [
                     '/boot/grub/grub.cfg',           # Standart
                     '/boot/efi/EFI/ubuntu/grub.cfg', # UEFI Ubuntu
@@ -609,19 +609,19 @@ class BaseModule(ABC):
                     )
                     
                     if result.returncode == 0:
-                        self.logger.info(f"GRUB yapılandırması güncellendi: {grub_cfg}")
+                        self.logger.info(f"GRUB configuration updated: {grub_cfg}")
                     else:
-                        self.logger.warning(f"grub-mkconfig uyarısı: {result.stderr}")
+                        self.logger.warning(f"grub-mkconfig warning: {result.stderr}")
                 else:
-                    self.logger.warning("GRUB config dizini bulunamadı, atlanıyor")
+                    self.logger.warning("GRUB config directory not found, skipping")
             else:
-                self.logger.info("GRUB yapılandırması zaten güncel")
+                self.logger.info("GRUB configuration already up to date")
             
             return True
             
         except FileNotFoundError:
-            self.logger.warning(f"GRUB dosyası bulunamadı: {grub_file}")
+            self.logger.warning(f"GRUB file not found: {grub_file}")
             return False
         except Exception as e:
-            self.logger.warning(f"GRUB yapılandırma hatası: {e}")
+            self.logger.warning(f"GRUB configuration error: {e}")
             return False

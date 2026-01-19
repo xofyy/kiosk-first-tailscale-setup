@@ -1,13 +1,13 @@
 {# IP Configuration Form Component #}
 
 <div class="ip-config-panel">
-    <h3>Geçici IP Ayarı</h3>
-    <p class="text-muted">DHCP çalışmıyorsa geçici statik IP ayarlayabilirsiniz.</p>
-    
+    <h3>Temporary IP Settings</h3>
+    <p class="text-muted">If DHCP is not working, you can set a temporary static IP.</p>
+
     <form id="temp-ip-form" class="ip-form">
         <div class="form-row">
             <div class="form-group">
-                <label>Arayüz</label>
+                <label>Interface</label>
                 <select name="interface" class="form-control">
                     {% for name, info in interfaces.items() %}
                     <option value="{{ name }}">{{ name }} ({{ info.state }})</option>
@@ -15,7 +15,7 @@
                 </select>
             </div>
             <div class="form-group">
-                <label>IP Adresi</label>
+                <label>IP Address</label>
                 <input type="text" name="ip" class="form-control" placeholder="192.168.1.100">
             </div>
         </div>
@@ -35,8 +35,8 @@
                 <input type="text" name="dns" class="form-control" value="8.8.8.8">
             </div>
             <div class="form-group form-actions">
-                <button type="submit" class="btn btn-primary">IP Ayarla</button>
-                <button type="button" class="btn btn-secondary" id="dhcp-reset-btn">DHCP'ye Dön</button>
+                <button type="submit" class="btn btn-primary">Set IP</button>
+                <button type="button" class="btn btn-secondary" id="dhcp-reset-btn">Reset to DHCP</button>
             </div>
         </div>
     </form>

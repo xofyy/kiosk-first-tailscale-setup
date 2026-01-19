@@ -1,8 +1,8 @@
 """
 Kiosk Setup Panel - Page Routes
-HTML sayfa endpoint'leri
+HTML page endpoints
 
-MongoDB tabanlı config sistemi.
+MongoDB-based config system.
 """
 
 import os
@@ -18,7 +18,7 @@ pages_bp = Blueprint('pages', __name__)
 
 @pages_bp.route('/')
 def home():
-    """Anasayfa - Sistem durumu ve IP yapılandırma"""
+    """Home page - System status and IP configuration"""
     system = SystemService()
     system_info = system.get_system_info_fast()
 
@@ -30,8 +30,8 @@ def home():
 
 @pages_bp.route('/kurulum')
 def install():
-    """Kurulum sayfası - Modül kurulumları"""
-    # Modül listesini al
+    """Installation page - Module installations"""
+    # Get module list
     modules = get_all_modules()
     module_statuses = config.get_all_module_statuses()
 
@@ -44,24 +44,24 @@ def install():
 
 @pages_bp.route('/services')
 def services():
-    """Servisler sayfası - iframe ile servis erişimi"""
+    """Services page - Service access via iframe"""
     import json
     import os
-    
-    config.reload()  # Güncel config'i oku
-    
+
+    config.reload()  # Read current config
+
     from app.services.service_checker import get_all_services_status
-    
-    # Servisleri config'den al
+
+    # Get services from config
     services_config = config.get('services', {})
-    
-    # Nginx services.json varsa onu da kontrol et
+
+    # Also check nginx services.json if exists
     nginx_services_file = '/etc/nginx/kiosk-services.json'
     if os.path.exists(nginx_services_file):
         try:
             with open(nginx_services_file, 'r') as f:
                 nginx_services = json.load(f)
-                # Nginx'ten gelen servisleri config ile birleştir
+                # Merge services from nginx with config
                 for name, svc in nginx_services.items():
                     if name not in services_config and not svc.get('internal'):
                         services_config[name] = svc
@@ -77,7 +77,7 @@ def services():
         if not status.get('internal', False)
     }
     
-    # Nginx kurulu mu? (paket bazlı veya modül bazlı)
+    # Is nginx installed? (package-based or module-based)
     nginx_installed = os.path.exists('/usr/sbin/nginx') or config.is_module_completed('nginx')
     
     return render_template(
@@ -89,42 +89,42 @@ def services():
 
 @pages_bp.route('/logs')
 def logs():
-    """Log görüntüleme sayfası (modül filtreli)"""
+    """Log viewing page (module filtered)"""
     import os
     from flask import request
-    
-    config.reload()  # Güncel config'i oku
-    
-    # Modül parametresi
+
+    config.reload()  # Read current config
+
+    # Module parameter
     module = request.args.get('module', '')
-    
-    # Log dizini
+
+    # Log directory
     log_dir = '/var/log/kiosk-setup'
-    
-    # Mevcut modül log dosyalarını listele
+
+    # List available module log files
     available_modules = []
     if os.path.exists(log_dir):
         for f in os.listdir(log_dir):
             if f.endswith('.log') and f != 'main.log':
                 available_modules.append(f.replace('.log', ''))
-    
-    # Hangi log dosyasını okuyacağız?
+
+    # Which log file to read?
     if module and module in available_modules:
         log_file = os.path.join(log_dir, f'{module}.log')
     else:
-        # Tüm loglar (main.log)
+        # All logs (main.log)
         log_file = os.path.join(log_dir, 'main.log')
         module = ''  # Reset module param
-    
+
     logs = []
     try:
         if os.path.exists(log_file):
             with open(log_file, 'r') as f:
-                logs = f.readlines()[-200:]  # Son 200 satır
+                logs = f.readlines()[-200:]  # Last 200 lines
         else:
-            logs = ['Log dosyası henüz oluşturulmadı']
+            logs = ['Log file not yet created']
     except Exception as e:
-        logs = [f'Hata: {str(e)}']
+        logs = [f'Error: {str(e)}']
     
     return render_template(
         'logs.html', 

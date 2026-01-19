@@ -1,39 +1,39 @@
 {% extends "base.html" %}
 
-{% block title %}Loglar - Kiosk Setup Panel{% endblock %}
+{% block title %}Logs - Kiosk Setup Panel{% endblock %}
 
 {% block content %}
 <div class="logs-page">
     <div class="logs-header">
-        <h2 class="page-title">Sistem Logları</h2>
+        <h2 class="page-title">System Logs</h2>
         <div class="logs-actions">
             <select id="module-select" class="select-input" onchange="changeModule(this.value)">
-                <option value="">Tüm Loglar (main.log)</option>
+                <option value="">All Logs (main.log)</option>
                 {% for mod in available_modules %}
                 <option value="{{ mod }}" {% if mod == current_module %}selected{% endif %}>
                     {{ mod | capitalize }}
                 </option>
                 {% endfor %}
             </select>
-            <button class="btn btn-secondary" onclick="refreshLogs()">Yenile</button>
+            <button class="btn btn-secondary" onclick="refreshLogs()">Refresh</button>
             <label class="checkbox-label">
                 <input type="checkbox" id="auto-refresh" checked>
-                Otomatik yenile
+                Auto refresh
             </label>
             <label class="checkbox-label">
                 <input type="checkbox" id="auto-scroll" checked>
-                Otomatik kaydır
+                Auto scroll
             </label>
         </div>
     </div>
-    
+
     <div class="logs-container" id="logs-container">
         <pre class="logs-content" id="logs-content">{% for line in logs %}{{ line }}{% endfor %}</pre>
     </div>
-    
+
     <div class="logs-footer">
-        <span id="log-status">{{ logs|length }} satır gösteriliyor</span>
-        <span id="last-update">Son güncelleme: şimdi</span>
+        <span id="log-status">{{ logs|length }} lines shown</span>
+        <span id="last-update">Last update: now</span>
     </div>
 </div>
 {% endblock %}
@@ -47,67 +47,67 @@
     const logStatus = document.getElementById('log-status');
     const lastUpdate = document.getElementById('last-update');
     
-    // Mevcut modül
+    // Current module
     let currentModule = '{{ current_module }}';
-    
-    // Sayfa yüklendiğinde scroll
+
+    // Scroll on page load
     if (autoScroll.checked) {
         container.scrollTop = container.scrollHeight;
     }
-    
-    // Modül değiştir
+
+    // Change module
     function changeModule(moduleName) {
         currentModule = moduleName;
         const url = moduleName ? `/logs?module=${moduleName}` : '/logs';
         window.location.href = url;
     }
-    
-    // Log'ları yenile (AJAX)
+
+    // Refresh logs (AJAX)
     async function refreshLogs() {
         try {
-            const url = currentModule 
+            const url = currentModule
                 ? `/api/modules/${currentModule}/logs?lines=200`
                 : '/logs';
-            
+
             if (currentModule) {
-                // API'den al (JSON)
+                // Get from API (JSON)
                 const response = await fetch(url);
                 const data = await response.json();
-                
+
                 if (data.logs) {
                     logsContent.textContent = data.logs.join('\n');
-                    logStatus.textContent = `${data.logs.length} satır gösteriliyor`;
+                    logStatus.textContent = `${data.logs.length} lines shown`;
                 }
             } else {
-                // HTML sayfasından al
+                // Get from HTML page
                 const response = await fetch(url);
                 const html = await response.text();
                 const parser = new DOMParser();
                 const doc = parser.parseFromString(html, 'text/html');
                 const newContent = doc.querySelector('.logs-content');
-                
+
                 if (newContent) {
                     logsContent.innerHTML = newContent.innerHTML;
                 }
             }
-            
+
             // Scroll
             if (autoScroll.checked) {
                 container.scrollTop = container.scrollHeight;
             }
-            
+
             // Update time
             const now = new Date();
-            lastUpdate.textContent = `Son güncelleme: ${now.toLocaleTimeString('tr-TR')}`;
-            
+            lastUpdate.textContent = `Last update: ${now.toLocaleTimeString('en-US')}`;
+
         } catch (error) {
-            console.error('Log yenileme hatası:', error);
+            console.error('Log refresh error:', error);
         }
     }
-    
-    // Otomatik yenileme (3 saniyede bir)
+
+    // Auto refresh (every 3 seconds)
     let refreshInterval = null;
-    
+
     function startAutoRefresh() {
         if (refreshInterval) return;
         refreshInterval = setInterval(() => {
@@ -116,14 +116,14 @@
             refreshLogs();
         }, 3000);
     }
-    
+
     function stopAutoRefresh() {
         if (refreshInterval) {
             clearInterval(refreshInterval);
             refreshInterval = null;
         }
     }
-    
+
     // Checkbox event listener
     autoRefresh.addEventListener('change', (e) => {
         if (e.target.checked) {
@@ -132,18 +132,18 @@
             stopAutoRefresh();
         }
     });
-    
-    // Sayfa görünürlük değişince
+
+    // When page visibility changes
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             stopAutoRefresh();
         } else if (autoRefresh.checked) {
             startAutoRefresh();
-            refreshLogs(); // Hemen bir kere yenile
+            refreshLogs(); // Refresh immediately
         }
     });
-    
-    // Başlat
+
+    // Start
     if (autoRefresh.checked) {
         startAutoRefresh();
     }

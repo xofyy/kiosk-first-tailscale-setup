@@ -1,6 +1,6 @@
 """
 Kiosk Setup Panel - Hardware Service
-Hardware ID üretimi
+Hardware ID generation
 """
 
 import subprocess
@@ -10,7 +10,7 @@ from typing import Dict, Optional
 
 logger = logging.getLogger(__name__)
 
-# Absolute paths for system commands (PATH'te /usr/sbin olmayabilir)
+# Absolute paths for system commands (/usr/sbin may not be in PATH)
 DMIDECODE = '/usr/sbin/dmidecode'
 LSBLK = '/usr/bin/lsblk'
 UDEVADM = '/usr/bin/udevadm'
@@ -18,21 +18,21 @@ HDPARM = '/usr/sbin/hdparm'
 
 
 class HardwareService:
-    """Hardware ID üretimi ve donanım bilgileri"""
-    
+    """Hardware ID generation and hardware information"""
+
     def get_hardware_id(self) -> str:
         """
-        Benzersiz Hardware ID üret.
-        Anakart, RAM ve disk seri numaralarından oluşturulur.
+        Generate unique Hardware ID.
+        Created from motherboard, RAM and disk serial numbers.
         Format: MOBO_SERIAL:xxx|RAM_SERIALS:xxx|DISK_SERIALS:xxx
         """
         components = self.get_components()
-        
+
         mb = components.get('motherboard_serial', '')
         ram = components.get('ram_serials', '')
         disk = components.get('disk_serials', '')
-        
-        # SHA256 formatı (eski script ile uyumlu)
+
+        # SHA256 format (compatible with old script)
         sha_input = f"MOBO_SERIAL:{mb}|RAM_SERIALS:{ram}|DISK_SERIALS:{disk}"
         
         # SHA256 hash al ve ilk 16 karakteri kullan (lowercase)
@@ -42,7 +42,7 @@ class HardwareService:
         return ''
     
     def get_components(self) -> Dict[str, str]:
-        """Donanım bileşen bilgilerini al"""
+        """Get hardware component information"""
         return {
             'motherboard_serial': self._get_motherboard_serial(),
             'ram_serials': self._get_ram_serials(),
@@ -50,7 +50,7 @@ class HardwareService:
         }
     
     def _get_motherboard_serial(self) -> str:
-        """Anakart seri numarasını al"""
+        """Get motherboard serial number"""
         try:
             result = subprocess.run(
                 [DMIDECODE, '-s', 'baseboard-serial-number'],
@@ -60,11 +60,11 @@ class HardwareService:
             )
             if result.returncode == 0:
                 serial = result.stdout.strip()
-                # Geçersiz değerleri filtrele
+                # Filter invalid values
                 if serial and serial.lower() not in ['not specified', 'to be filled', 'default string', 'n/a']:
                     return serial
         except Exception as e:
-            logger.debug(f"Motherboard serial alınamadı: {e}")
+            logger.debug(f"Could not get motherboard serial: {e}")
         
         # Alternatif: system UUID
         try:
@@ -77,12 +77,12 @@ class HardwareService:
             if result.returncode == 0:
                 return result.stdout.strip()
         except Exception as e:
-            logger.debug(f"System UUID alınamadı: {e}")
+            logger.debug(f"Could not get system UUID: {e}")
         
         return ''
     
     def _get_ram_serials(self) -> str:
-        """Tüm RAM modüllerinin seri numaralarını al (virgülle ayrılmış)"""
+        """Get all RAM module serial numbers (comma-separated)"""
         serials = []
         try:
             result = subprocess.run(
@@ -99,15 +99,15 @@ class HardwareService:
                         if serial and serial.lower() not in ['not specified', 'unknown', 'n/a', 'no dimm']:
                             serials.append(serial)
         except Exception as e:
-            logger.debug(f"RAM serials alınamadı: {e}")
+            logger.debug(f"Could not get RAM serials: {e}")
         
         return ','.join(serials) if serials else ''
     
     def _get_disk_serials(self) -> str:
-        """Tüm fiziksel disklerin seri numaralarını al (virgülle ayrılmış, sıralı)"""
+        """Get all physical disk serial numbers (comma-separated, sorted)"""
         serials = []
-        
-        # lsblk ile tüm disk serial'lerini al (loop=7, ram=1 hariç)
+
+        # Get all disk serials via lsblk (excluding loop=7, ram=1)
         try:
             result = subprocess.run(
                 [LSBLK, '-dno', 'NAME,SERIAL', '--exclude', '7,1'],
@@ -120,13 +120,13 @@ class HardwareService:
                 for line in result.stdout.strip().split('\n'):
                     if not line.strip():
                         continue
-                    parts = line.split(None, 1)  # Sadece ilk boşluktan böl
+                    parts = line.split(None, 1)  # Split only at first space
                     if len(parts) >= 2:
                         serial = parts[1].strip()
                         if serial and serial.lower() not in ['n/a', 'unknown', '']:
                             serials.append(serial)
         except Exception as e:
-            logger.debug(f"Disk serials (lsblk) alınamadı: {e}")
+            logger.debug(f"Could not get disk serials (lsblk): {e}")
         
         # Fallback: udevadm ile dene (lsblk serial vermezse)
         if not serials:
@@ -159,9 +159,9 @@ class HardwareService:
                                         serials.append(serial)
                                         break
             except Exception as e:
-                logger.debug(f"Disk serials (udevadm) alınamadı: {e}")
-        
-        # Sırala (tutarlılık için) ve birleştir
+                logger.debug(f"Could not get disk serials (udevadm): {e}")
+
+        # Sort (for consistency) and join
         if serials:
             serials.sort()
             return ','.join(serials)
@@ -187,7 +187,7 @@ class HardwareService:
                         'memory': parts[2]
                     }
         except Exception as e:
-            logger.debug(f"GPU bilgisi alınamadı: {e}")
+            logger.debug(f"Could not get GPU info: {e}")
         
         return None
     
@@ -206,21 +206,21 @@ class HardwareService:
                     elif line.startswith('cpu cores'):
                         info['cores'] = line.split(':')[1].strip()
         except Exception as e:
-            logger.debug(f"CPU bilgisi alınamadı: {e}")
+            logger.debug(f"Could not get CPU info: {e}")
         
         return info
     
     def get_motherboard_uuid(self) -> str:
-        """Anakart UUID'sini al"""
+        """Get motherboard UUID"""
         try:
             with open('/sys/class/dmi/id/product_uuid', 'r') as f:
                 return f.read().strip()
         except Exception as e:
-            logger.debug(f"Motherboard UUID alınamadı: {e}")
+            logger.debug(f"Could not get motherboard UUID: {e}")
         return ''
-    
+
     def get_mac_addresses(self) -> str:
-        """Tüm network interface MAC adreslerini al (virgülle ayrılmış)"""
+        """Get all network interface MAC addresses (comma-separated)"""
         try:
             result = subprocess.run(
                 ['ip', 'link', 'show'],
@@ -232,7 +232,7 @@ class HardwareService:
             if result.returncode == 0:
                 macs = []
                 for line in result.stdout.split('\n'):
-                    # 'link/ether XX:XX:XX:XX:XX:XX' formatı
+                    # 'link/ether XX:XX:XX:XX:XX:XX' format
                     if 'link/ether' in line:
                         parts = line.split()
                         for i, p in enumerate(parts):
@@ -241,5 +241,5 @@ class HardwareService:
                                 break
                 return ','.join(macs)
         except Exception as e:
-            logger.debug(f"MAC adresleri alınamadı: {e}")
+            logger.debug(f"Could not get MAC addresses: {e}")
         return ''

@@ -1,6 +1,6 @@
 """
 Kiosk Setup Panel - System Service
-Sistem bilgileri ve yardımcı fonksiyonlar
+System information and helper functions
 """
 
 import json
@@ -15,10 +15,10 @@ logger = logging.getLogger(__name__)
 
 
 class SystemService:
-    """Sistem bilgileri ve operasyonları"""
-    
+    """System information and operations"""
+
     def get_system_info(self) -> Dict[str, Any]:
-        """Tüm sistem bilgilerini topla"""
+        """Collect all system information"""
         return {
             'hostname': self.get_hostname(),
             'ip_address': self.get_ip_address(),
@@ -33,21 +33,21 @@ class SystemService:
     
     def get_system_info_fast(self) -> Dict[str, Any]:
         """
-        Internet kontrolü YAPMADAN hızlı sistem bilgisi.
-        Tab geçişlerini bloke etmez. Internet bilgileri JS ile async güncellenir.
-        
-        Internet yokken sayfa geçişlerinin yavaşlamasını önler.
+        Fast system info WITHOUT internet check.
+        Doesn't block tab switches. Internet info updated async via JS.
+
+        Prevents page transitions from slowing down when no internet.
         """
         return {
             'hostname': self.get_hostname(),
-            'ip_address': None,  # JS güncelleyecek
-            'tailscale_ip': None,  # JS güncelleyecek
-            'internet': None,  # JS güncelleyecek
-            'dns_working': None,  # JS güncelleyecek
-            'interfaces': self.get_network_interfaces(),  # Bu hızlı (local)
-            'uptime': self.get_uptime(),  # Bu hızlı (/proc okuma)
-            'memory': self.get_memory_info(),  # Bu hızlı (/proc okuma)
-            'disk': self.get_disk_info(),  # Bu hızlı (statvfs)
+            'ip_address': None,  # JS will update
+            'tailscale_ip': None,  # JS will update
+            'internet': None,  # JS will update
+            'dns_working': None,  # JS will update
+            'interfaces': self.get_network_interfaces(),  # Fast (local)
+            'uptime': self.get_uptime(),  # Fast (/proc read)
+            'memory': self.get_memory_info(),  # Fast (/proc read)
+            'disk': self.get_disk_info(),  # Fast (statvfs)
         }
     
     def get_hostname(self) -> str:
@@ -58,13 +58,13 @@ class SystemService:
         """Ana IP adresini al"""
         s = None
         try:
-            # Default route üzerinden IP al
+            # Get IP via default route
             s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-            s.settimeout(0.3)  # 300ms timeout - hızlı UI güncellemesi için
+            s.settimeout(0.3)  # 300ms timeout - fast UI update
             s.connect(("8.8.8.8", 80))
             return s.getsockname()[0]
         except Exception as e:
-            logger.debug(f"IP adresi alınamadı: {e}")
+            logger.debug(f"Could not get IP address: {e}")
             return None
         finally:
             if s:
@@ -80,20 +80,20 @@ class SystemService:
                 ['tailscale', 'ip', '-4'],
                 capture_output=True,
                 text=True,
-                timeout=0.5  # 500ms timeout - hızlı UI güncellemesi için
+                timeout=0.5  # 500ms timeout - fast UI update
             )
             if result.returncode == 0:
                 return result.stdout.strip()
         except Exception as e:
-            logger.debug(f"Tailscale IP alınamadı: {e}")
+            logger.debug(f"Could not get Tailscale IP: {e}")
         return None
     
     def get_network_interfaces(self) -> Dict[str, Dict[str, str]]:
-        """Ağ arayüzlerini listele"""
+        """List network interfaces"""
         interfaces = {}
-        
+
         try:
-            # ip addr ile arayüzleri al
+            # Get interfaces via ip addr
             result = subprocess.run(
                 ['ip', '-j', 'addr'],
                 capture_output=True,
@@ -105,8 +105,8 @@ class SystemService:
                 
                 for iface in data:
                     name = iface.get('ifname', '')
-                    
-                    # lo ve docker arayüzlerini atla
+
+                    # Skip lo and docker interfaces
                     if name in ['lo'] or name.startswith('docker') or name.startswith('br-'):
                         continue
                     
@@ -125,12 +125,12 @@ class SystemService:
                     }
                     
         except Exception as e:
-            logger.debug(f"Network interfaces alınamadı: {e}")
-        
+            logger.debug(f"Could not get network interfaces: {e}")
+
         return interfaces
-    
+
     def check_internet(self) -> bool:
-        """İnternet bağlantısını kontrol et"""
+        """Check internet connection"""
         try:
             socket.create_connection(("8.8.8.8", 53), timeout=0.3)  # 300ms timeout
             return True
@@ -138,7 +138,7 @@ class SystemService:
             return False
     
     def check_dns(self) -> bool:
-        """DNS çözümleme kontrolü"""
+        """DNS resolution check"""
         try:
             socket.setdefaulttimeout(0.3)  # 300ms timeout
             socket.gethostbyname("google.com")
@@ -149,7 +149,7 @@ class SystemService:
             socket.setdefaulttimeout(None)
     
     def get_uptime(self) -> str:
-        """Sistem uptime'ını al"""
+        """Get system uptime"""
         try:
             with open('/proc/uptime', 'r') as f:
                 uptime_seconds = float(f.readline().split()[0])
@@ -166,7 +166,7 @@ class SystemService:
                 return f"{minutes}d"
                 
         except Exception as e:
-            logger.debug(f"Uptime alınamadı: {e}")
+            logger.debug(f"Could not get uptime: {e}")
             return "N/A"
     
     def get_memory_info(self) -> Dict[str, Any]:
@@ -193,7 +193,7 @@ class SystemService:
             }
             
         except Exception as e:
-            logger.debug(f"Memory bilgisi alınamadı: {e}")
+            logger.debug(f"Could not get memory info: {e}")
             return {'total_mb': 0, 'used_mb': 0, 'free_mb': 0, 'percent': 0}
     
     def get_disk_info(self) -> Dict[str, Any]:
@@ -212,7 +212,7 @@ class SystemService:
             }
             
         except Exception as e:
-            logger.debug(f"Disk bilgisi alınamadı: {e}")
+            logger.debug(f"Could not get disk info: {e}")
             return {'total_gb': 0, 'used_gb': 0, 'free_gb': 0, 'percent': 0}
     
     def set_temporary_ip(
@@ -224,34 +224,34 @@ class SystemService:
         dns: str
     ) -> dict:
         """
-        Geçici statik IP ayarla - korumalı versiyon.
-        Bu ayar NetworkManager kurulana kadar geçerlidir.
-        
+        Set temporary static IP - protected version.
+        This setting is valid until NetworkManager is installed.
+
         Returns: {'success': bool, 'error': str|None}
         """
-        
-        # 1. VALIDATION - Önce kontrol et, sonra uygula
-        
-        # Interface var mı?
+
+        # 1. VALIDATION - Check first, then apply
+
+        # Does interface exist?
         if not os.path.exists(f'/sys/class/net/{interface}'):
-            return {'success': False, 'error': f'Interface bulunamadı: {interface}'}
-        
-        # IP formatı geçerli mi?
+            return {'success': False, 'error': f'Interface not found: {interface}'}
+
+        # Is IP format valid?
         try:
             ip_obj = ipaddress.ip_address(ip)
             gw_obj = ipaddress.ip_address(gateway)
             network = ipaddress.ip_network(f"{ip}/{netmask}", strict=False)
         except ValueError as e:
-            return {'success': False, 'error': f'Geçersiz IP formatı: {e}'}
-        
-        # Gateway aynı subnet'te mi?
+            return {'success': False, 'error': f'Invalid IP format: {e}'}
+
+        # Is gateway in the same subnet?
         if gw_obj not in network:
-            return {'success': False, 'error': f"Gateway ({gateway}) IP subnet'inde değil"}
+            return {'success': False, 'error': f"Gateway ({gateway}) not in IP subnet"}
         
-        # 2. BACKUP - Mevcut durumu kaydet
+        # 2. BACKUP - Save current state
         backup = self._backup_network_state(interface)
-        
-        # 3. UYGULA - Sırayla işlemleri yap
+
+        # 3. APPLY - Execute operations in order
         try:
             # DHCP'yi durdur (varsa, hata vermez)
             dhclient = self._find_dhclient()
@@ -282,7 +282,7 @@ class SystemService:
                 check=True, timeout=10
             )
             
-            # ÖNCE mevcut route'u sil, SONRA yenisini ekle
+            # FIRST delete current route, THEN add new one
             subprocess.run(
                 ['ip', 'route', 'del', 'default'],
                 check=False, stderr=subprocess.DEVNULL, timeout=10
@@ -299,35 +299,35 @@ class SystemService:
             return {'success': True, 'error': None}
             
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-            # 4. ROLLBACK - Hata durumunda geri al
-            error_msg = f"IP ayarlama hatası: {e}"
+            # 4. ROLLBACK - Revert on error
+            error_msg = f"IP setting error: {e}"
             rollback_ok = self._rollback_network(interface, backup)
-            
+
             if rollback_ok:
-                return {'success': False, 'error': f'{error_msg} (eski ayarlar geri yüklendi)'}
+                return {'success': False, 'error': f'{error_msg} (old settings restored)'}
             else:
-                return {'success': False, 'error': f'{error_msg} (UYARI: Geri yükleme başarısız!)'}
-    
+                return {'success': False, 'error': f'{error_msg} (WARNING: Rollback failed!)'}
+
     def _netmask_to_cidr(self, netmask: str) -> int:
-        """Netmask'i CIDR notasyonuna çevir"""
+        """Convert netmask to CIDR notation"""
         return sum([bin(int(x)).count('1') for x in netmask.split('.')])
     
     def reset_to_dhcp(self, interface: str) -> dict:
         """
-        DHCP'ye geri dön - korumalı versiyon.
-        Statik IP ayarını kaldırıp DHCP client'ı yeniden başlatır.
-        
+        Reset to DHCP - protected version.
+        Removes static IP setting and restarts DHCP client.
+
         Returns: {'success': bool, 'error': str|None}
         """
-        
-        # Interface kontrolü
+
+        # Interface check
         if not os.path.exists(f'/sys/class/net/{interface}'):
-            return {'success': False, 'error': f'Interface bulunamadı: {interface}'}
-        
-        # dhclient kontrolü - ÖNCE kontrol et, yoksa hiçbir şey yapma!
+            return {'success': False, 'error': f'Interface not found: {interface}'}
+
+        # dhclient check - Check FIRST, do nothing if not found!
         dhclient = self._find_dhclient()
         if not dhclient:
-            return {'success': False, 'error': 'dhclient bulunamadı! isc-dhcp-client paketi gerekli.'}
+            return {'success': False, 'error': 'dhclient not found! isc-dhcp-client package required.'}
         
         try:
             # IP temizle
@@ -348,21 +348,21 @@ class SystemService:
                 check=False, timeout=10
             )
             
-            # DHCP başlat
+            # Start DHCP
             subprocess.run(
                 [dhclient, interface],
                 check=True, timeout=30
             )
-            
+
             return {'success': True, 'error': None}
-            
+
         except subprocess.CalledProcessError as e:
-            return {'success': False, 'error': f'DHCP hatası: {e}'}
+            return {'success': False, 'error': f'DHCP error: {e}'}
         except subprocess.TimeoutExpired:
-            return {'success': False, 'error': 'DHCP zaman aşımı (30s)'}
-    
+            return {'success': False, 'error': 'DHCP timeout (30s)'}
+
     def _backup_network_state(self, interface: str) -> dict:
-        """Mevcut ağ durumunu yedekle"""
+        """Backup current network state"""
         backup = {}
         try:
             # Mevcut IP bilgisi
@@ -384,18 +384,18 @@ class SystemService:
                 with open('/etc/resolv.conf', 'r') as f:
                     backup['dns'] = f.read()
         except Exception as e:
-            logger.debug(f"Network backup alınamadı: {e}")
+            logger.debug(f"Could not backup network: {e}")
         return backup
-    
+
     def _rollback_network(self, interface: str, backup: dict) -> bool:
-        """Ağ yapılandırmasını geri yükle (DHCP ile)"""
+        """Restore network configuration (with DHCP)"""
         try:
-            # DNS'i geri yükle
+            # Restore DNS
             if 'dns' in backup:
                 with open('/etc/resolv.conf', 'w') as f:
                     f.write(backup['dns'])
-            
-            # dhclient ile yeniden IP al (en güvenli yol)
+
+            # Get new IP via dhclient (safest way)
             dhclient = self._find_dhclient()
             
             if dhclient:
@@ -411,7 +411,7 @@ class SystemService:
             
             return False
         except Exception as e:
-            logger.warning(f"Network rollback başarısız: {e}")
+            logger.warning(f"Network rollback failed: {e}")
             return False
     
     def _find_dhclient(self) -> Optional[str]:

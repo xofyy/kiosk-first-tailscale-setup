@@ -4,42 +4,42 @@
     <div class="connection-card">
         <div class="connection-icon">🌐</div>
         <div class="connection-info">
-            <span class="connection-label">İnternet</span>
+            <span class="connection-label">Internet</span>
             <span class="connection-value" id="conn-internet">
                 {% if internet %}
-                <span class="status-badge success">Bağlı</span>
+                <span class="status-badge success">Connected</span>
                 {% else %}
-                <span class="status-badge error">Bağlı Değil</span>
+                <span class="status-badge error">Not Connected</span>
                 {% endif %}
             </span>
         </div>
     </div>
-    
+
     <div class="connection-card">
         <div class="connection-icon">📡</div>
         <div class="connection-info">
-            <span class="connection-label">IP Adresi</span>
+            <span class="connection-label">IP Address</span>
             <span class="connection-value" id="conn-ip">{{ ip_address or 'N/A' }}</span>
         </div>
     </div>
-    
+
     <div class="connection-card">
         <div class="connection-icon">🔗</div>
         <div class="connection-info">
             <span class="connection-label">Tailscale IP</span>
-            <span class="connection-value" id="conn-tailscale">{{ tailscale_ip or 'Bağlı Değil' }}</span>
+            <span class="connection-value" id="conn-tailscale">{{ tailscale_ip or 'Not Connected' }}</span>
         </div>
     </div>
-    
+
     <div class="connection-card">
         <div class="connection-icon">🔍</div>
         <div class="connection-info">
             <span class="connection-label">DNS</span>
             <span class="connection-value" id="conn-dns">
                 {% if dns_working %}
-                <span class="status-badge success">Çalışıyor</span>
+                <span class="status-badge success">Working</span>
                 {% else %}
-                <span class="status-badge error">Hata</span>
+                <span class="status-badge error">Error</span>
                 {% endif %}
             </span>
         </div>

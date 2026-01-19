@@ -3,23 +3,28 @@
    Modern, touch-friendly UI optimized for kiosk displays
    ============================================================================= */
 
-/* CSS Variables - Neon Green + Dark Gray Theme */
+/* CSS Variables - Green + Dark Theme */
 :root {
-    --color-bg: #0d0d0d;
-    --color-bg-secondary: #141414;
-    --color-bg-tertiary: #1a1a1a;
-    --color-surface: #1f1f1f;
-    --color-surface-hover: #2a2a2a;
-    --color-border: #333333;
-    --color-text: #e0e0e0;
-    --color-text-secondary: #a0a0a0;
-    --color-text-muted: #707070;
-    --color-primary: #00ff88;
-    --color-primary-hover: #00cc6a;
-    --color-success: #00ff88;
-    --color-warning: #ffcc00;
-    --color-error: #ff4455;
-    --color-accent: #00ffaa;
+    /* Background */
+    --color-bg: #0a0a0a;
+    --color-bg-secondary: #111111;
+    --color-bg-tertiary: #161616;
+    --color-surface: #1a1a1a;
+    --color-surface-hover: #242424;
+    --color-border: #2a2a2a;
+    /* Text */
+    --color-text: #f5f5f5;
+    --color-text-secondary: #b0b0b0;
+    --color-text-muted: #666666;
+    /* Primary */
+    --color-primary: #22a55f;
+    --color-primary-hover: #1e8f52;
+    --color-accent: #2ecc71;
+    /* Status */
+    --color-success: #22a55f;
+    --color-warning: #f59e0b;
+    --color-error: #ef4444;
+    --color-info: #3b82f6;
     --font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
     --font-size-base: 16px;
     --font-size-sm: 14px;
@@ -121,12 +126,6 @@ body {
 .logo {
     font-size: 32px;
     color: var(--color-primary);
-    animation: pulse 2s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.6; }
 }
 
 .header-brand h1 {
@@ -313,23 +312,23 @@ body {
 }
 
 .status-badge.success {
-    background: rgba(63, 185, 80, 0.15);
+    background: rgba(34, 165, 95, 0.15);
     color: var(--color-success);
 }
 
 .status-badge.warning {
-    background: rgba(210, 153, 34, 0.15);
+    background: rgba(245, 158, 11, 0.15);
     color: var(--color-warning);
 }
 
 .status-badge.error {
-    background: rgba(248, 81, 73, 0.15);
+    background: rgba(239, 68, 68, 0.15);
     color: var(--color-error);
 }
 
 .status-badge.info {
-    background: rgba(88, 166, 255, 0.15);
-    color: var(--color-primary);
+    background: rgba(59, 130, 246, 0.15);
+    color: var(--color-info);
 }
 
 /* =============================================================================
@@ -594,7 +593,7 @@ body {
 
 .progress-fill {
     height: 100%;
-    background: linear-gradient(90deg, var(--color-primary), var(--color-accent));
+    background: var(--color-primary);
     border-radius: 4px;
     transition: width 0.5s ease;
 }
@@ -934,7 +933,7 @@ body {
 .mok-password-info {
     margin-top: var(--spacing-md);
     padding: var(--spacing-md);
-    background: rgba(255, 204, 0, 0.1);
+    background: rgba(245, 158, 11, 0.1);
     border: 1px solid var(--color-warning);
     border-radius: var(--border-radius);
     text-align: left;
@@ -1110,7 +1109,7 @@ body {
 }
 
 .alert-warning {
-    background: rgba(255, 204, 0, 0.1);
+    background: rgba(245, 158, 11, 0.1);
     border: 1px solid var(--color-warning);
     color: var(--color-warning);
 }
@@ -1146,26 +1145,63 @@ body {
 
 .btn-power .btn-icon {
     font-size: 1.1rem;
+    display: flex;
+    align-items: center;
+}
+
+.btn-power .btn-icon svg {
+    width: 16px;
+    height: 16px;
+    vertical-align: middle;
 }
 
 .btn-reboot {
-    background: rgba(255, 204, 0, 0.15);
+    background: rgba(245, 158, 11, 0.15);
     color: var(--color-warning);
-    border-color: rgba(255, 204, 0, 0.3);
+    border-color: rgba(245, 158, 11, 0.3);
 }
 
 .btn-reboot:hover {
-    background: rgba(255, 204, 0, 0.25);
+    background: rgba(245, 158, 11, 0.25);
     border-color: var(--color-warning);
 }
 
 .btn-shutdown {
-    background: rgba(255, 68, 85, 0.15);
+    background: rgba(239, 68, 68, 0.15);
     color: var(--color-error);
-    border-color: rgba(255, 68, 85, 0.3);
+    border-color: rgba(239, 68, 68, 0.3);
 }
 
 .btn-shutdown:hover {
-    background: rgba(255, 68, 85, 0.25);
+    background: rgba(239, 68, 68, 0.25);
     border-color: var(--color-error);
+}
+
+/* =============================================================================
+   IP Mode Indicator
+   ============================================================================= */
+
+.ip-mode-info {
+    text-align: center;
+    margin-top: var(--spacing-md);
+}
+
+.mode-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: rgba(34, 165, 95, 0.15);
+    border: 1px solid var(--color-primary);
+    border-radius: var(--border-radius);
+    color: var(--color-primary);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+}
+
+.indicator-dot {
+    width: 8px;
+    height: 8px;
+    background: var(--color-primary);
+    border-radius: 50%;
 }

@@ -3,47 +3,47 @@
 
 <div class="module-card" data-module="{{ module.name }}" data-status="{{ status }}">
     <div class="module-order">{{ module.order }}</div>
-    
+
     <div class="module-info">
         <h3 class="module-name">{{ module.display_name }}</h3>
         <p class="module-desc">{{ module.description }}</p>
         {% if module.dependencies %}
-        <span class="module-deps">Bağımlılık: {{ module.dependencies | join(', ') }}</span>
+        <span class="module-deps">Dependency: {{ module.dependencies | join(', ') }}</span>
         {% endif %}
     </div>
-    
+
     <div class="module-status">
         {% if status == 'completed' %}
-        <span class="status-badge success">✓ Tamamlandı</span>
+        <span class="status-badge success">✓ Completed</span>
         {% elif status == 'installing' %}
-        <span class="status-badge warning">⟳ Kuruluyor...</span>
+        <span class="status-badge warning">⟳ Installing...</span>
         {% elif status == 'failed' %}
-        <span class="status-badge error">✗ Hata</span>
+        <span class="status-badge error">✗ Error</span>
         {% elif status == 'reboot_required' %}
-        <span class="status-badge info">↻ Reboot Gerekli</span>
+        <span class="status-badge info">↻ Reboot Required</span>
         {% elif status == 'mok_pending' %}
-        <span class="status-badge info">🔐 MOK Onayı Bekliyor</span>
+        <span class="status-badge info">🔐 MOK Pending</span>
         {% else %}
-        <span class="status-badge">Bekliyor</span>
+        <span class="status-badge">Pending</span>
         {% endif %}
     </div>
-    
+
     <div class="module-actions">
         {% if status == 'completed' %}
-        <button class="btn btn-secondary" disabled>Kuruldu</button>
+        <button class="btn btn-secondary" disabled>Installed</button>
         {% elif status == 'installing' %}
         <button class="btn btn-secondary" disabled>
             <span class="spinner"></span>
         </button>
         {% elif status == 'reboot_required' or status == 'mok_pending' %}
         <button class="btn btn-warning btn-reboot" onclick="rebootSystem()">
-            Yeniden Başlat
+            Reboot
         </button>
         {% else %}
-        <button class="btn btn-primary btn-install" 
+        <button class="btn btn-primary btn-install"
                 data-module="{{ module.name }}"
                 onclick="installModule('{{ module.name }}')">
-            Kur
+            Install
         </button>
         {% endif %}
     </div>

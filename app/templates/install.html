@@ -1,28 +1,28 @@
 {% extends "base.html" %}
 
-{% block title %}Kurulum - Kiosk Setup Panel{% endblock %}
+{% block title %}Install - Kiosk Setup Panel{% endblock %}
 
 {% block content %}
 <div class="dashboard">
-    <!-- Kiosk ID Uyarısı (eğer yoksa) -->
+    <!-- Kiosk ID Warning (if not set) -->
     {% if not kiosk_id %}
     <div class="alert alert-warning">
-        <strong>Dikkat:</strong> Kuruluma başlamadan önce
-        <a href="{{ url_for('pages.home') }}">Anasayfa</a>'dan Kiosk ID belirlemelisiniz.
+        <strong>Warning:</strong> You must set Kiosk ID from
+        <a href="{{ url_for('pages.home') }}">Home</a> before starting installation.
     </div>
     {% endif %}
 
-    <!-- MOK Uyarısı (dinamik olarak yüklenecek) -->
+    <!-- MOK Warning (loaded dynamically) -->
     <div id="mok-alert-container"></div>
 
-    <!-- Kurulum Modülleri -->
+    <!-- Installation Modules -->
     <section class="section modules-section">
-        <h2 class="section-title">Kurulum Modülleri</h2>
+        <h2 class="section-title">Installation Modules</h2>
 
         <div class="progress-bar">
             <div class="progress-fill" id="overall-progress" style="width: 0%"></div>
         </div>
-        <p class="progress-text" id="progress-text">0 / {{ modules|length }} modül tamamlandı</p>
+        <p class="progress-text" id="progress-text">0 / {{ modules|length }} modules completed</p>
 
         <div class="modules-list">
             {% for module in modules %}
@@ -34,51 +34,51 @@
                     <h3 class="module-name">{{ module.display_name }}</h3>
                     <p class="module-desc">{{ module.description }}</p>
                     {% if module.dependencies %}
-                    <span class="module-deps">Bağımlılık: {{ module.dependencies | join(', ') }}</span>
+                    <span class="module-deps">Dependency: {{ module.dependencies | join(', ') }}</span>
                     {% endif %}
                 </div>
 
                 <div class="module-status">
                     {% if status == 'completed' %}
-                    <span class="status-badge success">✓ Tamamlandı</span>
+                    <span class="status-badge success">✓ Completed</span>
                     {% elif status == 'installing' %}
-                    <span class="status-badge warning">⟳ Kuruluyor...</span>
+                    <span class="status-badge warning">⟳ Installing...</span>
                     {% elif status == 'failed' %}
-                    <span class="status-badge error">✗ Hata</span>
+                    <span class="status-badge error">✗ Error</span>
                     {% elif status == 'reboot_required' %}
-                    <span class="status-badge info">↻ Reboot Gerekli</span>
+                    <span class="status-badge info">↻ Reboot Required</span>
                     {% elif status == 'mok_pending' %}
-                    <span class="status-badge info">🔐 MOK Onayı Bekliyor</span>
+                    <span class="status-badge info">🔐 MOK Pending</span>
                     {% else %}
-                    <span class="status-badge">Bekliyor</span>
+                    <span class="status-badge">Pending</span>
                     {% endif %}
 
                     {% if module.name == 'nvidia' and status == 'mok_pending' %}
                     <div class="mok-password-info">
-                        <strong>MOK Şifresi:</strong>
+                        <strong>MOK Password:</strong>
                         <code class="mok-password">{{ config.get('mok_password', '--------') }}</code>
-                        <small>Reboot sonrası mavi ekranda "Enroll MOK" seçin ve bu şifreyi girin</small>
+                        <small>After reboot, select "Enroll MOK" on blue screen and enter this password</small>
                     </div>
                     {% endif %}
                 </div>
 
                 <div class="module-actions">
                     {% if status == 'completed' %}
-                    <button class="btn btn-secondary" disabled>Kuruldu</button>
+                    <button class="btn btn-secondary" disabled>Installed</button>
                     {% elif status == 'installing' %}
                     <button class="btn btn-secondary" disabled>
-                        <span class="spinner"></span> Kuruluyor
+                        <span class="spinner"></span> Installing
                     </button>
                     {% elif status == 'reboot_required' or status == 'mok_pending' %}
                     <button class="btn btn-warning btn-reboot" onclick="rebootSystem()">
-                        Yeniden Başlat
+                        Reboot
                     </button>
                     {% else %}
                     <button class="btn btn-primary btn-install"
                             data-module="{{ module.name }}"
                             onclick="installModule('{{ module.name }}')"
-                            {% if not kiosk_id and module.name == 'tailscale' %}disabled title="Önce Kiosk ID gerekli"{% endif %}>
-                        Kur
+                            {% if not kiosk_id and module.name == 'tailscale' %}disabled title="Kiosk ID required first"{% endif %}>
+                        Install
                     </button>
                     {% endif %}
                 </div>
@@ -87,19 +87,19 @@
         </div>
     </section>
 
-    <!-- Kurulumu Tamamla -->
+    <!-- Complete Setup -->
     <section class="section complete-section">
         <div class="complete-panel">
-            <h2>Kurulumu Tamamla</h2>
-            <p>Tüm modüller kurulduktan sonra kurulumu tamamlayabilirsiniz.</p>
+            <h2>Complete Setup</h2>
+            <p>You can complete setup after all modules are installed.</p>
 
             <button class="btn btn-success btn-lg" id="btn-complete"
                     onclick="completeSetup()" disabled>
-                Kurulumu Tamamla
+                Complete Setup
             </button>
 
             <p class="text-muted mt-2">
-                <small>Tamamlandığında sistem kiosk moduna geçecek ve yeniden başlatılacak.</small>
+                <small>When completed, system will switch to kiosk mode and reboot.</small>
             </p>
         </div>
     </section>
@@ -109,10 +109,10 @@
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/modules.js') }}"></script>
 <script>
-    // Sayfa yüklendiğinde ilerlemeyi güncelle
+    // Update progress on page load
     updateProgress();
 
-    // MOK durumunu kontrol et
+    // Check MOK status
     checkMokStatus();
 
     async function checkMokStatus() {
@@ -123,49 +123,49 @@
             const data = await response.json();
             const container = document.getElementById('mok-alert-container');
 
-            // MOK skipped - uyarı göster
+            // MOK skipped - show warning
             if (data.status === 'skipped') {
                 container.innerHTML = `
                     <div class="alert alert-error">
-                        <strong>MOK Atlandı!</strong>
-                        <p>NVIDIA driver'ı imzalanmadı, bu yüzden çalışmıyor.</p>
-                        <p>MOK Şifresi: <code>${data.password || '--------'}</code></p>
+                        <strong>MOK Skipped!</strong>
+                        <p>NVIDIA driver is not signed, so it's not working.</p>
+                        <p>MOK Password: <code>${data.password || '--------'}</code></p>
                         <button class="btn btn-warning" onclick="reimportMok()">
-                            MOK Yeniden Import Et
+                            Re-import MOK
                         </button>
                         <small class="d-block mt-1">
-                            Import sonrası sistem yeniden başlayacak.
-                            Mavi ekranda "Enroll MOK" seçip şifreyi girin.
+                            After import, system will reboot.
+                            Select "Enroll MOK" on blue screen and enter the password.
                         </small>
                     </div>
                 `;
             }
-            // MOK pending - bilgi göster
+            // MOK pending - show info
             else if (data.status === 'pending') {
                 container.innerHTML = `
                     <div class="alert alert-info">
-                        <strong>MOK Onayı Bekleniyor</strong>
-                        <p>Sistem yeniden başlatıldığında mavi ekranda "Enroll MOK" seçin.</p>
-                        <p>MOK Şifresi: <code>${data.password || '--------'}</code></p>
+                        <strong>MOK Pending</strong>
+                        <p>When system reboots, select "Enroll MOK" on blue screen.</p>
+                        <p>MOK Password: <code>${data.password || '--------'}</code></p>
                         <button class="btn btn-warning" onclick="rebootSystem()">
-                            Şimdi Yeniden Başlat
+                            Reboot Now
                         </button>
                     </div>
                 `;
             }
-            // MOK enrolled ve NVIDIA çalışıyor - başarı
+            // MOK enrolled and NVIDIA working - success
             else if (data.status === 'enrolled' && data.nvidia_working) {
-                // Hiçbir uyarı gösterme, her şey yolunda
+                // No warning needed, everything is fine
                 container.innerHTML = '';
             }
 
         } catch (error) {
-            console.log('MOK kontrol hatası:', error);
+            console.log('MOK check error:', error);
         }
     }
 
     async function reimportMok() {
-        if (!confirm('MOK yeniden import edilecek ve sistem yeniden başlatılacak. Devam?')) {
+        if (!confirm('MOK will be re-imported and system will reboot. Continue?')) {
             return;
         }
 
@@ -176,14 +176,14 @@
             const data = await response.json();
 
             if (data.success) {
-                alert(data.message + '\n\nSistem yeniden başlatılıyor...');
+                alert(data.message + '\n\nSystem rebooting...');
                 // Reboot
                 await fetch('/api/system/reboot', { method: 'POST' });
             } else {
-                alert('Hata: ' + data.message);
+                alert('Error: ' + data.message);
             }
         } catch (error) {
-            alert('MOK import hatası: ' + error);
+            alert('MOK import error: ' + error);
         }
     }
 </script>

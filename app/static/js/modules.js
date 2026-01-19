@@ -1,6 +1,6 @@
 /**
  * Kiosk Setup Panel - Module Installation JavaScript
- * Async install ve polling sistemi
+ * Async install and polling system
  */
 
 // =============================================================================
@@ -10,43 +10,43 @@
 async function installModule(moduleName) {
     const moduleCard = document.querySelector(`[data-module="${moduleName}"]`);
     const installBtn = moduleCard?.querySelector('.btn-install');
-    
+
     if (!moduleCard || !installBtn) {
-        showToast('Modül bulunamadı', 'error');
+        showToast('Module not found', 'error');
         return;
     }
-    
+
     // Update UI - installing state
     moduleCard.setAttribute('data-status', 'installing');
     installBtn.disabled = true;
-    installBtn.innerHTML = '<span class="spinner"></span> Kuruluyor';
-    
+    installBtn.innerHTML = '<span class="spinner"></span> Installing';
+
     const statusBadge = moduleCard.querySelector('.module-status .status-badge');
     if (statusBadge) {
         statusBadge.className = 'status-badge warning';
-        statusBadge.textContent = '⟳ Kuruluyor...';
+        statusBadge.textContent = '⟳ Installing...';
     }
-    
-    showToast(`${moduleName} kurulumu başlatıldı...`, 'info');
-    
+
+    showToast(`${moduleName} installation started...`, 'info');
+
     try {
-        // API'yi çağır (async - hemen döner)
+        // Call API (async - returns immediately)
         const result = await api.post(`/modules/${moduleName}/install`);
-        
+
         if (result.success) {
-            showToast(result.message || 'Kurulum başlatıldı', 'success');
-            
-            // Log sayfasını yeni tab'da aç (modül filtresiyle)
+            showToast(result.message || 'Installation started', 'success');
+
+            // Open log page in new tab (with module filter)
             window.open(`/logs?module=${moduleName}`, '_blank');
-            
-            // Polling başlat
+
+            // Start polling
             startModulePolling(moduleName);
         } else {
-            // Hata durumunda UI'ı güncelle
+            // Update UI on error
             handleInstallError(moduleCard, installBtn, statusBadge, result.error);
         }
     } catch (error) {
-        handleInstallError(moduleCard, installBtn, statusBadge, 'Bağlantı hatası');
+        handleInstallError(moduleCard, installBtn, statusBadge, 'Connection error');
         console.error('Install error:', error);
     }
 }
@@ -55,14 +55,14 @@ function handleInstallError(moduleCard, installBtn, statusBadge, errorMessage) {
     moduleCard.setAttribute('data-status', 'failed');
     installBtn.className = 'btn btn-primary btn-install';
     installBtn.disabled = false;
-    installBtn.textContent = 'Yeniden Dene';
-    
+    installBtn.textContent = 'Retry';
+
     if (statusBadge) {
         statusBadge.className = 'status-badge error';
-        statusBadge.textContent = '✗ Hata';
+        statusBadge.textContent = '✗ Error';
     }
-    
-    showToast(errorMessage || 'Kurulum başlatılamadı', 'error');
+
+    showToast(errorMessage || 'Installation could not start', 'error');
 }
 
 // =============================================================================
@@ -72,15 +72,15 @@ function handleInstallError(moduleCard, installBtn, statusBadge, errorMessage) {
 const modulePollingIntervals = {};
 
 function startModulePolling(moduleName) {
-    // Önceki polling'i durdur
+    // Stop previous polling
     stopModulePolling(moduleName);
-    
-    // 3 saniyede bir status kontrol et
+
+    // Check status every 3 seconds
     modulePollingIntervals[moduleName] = setInterval(async () => {
         await checkModuleStatus(moduleName);
     }, 3000);
-    
-    // İlk kontrolü hemen yap
+
+    // Do first check immediately
     checkModuleStatus(moduleName);
 }
 
@@ -92,32 +92,32 @@ function stopModulePolling(moduleName) {
 }
 
 async function checkModuleStatus(moduleName) {
-    // Offline ise atla
+    // Skip if offline
     if (!navigator.onLine) return;
-    
+
     try {
         const data = await api.get(`/modules/${moduleName}/status`, 5000);
         const status = data.status;
-        
+
         const moduleCard = document.querySelector(`[data-module="${moduleName}"]`);
         if (!moduleCard) return;
-        
+
         const installBtn = moduleCard.querySelector('.btn-install, .btn-reboot, .btn-secondary');
         const statusBadge = moduleCard.querySelector('.module-status .status-badge');
-        
-        // Status değişti mi?
+
+        // Did status change?
         const currentStatus = moduleCard.getAttribute('data-status');
         if (currentStatus === status) return;
-        
-        // UI güncelle
+
+        // Update UI
         updateModuleUI(moduleCard, installBtn, statusBadge, status);
-        
-        // Polling'i durdur (installing dışındaki durumlar için)
+
+        // Stop polling (for states other than installing)
         if (status !== 'installing') {
             stopModulePolling(moduleName);
             updateProgress();
         }
-        
+
     } catch (error) {
         console.warn('Status check error:', error.message || error);
     }
@@ -130,78 +130,78 @@ async function checkModuleStatus(moduleName) {
 function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
     const moduleName = moduleCard.getAttribute('data-module');
     moduleCard.setAttribute('data-status', status);
-    
+
     switch (status) {
         case 'completed':
             if (installBtn) {
                 installBtn.className = 'btn btn-secondary';
                 installBtn.disabled = true;
-                installBtn.textContent = 'Kuruldu';
+                installBtn.textContent = 'Installed';
                 installBtn.onclick = null;
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge success';
-                statusBadge.textContent = '✓ Tamamlandı';
+                statusBadge.textContent = '✓ Completed';
             }
-            showToast(message || `${moduleName} kurulumu tamamlandı`, 'success');
+            showToast(message || `${moduleName} installation completed`, 'success');
             break;
-            
+
         case 'installing':
             if (installBtn) {
                 installBtn.className = 'btn btn-secondary';
                 installBtn.disabled = true;
-                installBtn.innerHTML = '<span class="spinner"></span> Kuruluyor';
+                installBtn.innerHTML = '<span class="spinner"></span> Installing';
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge warning';
-                statusBadge.textContent = '⟳ Kuruluyor...';
+                statusBadge.textContent = '⟳ Installing...';
             }
             break;
-            
+
         case 'reboot_required':
             if (installBtn) {
                 installBtn.className = 'btn btn-warning btn-reboot';
                 installBtn.disabled = false;
-                installBtn.textContent = 'Yeniden Başlat';
+                installBtn.textContent = 'Reboot';
                 installBtn.onclick = () => showRebootPrompt(message);
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge info';
-                statusBadge.textContent = '↻ Reboot Gerekli';
+                statusBadge.textContent = '↻ Reboot Required';
             }
-            showToast(message || 'Reboot gerekli', 'warning');
+            showToast(message || 'Reboot required', 'warning');
             showRebootPrompt(message);
             break;
-            
+
         case 'mok_pending':
             if (installBtn) {
                 installBtn.className = 'btn btn-warning btn-reboot';
                 installBtn.disabled = false;
-                installBtn.textContent = 'MOK Onayı';
+                installBtn.textContent = 'MOK Pending';
                 installBtn.onclick = () => showMokInstructions(message);
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge info';
-                statusBadge.textContent = '🔐 MOK Onayı';
+                statusBadge.textContent = '🔐 MOK Pending';
             }
-            showToast(message || 'MOK onayı için reboot gerekli', 'warning');
+            showToast(message || 'Reboot required for MOK approval', 'warning');
             showMokInstructions(message);
             break;
-            
+
         case 'failed':
         default:
             if (installBtn) {
                 installBtn.className = 'btn btn-primary btn-install';
                 installBtn.disabled = false;
-                installBtn.textContent = 'Yeniden Dene';
+                installBtn.textContent = 'Retry';
                 installBtn.onclick = () => installModule(moduleName);
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge error';
-                statusBadge.textContent = '✗ Hata';
+                statusBadge.textContent = '✗ Error';
             }
             if (status === 'failed') {
-                showToast(message || `${moduleName} kurulumu başarısız`, 'error');
+                showToast(message || `${moduleName} installation failed`, 'error');
             }
             break;
     }
@@ -213,7 +213,7 @@ function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
 
 function showRebootPrompt(message) {
     setTimeout(() => {
-        if (confirm((message || 'Değişikliklerin uygulanması için yeniden başlatma gerekiyor.') + '\n\nŞimdi yeniden başlatılsın mı?')) {
+        if (confirm((message || 'A reboot is required for changes to take effect.') + '\n\nReboot now?')) {
             rebootSystem();
         }
     }, 500);
@@ -221,21 +221,21 @@ function showRebootPrompt(message) {
 
 function showMokInstructions(message) {
     const instructions = `
-MOK ONAYI GEREKLİ
+MOK APPROVAL REQUIRED
 
-Sistem yeniden başlatıldıktan sonra MAVİ EKRANDA:
+After system reboots, on the BLUE SCREEN:
 
-1. 'Enroll MOK' seçin → Enter
-2. 'Continue' seçin → Enter  
-3. 'Yes' seçin → Enter
-4. Şifreyi girin (ekranda görünmez)
-5. 'Reboot' seçin → Enter
+1. Select 'Enroll MOK' → Enter
+2. Select 'Continue' → Enter
+3. Select 'Yes' → Enter
+4. Enter the password (not visible on screen)
+5. Select 'Reboot' → Enter
 
 ${message || ''}
 
-Şimdi yeniden başlatılsın mı?
+Reboot now?
     `.trim();
-    
+
     setTimeout(() => {
         if (confirm(instructions)) {
             rebootSystem();
@@ -248,39 +248,39 @@ ${message || ''}
 // =============================================================================
 
 async function updateProgress() {
-    // Offline ise atla
+    // Skip if offline
     if (!navigator.onLine) return;
-    
+
     try {
         const data = await api.get('/setup/status', 5000);
-        
+
         // Update progress bar
         const progressBar = document.getElementById('overall-progress');
         const progressText = document.getElementById('progress-text');
-        
+
         if (progressBar) {
             progressBar.style.width = `${data.progress}%`;
         }
-        
+
         if (progressText) {
-            progressText.textContent = `${data.completed_modules} / ${data.total_modules} modül tamamlandı`;
+            progressText.textContent = `${data.completed_modules} / ${data.total_modules} modules completed`;
         }
-        
+
         // Update complete button
         const completeBtn = document.getElementById('btn-complete');
         if (completeBtn) {
             if (data.complete) {
-                // Setup zaten tamamlanmış
-                completeBtn.textContent = '✓ Kurulum Tamamlandı';
+                // Setup already completed
+                completeBtn.textContent = '✓ Setup Complete';
                 completeBtn.disabled = true;
                 completeBtn.classList.remove('btn-success');
                 completeBtn.classList.add('btn-secondary');
             } else {
-                // Tüm modüller tamamlandıysa butonu aktif et
+                // Enable button if all modules are completed
                 completeBtn.disabled = data.completed_modules < data.total_modules;
             }
         }
-        
+
     } catch (error) {
         console.error('Progress update error:', error);
     }
@@ -291,38 +291,38 @@ async function updateProgress() {
 // =============================================================================
 
 async function completeSetup() {
-    if (!confirm('Kurulumu tamamlamak istediğinizden emin misiniz?\n\nSistem kiosk moduna geçecek ve yeniden başlatılacak.')) {
+    if (!confirm('Are you sure you want to complete setup?\n\nSystem will switch to kiosk mode and reboot.')) {
         return;
     }
-    
+
     const btn = document.getElementById('btn-complete');
     if (btn) {
         btn.disabled = true;
-        btn.innerHTML = '<span class="spinner"></span> Tamamlanıyor...';
+        btn.innerHTML = '<span class="spinner"></span> Completing...';
     }
-    
+
     try {
         const result = await api.post('/setup/complete');
-        
+
         if (result.success) {
-            showToast(result.message || 'Kurulum tamamlandı!', 'success');
-            
+            showToast(result.message || 'Setup complete!', 'success');
+
             // Reboot after 3 seconds
             setTimeout(() => {
                 rebootSystem();
             }, 3000);
         } else {
-            showToast(result.error || 'Kurulum tamamlanamadı', 'error');
+            showToast(result.error || 'Setup could not be completed', 'error');
             if (btn) {
                 btn.disabled = false;
-                btn.textContent = 'Kurulumu Tamamla';
+                btn.textContent = 'Complete Setup';
             }
         }
     } catch (error) {
-        showToast('Kurulum tamamlama hatası', 'error');
+        showToast('Setup completion error', 'error');
         if (btn) {
             btn.disabled = false;
-            btn.textContent = 'Kurulumu Tamamla';
+            btn.textContent = 'Complete Setup';
         }
     }
 }
@@ -334,8 +334,8 @@ async function completeSetup() {
 async function rebootSystem() {
     try {
         await api.post('/system/reboot');
-        showToast('Sistem yeniden başlatılıyor...', 'warning');
-        
+        showToast('System rebooting...', 'warning');
+
         // Show overlay
         document.body.innerHTML = `
             <div style="
@@ -357,15 +357,15 @@ async function rebootSystem() {
                     animation: spin 1s linear infinite;
                     margin-bottom: 24px;
                 "></div>
-                <h2>Sistem Yeniden Başlatılıyor</h2>
-                <p style="color: #8b949e; margin-top: 8px;">Lütfen bekleyin...</p>
+                <h2>System Rebooting</h2>
+                <p style="color: #8b949e; margin-top: 8px;">Please wait...</p>
             </div>
             <style>
                 @keyframes spin { to { transform: rotate(360deg); } }
             </style>
         `;
     } catch (error) {
-        showToast('Yeniden başlatma hatası', 'error');
+        showToast('Reboot error', 'error');
     }
 }
 
@@ -377,24 +377,24 @@ let globalPollingInterval = null;
 
 function startGlobalPolling() {
     if (globalPollingInterval) return;
-    
+
     globalPollingInterval = setInterval(async () => {
-        // Installing durumundaki tüm modülleri kontrol et
+        // Check all modules in installing state
         const installingModules = document.querySelectorAll('[data-status="installing"]');
-        
+
         if (installingModules.length === 0) {
             stopGlobalPolling();
             return;
         }
-        
+
         for (const moduleCard of installingModules) {
             const moduleName = moduleCard.getAttribute('data-module');
             await checkModuleStatus(moduleName);
         }
-        
-        // Progress'i güncelle
+
+        // Update progress
         await updateProgress();
-        
+
     }, 5000);
 }
 
@@ -412,13 +412,13 @@ function stopGlobalPolling() {
 document.addEventListener('DOMContentLoaded', () => {
     // Initial progress update
     updateProgress();
-    
-    // Installing durumundaki modüller varsa polling başlat
+
+    // Start polling if there are modules in installing state
     const installingModules = document.querySelectorAll('[data-status="installing"]');
     if (installingModules.length > 0) {
         startGlobalPolling();
-        
-        // Her biri için ayrı polling da başlat (daha hızlı güncelleme için)
+
+        // Also start individual polling for each (for faster updates)
         installingModules.forEach(card => {
             const moduleName = card.getAttribute('data-module');
             startModulePolling(moduleName);
@@ -426,10 +426,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 });
 
-// Sayfa görünürlük değişince
+// When page visibility changes
 document.addEventListener('visibilitychange', () => {
     const installingModules = document.querySelectorAll('[data-status="installing"]');
-    
+
     if (document.hidden) {
         stopGlobalPolling();
     } else if (installingModules.length > 0) {

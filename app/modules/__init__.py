@@ -1,43 +1,43 @@
 """
 Kiosk Setup Panel - Installation Modules
-Modül registry ve yardımcı fonksiyonlar
+Module registry and helper functions
 """
 
 from typing import Dict, List, Optional
 from app.modules.base import BaseModule
 
-# Modül registry
+# Module registry
 _modules: Dict[str, BaseModule] = {}
 
 
 def register_module(module_class: type) -> type:
-    """Modül kayıt decorator'ı"""
+    """Module registration decorator"""
     instance = module_class()
     _modules[instance.name] = instance
     return module_class
 
 
 def get_module(name: str) -> Optional[BaseModule]:
-    """İsme göre modül al"""
+    """Get module by name"""
     return _modules.get(name)
 
 
 def get_all_modules() -> List[BaseModule]:
-    """Tüm modülleri sıralı olarak döndür"""
+    """Return all modules sorted by order"""
     return sorted(_modules.values(), key=lambda m: m.order)
 
 
 def get_module_names() -> List[str]:
-    """Tüm modül isimlerini döndür"""
+    """Return all module names"""
     return list(_modules.keys())
 
 
-# Modülleri import et (register_module decorator ile otomatik kaydolurlar)
-# Sadece aktif modüller - diğerleri install.sh'da kuruldu
+# Import modules (auto-registered via register_module decorator)
+# Only active modules - others are installed via install.sh
 from app.modules.nvidia import NvidiaModule
 from app.modules.tailscale import TailscaleModule
 
-# İnaktif modüller (dosyalar mevcut ama import edilmiyor):
+# Inactive modules (files exist but not imported):
 # - network.py
 # - cockpit.py
 # - kiosk.py

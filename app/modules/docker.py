@@ -1,6 +1,6 @@
 """
 Kiosk Setup Panel - Docker Module
-Docker Engine, NVIDIA Container Toolkit ve MongoDB kurulumu
+Docker Engine, NVIDIA Container Toolkit and MongoDB installation
 """
 
 import json
@@ -11,7 +11,7 @@ from datetime import datetime
 
 from app.modules import register_module
 from app.modules.base import BaseModule
-# DIP: Global config import kaldırıldı, self._config kullanılıyor
+# DIP: Global config import removed, using self._config
 
 
 @register_module
@@ -26,15 +26,15 @@ class DockerModule(BaseModule):
     NGINX_CONFIG_FILE = "/etc/nginx/sites-available/kiosk-panel"
     
     def install(self) -> Tuple[bool, str]:
-        """Docker kurulumu"""
+        """Docker installation"""
         try:
             compose_path = self.get_config('docker.compose_path', '/srv/docker')
             registry_url = self.get_config('registry.url', 'acolinux.azurecr.io')
             registry_user = self.get_config('registry.username', '')
             registry_pass = self.get_config('registry.password', '')
             
-            # 1. Eski Docker paketlerini kaldır
-            self.logger.info("Eski Docker paketleri kaldırılıyor...")
+            # 1. Remove old Docker packages
+            self.logger.info("Removing old Docker packages...")
             
             old_packages = [
                 'docker.io', 'docker-doc', 'docker-compose',
@@ -44,15 +44,15 @@ class DockerModule(BaseModule):
             for pkg in old_packages:
                 self.run_shell(f'apt-get remove -y {pkg} 2>/dev/null || true')
             
-            # 2. Docker repo ve GPG key
-            self.logger.info("Docker repository ekleniyor...")
+            # 2. Docker repo and GPG key
+            self.logger.info("Adding Docker repository...")
             
-            # Gerekli paketler
+            # Required packages
             if not self.apt_install([
                 'ca-certificates', 'curl', 'gnupg',
                 'python3-pip', 'python3-docker', 'python3-pymongo'
             ]):
-                return False, "Docker bağımlılıkları kurulamadı"
+                return False, "Could not install Docker dependencies"
             
             # GPG key
             self.run_shell('install -m 0755 -d /etc/apt/keyrings')
@@ -62,10 +62,10 @@ class DockerModule(BaseModule):
                 check=False
             )
             if result.returncode != 0:
-                return False, f"Docker GPG key indirilemedi: {result.stderr}"
+                return False, f"Could not download Docker GPG key: {result.stderr}"
             self.run_shell('chmod a+r /etc/apt/keyrings/docker.gpg')
             
-            # Repo ekle
+            # Add repo
             result = self.run_shell(
                 'echo "deb [arch=$(dpkg --print-architecture) '
                 'signed-by=/etc/apt/keyrings/docker.gpg] '
@@ -75,10 +75,10 @@ class DockerModule(BaseModule):
                 check=False
             )
             if result.returncode != 0:
-                return False, f"Docker repo eklenemedi: {result.stderr}"
+                return False, f"Could not add Docker repo: {result.stderr}"
             
-            # 3. Docker paketlerini kur
-            self.logger.info("Docker kuruluyor...")
+            # 3. Install Docker packages
+            self.logger.info("Installing Docker...")
             
             self.run_command(['apt-get', 'update', '-qq'])
             
@@ -91,17 +91,17 @@ class DockerModule(BaseModule):
             ]
             
             if not self.apt_install(docker_packages):
-                return False, "Docker paketleri kurulamadı"
+                return False, "Could not install Docker packages"
             
-            # 4. NVIDIA varlık kontrolü
+            # 4. NVIDIA availability check
             nvidia_available = self.run_shell('nvidia-smi >/dev/null 2>&1', check=False).returncode == 0
             if nvidia_available:
-                self.logger.info("NVIDIA GPU tespit edildi")
+                self.logger.info("NVIDIA GPU detected")
             else:
-                self.logger.info("NVIDIA GPU bulunamadı, Container Toolkit atlanacak")
+                self.logger.info("NVIDIA GPU not found, Container Toolkit will be skipped")
             
-            # 5. Docker daemon.json yapılandırması (NVIDIA koşullu)
-            self.logger.info("Docker yapılandırılıyor...")
+            # 5. Docker daemon.json configuration (NVIDIA conditional)
+            self.logger.info("Configuring Docker...")
             
             if nvidia_available:
                 daemon_config = """{
@@ -130,20 +130,20 @@ class DockerModule(BaseModule):
 }
 """
             if not self.write_file('/etc/docker/daemon.json', daemon_config):
-                return False, "Docker daemon.json yazılamadı"
+                return False, "Could not write Docker daemon.json"
             
-            # 6. NVIDIA Container Toolkit (sadece NVIDIA varsa)
+            # 6. NVIDIA Container Toolkit (only if NVIDIA present)
             if nvidia_available:
-                self.logger.info("NVIDIA Container Toolkit kuruluyor...")
-                
-                # NVIDIA repo - network hatası olabilir
+                self.logger.info("Installing NVIDIA Container Toolkit...")
+
+                # NVIDIA repo - may have network error
                 result = self.run_shell(
                     'curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | '
                     'gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes',
                     check=False
                 )
                 if result.returncode != 0:
-                    self.logger.warning(f"NVIDIA GPG key indirilemedi: {result.stderr}")
+                    self.logger.warning(f"Could not download NVIDIA GPG key: {result.stderr}")
                 else:
                     result = self.run_shell(
                         'curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | '
@@ -152,37 +152,37 @@ class DockerModule(BaseModule):
                         check=False
                     )
                     if result.returncode != 0:
-                        self.logger.warning(f"NVIDIA repo eklenemedi: {result.stderr}")
+                        self.logger.warning(f"Could not add NVIDIA repo: {result.stderr}")
                     else:
                         self.run_command(['apt-get', 'update', '-qq'])
                         if not self.apt_install(['nvidia-container-toolkit']):
-                            self.logger.warning("NVIDIA Container Toolkit kurulamadı")
+                            self.logger.warning("Could not install NVIDIA Container Toolkit")
                         else:
-                            # nvidia-ctk yapılandırması
+                            # nvidia-ctk configuration
                             self.run_shell('nvidia-ctk runtime configure --runtime=docker || true')
             
-            # 7. Docker servisini başlat
+            # 7. Start Docker service
             if not self.systemctl('enable', 'docker'):
-                self.logger.warning("Docker enable edilemedi")
+                self.logger.warning("Could not enable Docker")
             if not self.systemctl('restart', 'docker'):
-                self.logger.warning("Docker yeniden başlatılamadı")
+                self.logger.warning("Could not restart Docker")
             
-            # 8. Kurulum doğrulaması
+            # 8. Installation verification
             time.sleep(2)
             
             result = self.run_command(['docker', '--version'], check=False)
             if result.returncode != 0:
-                return False, "Docker kurulumu doğrulanamadı"
+                return False, "Could not verify Docker installation"
             self.logger.info(f"Docker: {result.stdout.strip()}")
             
             result = self.run_command(['docker', 'compose', 'version'], check=False)
             if result.returncode != 0:
-                return False, "Docker Compose kurulumu doğrulanamadı"
+                return False, "Could not verify Docker Compose installation"
             self.logger.info(f"Docker Compose: {result.stdout.strip()}")
             
-            self.logger.info("Docker kurulumu doğrulandı")
+            self.logger.info("Docker installation verified")
             
-            # 9. Compose dizini oluştur
+            # 9. Create Compose directory
             os.makedirs(compose_path, exist_ok=True)
             
             # 10. Registry login
@@ -194,15 +194,15 @@ class DockerModule(BaseModule):
                     check=False
                 )
                 if result.returncode != 0:
-                    self.logger.warning(f"Registry login başarısız: {result.stderr}")
+                    self.logger.warning(f"Registry login failed: {result.stderr}")
             
-            # 11. docker-compose.yml oluştur
-            self.logger.info("docker-compose.yml oluşturuluyor...")
+            # 11. Create docker-compose.yml
+            self.logger.info("Creating docker-compose.yml...")
             
             mongodb_tag = self.get_config('mongodb.tag', 'latest')
             mongodb_data_path = self.get_config('mongodb.data_path', '/home/aco/mongo-data')
             
-            # MongoDB data dizini
+            # MongoDB data directory
             os.makedirs(mongodb_data_path, exist_ok=True)
             
             compose_content = f"""# Docker Compose Configuration
@@ -218,17 +218,17 @@ services:
       - {mongodb_data_path}:/data/db
 """
             if not self.write_file(f'{compose_path}/docker-compose.yml', compose_content):
-                return False, "docker-compose.yml yazılamadı"
+                return False, "Could not write docker-compose.yml"
             
             # 12. Docker compose up
-            self.logger.info("MongoDB container başlatılıyor...")
+            self.logger.info("Starting MongoDB container...")
             
             result = self.run_shell(f'cd {compose_path} && docker compose up -d', check=False)
             if result.returncode != 0:
-                return False, f"Docker compose başlatılamadı: {result.stderr}"
+                return False, f"Could not start Docker compose: {result.stderr}"
             
-            # 12.1 MongoDB hazır olana kadar bekle (60 saniye timeout)
-            self.logger.info("MongoDB'nin hazır olması bekleniyor...")
+            # 12.1 Wait until MongoDB is ready (60 second timeout)
+            self.logger.info("Waiting for MongoDB to be ready...")
             mongodb_ready = False
             for i in range(60):
                 result = self.run_shell(
@@ -236,54 +236,54 @@ services:
                     check=False
                 )
                 if result.returncode == 0:
-                    self.logger.info("MongoDB hazır")
+                    self.logger.info("MongoDB ready")
                     mongodb_ready = True
                     break
                 if i % 10 == 0 and i > 0:
-                    self.logger.info(f"MongoDB bekleniyor... ({i}/60 saniye)")
+                    self.logger.info(f"Waiting for MongoDB... ({i}/60 seconds)")
                 time.sleep(1)
             
             if not mongodb_ready:
-                return False, "MongoDB başlatılamadı (60 saniye timeout)"
+                return False, "Could not start MongoDB (60 second timeout)"
             
-            # 13. Kiosk ID'yi MongoDB'ye kaydet
+            # 13. Save Kiosk ID to MongoDB
             self._save_kiosk_id_to_mongodb()
             
-            # 14. Mechatronic Controller'ı Nginx'e kaydet
+            # 14. Register Mechatronic Controller to Nginx
             if not self._register_mechatronic_to_nginx():
-                self.logger.warning("Mechatronic nginx kaydı başarısız (kurulum devam ediyor)")
+                self.logger.warning("Mechatronic nginx registration failed (installation continues)")
             
-            self.logger.info("Docker kurulumu tamamlandı")
-            return True, "Docker, NVIDIA Container Toolkit ve MongoDB kuruldu"
-            
+            self.logger.info("Docker installation completed")
+            return True, "Docker, NVIDIA Container Toolkit and MongoDB installed"
+
         except Exception as e:
-            self.logger.error(f"Docker kurulum hatası: {e}")
+            self.logger.error(f"Docker installation error: {e}")
             return False, str(e)
     
     def _save_kiosk_id_to_mongodb(self) -> None:
-        """Kiosk ID'yi MongoDB'ye kaydet"""
+        """Save Kiosk ID to MongoDB"""
         client = None
         try:
             import socket
             try:
                 from pymongo import MongoClient
             except ImportError:
-                self.logger.warning("pymongo bulunamadı, MongoDB kaydı atlanıyor")
+                self.logger.warning("pymongo not found, skipping MongoDB registration")
                 return
             
             kiosk_id = self._config.get_kiosk_id()
             hardware_id = self._config.get_hardware_id()
             
             if not kiosk_id:
-                self.logger.warning("Kiosk ID bulunamadı, MongoDB kaydı atlanıyor")
+                self.logger.warning("Kiosk ID not found, skipping MongoDB registration")
                 return
             
-            # MongoDB bağlantısı
+            # MongoDB connection
             client = MongoClient('mongodb://localhost:27017/', serverSelectionTimeoutMS=5000)
             db = client['kiosk']
             collection = db['settings']
             
-            # Kayıt oluştur/güncelle
+            # Create/update record
             document = {
                 'kiosk_id': kiosk_id,
                 'hardware_id': hardware_id,
@@ -297,35 +297,35 @@ services:
                 upsert=True
             )
             
-            self.logger.info(f"Kiosk ID MongoDB'ye kaydedildi: {kiosk_id}")
+            self.logger.info(f"Kiosk ID saved to MongoDB: {kiosk_id}")
             
         except Exception as e:
-            self.logger.warning(f"MongoDB kayıt hatası: {e}")
+            self.logger.warning(f"MongoDB registration error: {e}")
         finally:
             if client:
                 client.close()
     
     def _register_mechatronic_to_nginx(self) -> bool:
-        """Mechatronic Controller'ı Nginx config'e ekle"""
+        """Add Mechatronic Controller to Nginx config"""
         try:
             nginx_port = self.get_config('nginx.port', 4444)
             mech_config = self.get_config('services.mechcontroller', {})
             
             if not mech_config:
-                self.logger.warning("Mechatronic Controller config bulunamadı")
+                self.logger.warning("Mechatronic Controller config not found")
                 return False
             
-            # 1. Services.json'dan mevcut servisleri oku
+            # 1. Read existing services from Services.json
             services = {}
             if os.path.exists(self.SERVICES_FILE):
                 try:
                     with open(self.SERVICES_FILE, 'r') as f:
                         services = json.load(f)
                 except (json.JSONDecodeError, IOError) as e:
-                    self.logger.warning(f"Services.json okunamadı: {e}")
+                    self.logger.warning(f"Could not read Services.json: {e}")
                     services = {}
             
-            # 2. Mechatronic ekle
+            # 2. Add Mechatronic
             services['mechcontroller'] = {
                 "display_name": mech_config.get('display_name', 'Mechatronic Controller'),
                 "port": mech_config.get('port', 1234),
@@ -335,30 +335,30 @@ services:
                 "check_value": mech_config.get('check_value', 1234)
             }
             
-            # 3. Services.json'a kaydet
+            # 3. Save to Services.json
             with open(self.SERVICES_FILE, 'w') as f:
                 json.dump(services, f, indent=2)
             
-            # 4. Nginx config'i yeniden oluştur
+            # 4. Regenerate Nginx config
             self._regenerate_nginx_config(services, nginx_port)
             
-            # 5. Nginx test ve reload
+            # 5. Nginx test and reload
             result = self.run_command(['/usr/sbin/nginx', '-t'], check=False)
             if result.returncode != 0:
-                self.logger.error(f"Nginx config hatası: {result.stderr}")
+                self.logger.error(f"Nginx config error: {result.stderr}")
                 return False
             
             self.systemctl('reload', 'nginx')
             
-            self.logger.info("Mechatronic Controller nginx'e kaydedildi")
+            self.logger.info("Mechatronic Controller registered to nginx")
             return True
             
         except Exception as e:
-            self.logger.error(f"Nginx kayıt hatası: {e}")
+            self.logger.error(f"Nginx registration error: {e}")
             return False
-    
+
     def _regenerate_nginx_config(self, services: Dict[str, Any], nginx_port: int) -> None:
-        """Nginx config dosyasını servislere göre yeniden oluştur"""
+        """Regenerate nginx config file based on services"""
         
         config_content = f"""# Kiosk Panel - Nginx Reverse Proxy
 # Auto-generated by Docker module
@@ -379,7 +379,7 @@ server {{
             port = service.get('port', 5000)
             websocket = service.get('websocket', False)
             
-            # Root path (panel) için
+            # For root path (panel)
             if path == "/":
                 config_content += f"""    # {service.get('display_name', name)}
     location / {{
@@ -392,14 +392,14 @@ server {{
 
 """
             elif name == 'cockpit':
-                # Cockpit özel yapılandırma
-                config_content += f"""    # Cockpit static dosyaları
+                # Cockpit special configuration
+                config_content += f"""    # Cockpit static files
     location /cockpit/static/ {{
         proxy_pass http://127.0.0.1:{port}/cockpit/cockpit/static/;
         proxy_set_header Host $host:$server_port;
     }}
 
-    # Cockpit ana
+    # Cockpit main
     location /cockpit/ {{
         proxy_pass http://127.0.0.1:{port};
         proxy_set_header Host $host:$server_port;
@@ -414,14 +414,14 @@ server {{
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 86400;
 
-        # iframe için
+        # for iframe
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Content-Security-Policy;
     }}
 
 """
             else:
-                # Diğer servisler (Mechatronic dahil)
+                # Other services (including Mechatronic)
                 config_content += f"""    # {service.get('display_name', name)}
     location {path} {{
         proxy_pass http://127.0.0.1:{port}/;
@@ -436,7 +436,7 @@ server {{
         proxy_set_header Connection "upgrade";
         proxy_read_timeout 86400;
 """
-                # Mechatronic için sub_filter (HTML path rewrite)
+                # Mechatronic sub_filter (HTML path rewrite)
                 if name == 'mechcontroller':
                     config_content += f"""
         # HTML path rewrite
@@ -452,7 +452,7 @@ server {{
                 
                 # Mechatronic root path endpoints (socket.io ve API)
                 if name == 'mechcontroller':
-                    config_content += f"""    # Mechatronic socket.io (root path erişimi için)
+                    config_content += f"""    # Mechatronic socket.io (for root path access)
     location /socket.io/ {{
         proxy_pass http://127.0.0.1:{port}/socket.io/;
         proxy_http_version 1.1;

@@ -81,83 +81,87 @@ function showToast(message, type = 'info') {
 // Internet Status Check
 // =============================================================================
 
-let isCheckingInternet = false; // Çakışmayı önle
+let isCheckingInternet = false; // Prevent overlap
 
 async function checkInternetStatus() {
-    // Zaten kontrol ediliyorsa veya tarayıcı offline'sa atla
+    // Skip if already checking or browser is offline
     if (isCheckingInternet || !navigator.onLine) {
         updateOfflineUI();
         return;
     }
-    
+
     isCheckingInternet = true;
-    
+
     try {
-        const data = await api.get('/system/internet', 3000); // 3 saniye timeout
-        
-        // Header status dot güncelle
+        const data = await api.get('/system/internet', 3000); // 3 second timeout
+
+        // Update header status dot
         const statusDot = document.querySelector('.status-dot');
         const statusText = document.querySelector('.status-text');
-        
+
         if (statusDot && statusText) {
             if (data.connected === null) {
-                // Cache henüz dolu değil - arka planda güncelleniyor
+                // Cache not yet populated - updating in background
                 statusDot.classList.remove('online', 'offline');
-                statusText.textContent = 'Kontrol ediliyor...';
+                statusText.textContent = 'Checking...';
             } else if (data.connected) {
                 statusDot.classList.add('online');
                 statusDot.classList.remove('offline');
-                statusText.textContent = data.ip || 'Bağlı';
+                statusText.textContent = data.ip || 'Connected';
             } else {
                 statusDot.classList.add('offline');
                 statusDot.classList.remove('online');
-                statusText.textContent = 'Bağlantı Yok';
+                statusText.textContent = 'No Connection';
             }
         }
-        
-        // Connection grid badge'lerini güncelle
+
+        // Update connection grid badges
         const connInternet = document.getElementById('conn-internet');
         if (connInternet) {
             if (data.connected === null) {
-                connInternet.innerHTML = '<span class="status-badge">Kontrol ediliyor...</span>';
+                connInternet.innerHTML = '<span class="status-badge">Checking...</span>';
             } else {
-                connInternet.innerHTML = data.connected 
-                    ? '<span class="status-badge success">Bağlı</span>'
-                    : '<span class="status-badge error">Bağlı Değil</span>';
+                connInternet.innerHTML = data.connected
+                    ? '<span class="status-badge success">Connected</span>'
+                    : '<span class="status-badge error">Not Connected</span>';
             }
         }
-        
+
         const connDns = document.getElementById('conn-dns');
         if (connDns) {
             if (data.dns_working === null) {
-                connDns.innerHTML = '<span class="status-badge">Kontrol ediliyor...</span>';
+                connDns.innerHTML = '<span class="status-badge">Checking...</span>';
             } else {
-                connDns.innerHTML = data.dns_working 
-                    ? '<span class="status-badge success">Çalışıyor</span>'
-                    : '<span class="status-badge error">Hata</span>';
+                connDns.innerHTML = data.dns_working
+                    ? '<span class="status-badge success">Working</span>'
+                    : '<span class="status-badge error">Error</span>';
             }
         }
-        
-        // IP adresi güncelle
+
+        // Update IP address
         const connIp = document.getElementById('conn-ip');
         if (connIp) {
             if (data.ip === null) {
-                connIp.textContent = 'Kontrol ediliyor...';
+                connIp.textContent = 'Checking...';
             } else {
                 connIp.textContent = data.ip || 'N/A';
             }
+            // Update IP mode indicator if function exists (defined in home.html)
+            if (typeof updateIpModeIndicator === 'function') {
+                updateIpModeIndicator();
+            }
         }
-        
-        // Tailscale IP güncelle
+
+        // Update Tailscale IP
         const connTailscale = document.getElementById('conn-tailscale');
         if (connTailscale) {
             if (data.tailscale_ip === null) {
-                connTailscale.textContent = 'Kontrol ediliyor...';
+                connTailscale.textContent = 'Checking...';
             } else {
-                connTailscale.textContent = data.tailscale_ip || 'Bağlı Değil';
+                connTailscale.textContent = data.tailscale_ip || 'Not Connected';
             }
         }
-        
+
     } catch (error) {
         updateOfflineUI();
         console.warn('Internet check failed:', error.message || error);
@@ -169,16 +173,16 @@ async function checkInternetStatus() {
 function updateOfflineUI() {
     const statusDot = document.querySelector('.status-dot');
     const statusText = document.querySelector('.status-text');
-    
+
     if (statusDot && statusText) {
         statusDot.classList.add('offline');
         statusDot.classList.remove('online');
-        statusText.textContent = 'Çevrimdışı';
+        statusText.textContent = 'Offline';
     }
-    
+
     const connInternet = document.getElementById('conn-internet');
     if (connInternet) {
-        connInternet.innerHTML = '<span class="status-badge error">Çevrimdışı</span>';
+        connInternet.innerHTML = '<span class="status-badge error">Offline</span>';
     }
 }
 
@@ -213,32 +217,32 @@ function getFormData(form) {
 
 document.addEventListener('DOMContentLoaded', () => {
     const kioskIdForm = document.getElementById('kiosk-id-form');
-    
+
     if (kioskIdForm) {
         kioskIdForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const input = kioskIdForm.querySelector('input[name="kiosk_id"]');
             const kioskId = input.value.toUpperCase().trim();
-            
+
             if (!kioskId) {
-                showToast('Kiosk ID gerekli', 'error');
+                showToast('Kiosk ID required', 'error');
                 return;
             }
-            
+
             try {
                 const result = await api.post('/kiosk-id', {
                     'kiosk_id': kioskId
                 });
-                
+
                 if (result.success) {
-                    showToast('Kiosk ID kaydedildi: ' + result.kiosk_id, 'success');
+                    showToast('Kiosk ID saved: ' + result.kiosk_id, 'success');
                     setTimeout(() => location.reload(), 1000);
                 } else {
-                    showToast(result.error || 'Hata oluştu', 'error');
+                    showToast(result.error || 'Error occurred', 'error');
                 }
             } catch (error) {
-                showToast('Kaydetme hatası', 'error');
+                showToast('Save error', 'error');
             }
         });
     }
@@ -250,62 +254,62 @@ document.addEventListener('DOMContentLoaded', () => {
 
 document.addEventListener('DOMContentLoaded', () => {
     const tempIpForm = document.getElementById('temp-ip-form');
-    
+
     if (tempIpForm) {
         tempIpForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
+
             const data = getFormData(tempIpForm);
-            
+
             if (!data.ip || !data.gateway) {
-                showToast('IP ve Gateway gerekli', 'error');
+                showToast('IP and Gateway required', 'error');
                 return;
             }
-            
+
             try {
                 const result = await api.post('/network/temporary-ip', data);
-                
+
                 if (result.success) {
-                    showToast('IP ayarlandı', 'success');
+                    showToast('IP set', 'success');
                     setTimeout(() => location.reload(), 2000);
                 } else {
-                    showToast(result.error || 'Hata oluştu', 'error');
+                    showToast(result.error || 'Error occurred', 'error');
                 }
             } catch (error) {
-                showToast('IP ayarlama hatası', 'error');
+                showToast('IP setting error', 'error');
             }
         });
     }
-    
+
     // DHCP Reset Button Handler
     const dhcpResetBtn = document.getElementById('dhcp-reset-btn');
     if (dhcpResetBtn) {
         dhcpResetBtn.addEventListener('click', async () => {
             const interfaceSelect = document.querySelector('#temp-ip-form select[name="interface"]');
             const iface = interfaceSelect ? interfaceSelect.value : 'eth0';
-            
-            if (!confirm('DHCP\'ye dönmek istediğinize emin misiniz?\n\nBu işlem mevcut IP ayarlarını kaldıracak ve DHCP\'den yeni IP alacaktır.')) {
+
+            if (!confirm('Are you sure you want to reset to DHCP?\n\nThis will remove current IP settings and get a new IP from DHCP.')) {
                 return;
             }
-            
+
             dhcpResetBtn.disabled = true;
-            dhcpResetBtn.textContent = 'Bekleniyor...';
-            
+            dhcpResetBtn.textContent = 'Waiting...';
+
             try {
                 const result = await api.post('/network/reset-dhcp', { interface: iface });
-                
+
                 if (result.success) {
-                    showToast('DHCP aktif edildi, sayfa yenileniyor...', 'success');
+                    showToast('DHCP enabled, page refreshing...', 'success');
                     setTimeout(() => location.reload(), 3000);
                 } else {
-                    showToast(result.error || 'DHCP hatası', 'error');
+                    showToast(result.error || 'DHCP error', 'error');
                     dhcpResetBtn.disabled = false;
-                    dhcpResetBtn.textContent = 'DHCP\'ye Dön';
+                    dhcpResetBtn.textContent = 'Reset to DHCP';
                 }
             } catch (error) {
-                showToast('DHCP hatası', 'error');
+                showToast('DHCP error', 'error');
                 dhcpResetBtn.disabled = false;
-                dhcpResetBtn.textContent = 'DHCP\'ye Dön';
+                dhcpResetBtn.textContent = 'Reset to DHCP';
             }
         });
     }
@@ -316,14 +320,14 @@ document.addEventListener('DOMContentLoaded', () => {
 // =============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Sadece online ise kontrol et
+    // Only check if online
     if (navigator.onLine) {
         checkInternetStatus();
     } else {
         updateOfflineUI();
     }
-    
-    // Periodic check - sadece online ise çalışır (3 saniyede bir)
+
+    // Periodic check - only runs when online (every 3 seconds)
     setInterval(() => {
         if (navigator.onLine) {
             checkInternetStatus();

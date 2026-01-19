@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -17,24 +17,24 @@
             </div>
             <nav class="header-nav">
                 <a href="{{ url_for('pages.home') }}" class="nav-link {% if request.endpoint == 'pages.home' %}active{% endif %}">
-                    Anasayfa
+                    Home
                 </a>
                 {% if not is_setup_complete %}
                 <a href="{{ url_for('pages.install') }}" class="nav-link {% if request.endpoint == 'pages.install' %}active{% endif %}">
-                    Kurulum
+                    Install
                 </a>
                 {% endif %}
                 <a href="{{ url_for('pages.logs') }}" class="nav-link {% if request.endpoint == 'pages.logs' %}active{% endif %}">
-                    Loglar
+                    Logs
                 </a>
                 <a href="{{ url_for('pages.services') }}" class="nav-link {% if request.endpoint == 'pages.services' %}active{% endif %}">
-                    Servisler
+                    Services
                 </a>
             </nav>
             <div class="header-status">
                 <span class="status-indicator" id="internet-status">
                     <span class="status-dot"></span>
-                    <span class="status-text">Kontrol ediliyor...</span>
+                    <span class="status-text">Checking...</span>
                 </span>
             </div>
         </header>
@@ -53,7 +53,7 @@
                 <span class="version">v1.0.0</span>
             </div>
             <div class="footer-actions">
-                <button class="btn btn-icon" onclick="location.reload()" title="Yenile">
+                <button class="btn btn-icon" onclick="location.reload()" title="Refresh">
                     ↻
                 </button>
             </div>

@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Servisler - Kiosk Setup Panel{% endblock %}
+{% block title %}Services - Kiosk Setup Panel{% endblock %}
 
 {% block extra_css %}
 <link rel="stylesheet" href="{{ url_for('static', filename='css/services.css') }}">
@@ -9,21 +9,21 @@
 {% block content %}
 <div class="services-page">
     <div class="services-header">
-        <h2><span class="icon">🔧</span> Servisler</h2>
-        <p>Kurulu web servislerine buradan erişebilirsiniz.</p>
+        <h2><span class="icon">🔧</span> Services</h2>
+        <p>Access installed web services from here.</p>
     </div>
-    
+
     <div class="services-content">
         {% if not nginx_installed %}
         <div class="nginx-warning">
             <span class="warning-icon">⚠️</span>
             <div class="warning-content">
-                <h3>Nginx Kurulu Değil</h3>
-                <p>Servislere iframe üzerinden erişim için Nginx gereklidir.</p>
+                <h3>Nginx Not Installed</h3>
+                <p>Nginx is required to access services via iframe.</p>
             </div>
         </div>
         {% endif %}
-        
+
         {% if services %}
         <div class="service-cards">
             {% for name, service in services.items() %}
@@ -32,13 +32,13 @@
                     <h3>{{ service.display_name or name }}</h3>
                     <span class="service-badge {{ service.status }}">
                         <span class="dot"></span>
-                        {% if service.status == 'running' %}Aktif
-                        {% elif service.status == 'stopped' %}Kapalı
+                        {% if service.status == 'running' %}Active
+                        {% elif service.status == 'stopped' %}Stopped
                         {% else %}?
                         {% endif %}
                     </span>
                 </div>
-                
+
                 <div class="service-info">
                     <div class="service-info-row">
                         <span class="label">Port</span>
@@ -49,24 +49,24 @@
                         <span class="value">{{ service.path or '/' + name + '/' }}</span>
                     </div>
                 </div>
-                
+
                 <div class="service-actions">
                     {% if service.active and nginx_installed %}
-                    <button 
+                    <button
                         class="btn-open-service active"
                         onclick="openService('{{ service.path or '/' + name + '/' }}', '{{ service.display_name or name }}')">
                         <span class="icon">🚀</span>
-                        Aç
+                        Open
                     </button>
                     {% elif not nginx_installed %}
                     <button class="btn-open-service disabled" disabled>
                         <span class="icon">🔒</span>
-                        Nginx Gerekli
+                        Nginx Required
                     </button>
                     {% else %}
                     <button class="btn-open-service disabled" disabled>
                         <span class="icon">⏸️</span>
-                        Servis Kapalı
+                        Service Stopped
                     </button>
                     {% endif %}
                 </div>
@@ -76,27 +76,27 @@
         {% else %}
         <div class="no-services">
             <div class="no-services-icon">🔌</div>
-            <h3>Henüz Servis Yok</h3>
-            <p>Cockpit veya diğer servisleri kurduktan sonra burada görünecekler.</p>
+            <h3>No Services Yet</h3>
+            <p>Services will appear here after Cockpit or other services are installed.</p>
         </div>
         {% endif %}
     </div>
 </div>
 
-<!-- TAM EKRAN IFRAME -->
+<!-- FULLSCREEN IFRAME -->
 <div class="service-frame-container" id="frame-container">
     <div class="frame-header">
         <div class="frame-header-left">
-            <span class="frame-title" id="frame-title">Servis</span>
-            <span class="frame-subtitle">ESC ile kapat</span>
+            <span class="frame-title" id="frame-title">Service</span>
+            <span class="frame-subtitle">Press ESC to close</span>
         </div>
         <button class="btn-close-frame" onclick="closeFrame()">
-            ✕ Kapat
+            ✕ Close
         </button>
     </div>
     <div class="frame-loading" id="frame-loading">
         <div class="spinner"></div>
-        <span>Yükleniyor...</span>
+        <span>Loading...</span>
     </div>
     <iframe id="service-frame" class="service-frame" src=""></iframe>
 </div>

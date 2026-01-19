@@ -1,24 +1,34 @@
 {% extends "base.html" %}
 
-{% block title %}Anasayfa - Kiosk Setup Panel{% endblock %}
+{% block title %}Home - Kiosk Setup Panel{% endblock %}
 
 {% block content %}
 <div class="dashboard">
-    <!-- Sistem Kontrol -->
+    <!-- System Control -->
     <div class="system-controls">
         <button class="btn btn-power btn-reboot" onclick="systemReboot()">
-            <span class="btn-icon">↻</span>
-            Yeniden Başlat
+            <span class="btn-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M1 4v6h6M23 20v-6h-6"/>
+                    <path d="M20.49 9A9 9 0 0 0 5.64 5.64L1 10m22 4l-4.64 4.36A9 9 0 0 1 3.51 15"/>
+                </svg>
+            </span>
+            Reboot
         </button>
         <button class="btn btn-power btn-shutdown" onclick="systemShutdown()">
-            <span class="btn-icon">⏻</span>
-            Kapat
+            <span class="btn-icon">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M18.36 6.64a9 9 0 1 1-12.73 0"/>
+                    <line x1="12" y1="2" x2="12" y2="12"/>
+                </svg>
+            </span>
+            Shutdown
         </button>
     </div>
 
-    <!-- Kiosk ID Bölümü -->
+    <!-- Kiosk ID Section -->
     <section class="section kiosk-section">
-        <h2 class="section-title">Kiosk Kimliği</h2>
+        <h2 class="section-title">Kiosk Identity</h2>
 
         {% if kiosk_id %}
         <div class="kiosk-id-display">
@@ -27,37 +37,37 @@
         </div>
         {% else %}
         <div class="kiosk-id-panel">
-            <p class="text-muted">Kuruluma başlamadan önce Kiosk ID belirlemelisiniz.</p>
+            <p class="text-muted">You must set Kiosk ID before starting installation.</p>
 
             <form id="kiosk-id-form" class="kiosk-id-form">
                 <div class="form-group">
                     <input type="text" name="kiosk_id" class="form-control form-control-lg"
                            placeholder="KIOSK-001" pattern="[A-Z0-9_-]+"
-                           title="Sadece büyük harf, rakam, tire ve alt çizgi">
-                    <small class="text-muted">Örnek: KIOSK-001, BRANCH-ISTANBUL-01</small>
+                           title="Only uppercase letters, numbers, hyphens and underscores">
+                    <small class="text-muted">Example: KIOSK-001, BRANCH-NYC-01</small>
                 </div>
-                <button type="submit" class="btn btn-primary">Kaydet</button>
+                <button type="submit" class="btn btn-primary">Save</button>
             </form>
         </div>
         {% endif %}
     </section>
 
-    <!-- Bağlantı Durumu -->
+    <!-- Connection Status -->
     <section class="section connection-section">
-        <h2 class="section-title">Bağlantı Durumu</h2>
+        <h2 class="section-title">Connection Status</h2>
 
         <div class="connection-grid">
             <div class="connection-card">
                 <div class="connection-icon">🌐</div>
                 <div class="connection-info">
-                    <span class="connection-label">İnternet</span>
+                    <span class="connection-label">Internet</span>
                     <span class="connection-value" id="conn-internet">
                         {% if system_info.internet is none %}
-                        <span class="status-badge">Kontrol ediliyor...</span>
+                        <span class="status-badge">Checking...</span>
                         {% elif system_info.internet %}
-                        <span class="status-badge success">Bağlı</span>
+                        <span class="status-badge success">Connected</span>
                         {% else %}
-                        <span class="status-badge error">Bağlı Değil</span>
+                        <span class="status-badge error">Not Connected</span>
                         {% endif %}
                     </span>
                 </div>
@@ -66,8 +76,8 @@
             <div class="connection-card">
                 <div class="connection-icon">📡</div>
                 <div class="connection-info">
-                    <span class="connection-label">IP Adresi</span>
-                    <span class="connection-value" id="conn-ip">{{ system_info.ip_address or 'Kontrol ediliyor...' }}</span>
+                    <span class="connection-label">IP Address</span>
+                    <span class="connection-value" id="conn-ip">{{ system_info.ip_address or 'Checking...' }}</span>
                 </div>
             </div>
 
@@ -75,7 +85,7 @@
                 <div class="connection-icon">🔗</div>
                 <div class="connection-info">
                     <span class="connection-label">Tailscale IP</span>
-                    <span class="connection-value" id="conn-tailscale">{{ system_info.tailscale_ip or 'Bağlı değil' }}</span>
+                    <span class="connection-value" id="conn-tailscale">{{ system_info.tailscale_ip or 'Not connected' }}</span>
                 </div>
             </div>
 
@@ -85,11 +95,11 @@
                     <span class="connection-label">DNS</span>
                     <span class="connection-value" id="conn-dns">
                         {% if system_info.dns_working is none %}
-                        <span class="status-badge">Kontrol ediliyor...</span>
+                        <span class="status-badge">Checking...</span>
                         {% elif system_info.dns_working %}
-                        <span class="status-badge success">Çalışıyor</span>
+                        <span class="status-badge success">Working</span>
                         {% else %}
-                        <span class="status-badge error">Hata</span>
+                        <span class="status-badge error">Error</span>
                         {% endif %}
                     </span>
                 </div>
@@ -97,12 +107,12 @@
         </div>
     </section>
 
-    <!-- IP Yapılandırma -->
+    <!-- IP Configuration -->
     <section class="section ip-section">
-        <h2 class="section-title">IP Yapılandırma</h2>
+        <h2 class="section-title">IP Configuration</h2>
 
         <div class="ip-config-buttons">
-            <p class="text-muted">Ağ yapılandırmasını hızlıca değiştirin:</p>
+            <p class="text-muted">Quickly change network configuration:</p>
 
             <div class="ip-buttons-row">
                 <button class="btn btn-lg btn-ip-config" id="btn-default-ip" onclick="setDefaultIP()">
@@ -117,14 +127,19 @@
                     <span class="btn-icon">🌍</span>
                     <span class="btn-text">
                         <strong>Public IP</strong>
-                        <small>DHCP (Otomatik)</small>
+                        <small>DHCP (Automatic)</small>
                     </span>
                 </button>
             </div>
 
-            <p class="ip-current-info" id="ip-current-info">
-                Mevcut: <strong id="current-ip-display">{{ system_info.ip_address or '...' }}</strong>
-            </p>
+            <div class="ip-mode-info" id="ip-mode-info">
+                <span class="mode-indicator" id="mode-static" style="display: none;">
+                    <span class="indicator-dot"></span> Static IP Active
+                </span>
+                <span class="mode-indicator" id="mode-dhcp" style="display: none;">
+                    <span class="indicator-dot"></span> DHCP Active
+                </span>
+            </div>
         </div>
     </section>
 </div>
@@ -132,6 +147,30 @@
 
 {% block extra_js %}
 <script>
+// IP Mode Indicator
+function updateIpModeIndicator() {
+    const ipElement = document.getElementById('conn-ip');
+    const ip = ipElement?.textContent?.trim();
+    const staticIndicator = document.getElementById('mode-static');
+    const dhcpIndicator = document.getElementById('mode-dhcp');
+
+    if (!staticIndicator || !dhcpIndicator) return;
+
+    if (ip && ip.startsWith('5.5.5.')) {
+        staticIndicator.style.display = 'inline-flex';
+        dhcpIndicator.style.display = 'none';
+    } else if (ip && ip !== 'Checking...' && ip !== 'N/A' && ip !== '...') {
+        staticIndicator.style.display = 'none';
+        dhcpIndicator.style.display = 'inline-flex';
+    } else {
+        staticIndicator.style.display = 'none';
+        dhcpIndicator.style.display = 'none';
+    }
+}
+
+// Update on page load
+setTimeout(updateIpModeIndicator, 500);
+
 // Kiosk ID Form
 const kioskIdForm = document.getElementById('kiosk-id-form');
 if (kioskIdForm) {
@@ -141,7 +180,7 @@ if (kioskIdForm) {
         const kiosk_id = input.value.toUpperCase().trim();
 
         if (!kiosk_id) {
-            showToast('Kiosk ID gerekli', 'error');
+            showToast('Kiosk ID required', 'error');
             return;
         }
 
@@ -155,13 +194,13 @@ if (kioskIdForm) {
             const data = await response.json();
 
             if (data.success) {
-                showToast('Kiosk ID kaydedildi', 'success');
+                showToast('Kiosk ID saved', 'success');
                 setTimeout(() => location.reload(), 1000);
             } else {
-                showToast(data.error || 'Hata oluştu', 'error');
+                showToast(data.error || 'Error occurred', 'error');
             }
         } catch (error) {
-            showToast('Bağlantı hatası', 'error');
+            showToast('Connection error', 'error');
         }
     });
 }
@@ -170,7 +209,7 @@ if (kioskIdForm) {
 async function setDefaultIP() {
     const btn = document.getElementById('btn-default-ip');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Ayarlanıyor...';
+    btn.innerHTML = '<span class="spinner"></span> Setting...';
 
     try {
         const response = await fetch('/api/network/set-ip', {
@@ -182,14 +221,15 @@ async function setDefaultIP() {
         const data = await response.json();
 
         if (data.success) {
-            showToast('Default IP ayarlandı: 5.5.5.55', 'success');
-            document.getElementById('current-ip-display').textContent = '5.5.5.55';
+            showToast('Default IP set: 5.5.5.55', 'success');
+            document.getElementById('conn-ip').textContent = '5.5.5.55';
+            updateIpModeIndicator();
             updateConnectionStatus();
         } else {
-            showToast(data.error || 'IP ayarlanamadı', 'error');
+            showToast(data.error || 'Could not set IP', 'error');
         }
     } catch (error) {
-        showToast('Bağlantı hatası', 'error');
+        showToast('Connection error', 'error');
     } finally {
         btn.disabled = false;
         btn.innerHTML = '<span class="btn-icon">🔧</span><span class="btn-text"><strong>Default IP</strong><small>5.5.5.55 / 5.5.5.1</small></span>';
@@ -200,7 +240,7 @@ async function setDefaultIP() {
 async function setPublicIP() {
     const btn = document.getElementById('btn-public-ip');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Ayarlanıyor...';
+    btn.innerHTML = '<span class="spinner"></span> Setting...';
 
     try {
         const response = await fetch('/api/network/set-ip', {
@@ -212,22 +252,23 @@ async function setPublicIP() {
         const data = await response.json();
 
         if (data.success) {
-            showToast('DHCP aktif edildi', 'success');
+            showToast('DHCP enabled', 'success');
             updateConnectionStatus();
+            setTimeout(updateIpModeIndicator, 1000);
         } else {
-            showToast(data.error || 'DHCP ayarlanamadı', 'error');
+            showToast(data.error || 'Could not set DHCP', 'error');
         }
     } catch (error) {
-        showToast('Bağlantı hatası', 'error');
+        showToast('Connection error', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span class="btn-icon">🌍</span><span class="btn-text"><strong>Public IP</strong><small>DHCP (Otomatik)</small></span>';
+        btn.innerHTML = '<span class="btn-icon">🌍</span><span class="btn-text"><strong>Public IP</strong><small>DHCP (Automatic)</small></span>';
     }
 }
 
-// Sistem Yeniden Başlat
+// System Reboot
 async function systemReboot() {
-    if (!confirm('Sistemi yeniden başlatmak istediğinize emin misiniz?')) {
+    if (!confirm('Are you sure you want to reboot the system?')) {
         return;
     }
 
@@ -236,18 +277,18 @@ async function systemReboot() {
         const data = await response.json();
 
         if (data.success) {
-            showToast('Sistem yeniden başlatılıyor...', 'success');
+            showToast('System rebooting...', 'success');
         } else {
-            showToast(data.error || 'Hata oluştu', 'error');
+            showToast(data.error || 'Error occurred', 'error');
         }
     } catch (error) {
-        showToast('Bağlantı hatası', 'error');
+        showToast('Connection error', 'error');
     }
 }
 
-// Sistem Kapat
+// System Shutdown
 async function systemShutdown() {
-    if (!confirm('Sistemi kapatmak istediğinize emin misiniz?')) {
+    if (!confirm('Are you sure you want to shutdown the system?')) {
         return;
     }
 
@@ -256,12 +297,12 @@ async function systemShutdown() {
         const data = await response.json();
 
         if (data.success) {
-            showToast('Sistem kapatılıyor...', 'success');
+            showToast('System shutting down...', 'success');
         } else {
-            showToast(data.error || 'Hata oluştu', 'error');
+            showToast(data.error || 'Error occurred', 'error');
         }
     } catch (error) {
-        showToast('Bağlantı hatası', 'error');
+        showToast('Connection error', 'error');
     }
 }
 </script>

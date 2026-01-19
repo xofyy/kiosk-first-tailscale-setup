@@ -1,8 +1,8 @@
 """
 Kiosk Setup Panel - REST API Routes
-API endpoint'leri
+API endpoints
 
-MongoDB tabanlı config sistemi.
+MongoDB-based config system.
 """
 
 import subprocess
@@ -19,10 +19,10 @@ from app.modules import get_module, get_all_modules
 api_bp = Blueprint('api', __name__)
 logger = logging.getLogger(__name__)
 
-# Aktif kurulum thread'leri (race condition kontrolü için)
+# Active installation threads (for race condition control)
 _install_threads = {}
 
-# Internet durumu cache'i - anında dönüş için (worker'ı bloke etmez)
+# Internet status cache - for instant response (doesn't block worker)
 _internet_cache = {
     'connected': None,
     'ip': None,
@@ -31,17 +31,17 @@ _internet_cache = {
     'last_check': 0
 }
 _cache_lock = threading.Lock()
-_CACHE_TTL = 3  # 3 saniye geçerli (hızlı UI güncellemesi için)
+_CACHE_TTL = 3  # Valid for 3 seconds (for fast UI updates)
 _update_in_progress = False
 
 
 # =============================================================================
-# SİSTEM API
+# SYSTEM API
 # =============================================================================
 
 @api_bp.route('/system/info')
 def system_info():
-    """Sistem bilgilerini döndür"""
+    """Return system information"""
     system = SystemService()
     return jsonify(system.get_system_info())
 
@@ -49,11 +49,11 @@ def system_info():
 @api_bp.route('/system/internet')
 def internet_status():
     """
-    Internet durumu - cache'den anında döner, arka planda günceller.
-    Bu sayede worker hiç bloke olmaz ve tab geçişleri anında çalışır.
+    Internet status - returns from cache instantly, updates in background.
+    This way the worker never blocks and tab switches work instantly.
     """
     global _update_in_progress
-    
+
     with _cache_lock:
         cache_age = time.time() - _internet_cache['last_check']
         result = {
@@ -62,8 +62,8 @@ def internet_status():
             'dns_working': _internet_cache['dns_working'],
             'tailscale_ip': _internet_cache['tailscale_ip']
         }
-    
-    # Cache eski veya boşsa, arka planda güncelle
+
+    # If cache is stale or empty, update in background
     if cache_age > _CACHE_TTL and not _update_in_progress:
         _update_in_progress = True
         threading.Thread(target=_update_internet_cache, daemon=True).start()
@@ -72,12 +72,12 @@ def internet_status():
 
 
 def _update_internet_cache():
-    """Arka planda internet durumunu güncelle (worker'ı bloke etmez)"""
+    """Update internet status in background (doesn't block worker)"""
     global _update_in_progress
     try:
         system = SystemService()
-        
-        # Her birini ayrı ayrı güncelle (hata olsa bile diğerleri çalışsın)
+
+        # Update each one separately (others continue even if one fails)
         connected = None
         ip = None
         dns_working = None
@@ -118,20 +118,20 @@ def _update_internet_cache():
 
 @api_bp.route('/system/reboot', methods=['POST'])
 def reboot_system():
-    """Sistemi yeniden başlat"""
+    """Reboot the system"""
     try:
         subprocess.Popen(['systemctl', 'reboot'])
-        return jsonify({'success': True, 'message': 'Sistem yeniden başlatılıyor...'})
+        return jsonify({'success': True, 'message': 'System rebooting...'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @api_bp.route('/system/shutdown', methods=['POST'])
 def shutdown_system():
-    """Sistemi kapat"""
+    """Shutdown the system"""
     try:
         subprocess.Popen(['systemctl', 'poweroff'])
-        return jsonify({'success': True, 'message': 'Sistem kapatılıyor...'})
+        return jsonify({'success': True, 'message': 'System shutting down...'})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)}), 500
 
@@ -142,7 +142,7 @@ def shutdown_system():
 
 @api_bp.route('/hardware/id')
 def hardware_id():
-    """Hardware ID'yi döndür"""
+    """Return Hardware ID"""
     hw = HardwareService()
     return jsonify({
         'hardware_id': hw.get_hardware_id(),
@@ -156,7 +156,7 @@ def hardware_id():
 
 @api_bp.route('/kiosk-id', methods=['GET'])
 def get_kiosk_id():
-    """Kiosk ID'yi döndür"""
+    """Return Kiosk ID"""
     config.reload()  # Multi-worker sync
     return jsonify({
         'kiosk_id': config.get_kiosk_id(),
@@ -166,13 +166,13 @@ def get_kiosk_id():
 
 @api_bp.route('/kiosk-id', methods=['POST'])
 def set_kiosk_id():
-    """Kiosk ID'yi ayarla (sadece ilk giriş)"""
+    """Set Kiosk ID (first entry only)"""
     config.reload()  # Multi-worker sync
-    # Zaten ayarlanmışsa engelle
+    # Block if already set
     if config.get_kiosk_id():
         return jsonify({
             'success': False, 
-            'error': 'Kiosk ID zaten ayarlanmış'
+            'error': 'Kiosk ID already set'
         }), 400
     
     data = request.get_json()
@@ -181,15 +181,15 @@ def set_kiosk_id():
     if not kiosk_id:
         return jsonify({
             'success': False, 
-            'error': 'Kiosk ID gerekli'
+            'error': 'Kiosk ID required'
         }), 400
     
-    # ID formatı kontrolü
+    # ID format check
     import re
     if not re.match(r'^[A-Z0-9_-]+$', kiosk_id):
         return jsonify({
             'success': False,
-            'error': 'Geçersiz format. Sadece büyük harf, rakam, tire ve alt çizgi kullanın'
+            'error': 'Invalid format. Use only uppercase letters, numbers, hyphens and underscores'
         }), 400
     
     config.set_kiosk_id(kiosk_id)
@@ -206,14 +206,14 @@ def set_kiosk_id():
 
 @api_bp.route('/config')
 def get_config():
-    """Tüm yapılandırmayı döndür"""
+    """Return all configuration"""
     config.reload()  # Multi-worker sync
     return jsonify(config.get_all())
 
 
 @api_bp.route('/config/<path:key>')
 def get_config_value(key: str):
-    """Belirli bir yapılandırma değerini döndür"""
+    """Return a specific configuration value"""
     key = key.replace('/', '.')
     value = config.get(key)
     locked = config.is_setting_locked(key)
@@ -227,24 +227,24 @@ def get_config_value(key: str):
 
 @api_bp.route('/config', methods=['POST'])
 def update_config():
-    """Yapılandırmayı güncelle"""
+    """Update configuration"""
     data = request.get_json()
     
     if not data:
-        return jsonify({'success': False, 'error': 'Veri bulunamadı'}), 400
+        return jsonify({'success': False, 'error': 'No data found'}), 400
     
     errors = []
     updated = []
     
     for key, value in data.items():
-        # Kilitli ayar kontrolü
+        # Check locked setting
         if config.is_setting_locked(key):
-            errors.append(f'{key} ayarı kilitli')
+            errors.append(f'{key} setting is locked')
             continue
-        
-        # Sistem değerleri değiştirilemez
+
+        # System values cannot be changed
         if key.startswith('system.') or key.startswith('modules.'):
-            errors.append(f'{key} sistem tarafından yönetilir')
+            errors.append(f'{key} is managed by system')
             continue
         
         config.set(key, value)
@@ -261,12 +261,12 @@ def update_config():
 
 
 # =============================================================================
-# MODÜL API
+# MODULE API
 # =============================================================================
 
 @api_bp.route('/modules')
 def list_modules():
-    """Tüm modülleri listele"""
+    """List all modules"""
     config.reload()  # Multi-worker sync
     modules = get_all_modules()
     statuses = config.get_all_module_statuses()
@@ -282,12 +282,12 @@ def list_modules():
 
 @api_bp.route('/modules/<module_name>')
 def module_info(module_name: str):
-    """Modül bilgilerini döndür"""
+    """Return module information"""
     config.reload()  # Multi-worker sync
     module = get_module(module_name)
     
     if not module:
-        return jsonify({'error': 'Modül bulunamadı'}), 404
+        return jsonify({'error': 'Module not found'}), 404
     
     info = module.get_info()
     info['status'] = config.get_module_status(module_name)
@@ -299,33 +299,33 @@ def module_info(module_name: str):
 @api_bp.route('/modules/<module_name>/install', methods=['POST'])
 def install_module(module_name: str):
     """
-    Modül kurulumunu başlat (async - background thread)
-    Kurulum arka planda çalışır, API hemen döner
+    Start module installation (async - background thread)
+    Installation runs in background, API returns immediately
     """
-    config.reload()  # Multi-worker sync - kritik: dependency ve status kontrolü için
+    config.reload()  # Multi-worker sync - critical for dependency and status check
     module = get_module(module_name)
     
     if not module:
-        return jsonify({'success': False, 'error': 'Modül bulunamadı'}), 404
+        return jsonify({'success': False, 'error': 'Module not found'}), 404
     
-    # Kurulabilir mi kontrol et
+    # Check if installable
     can_install, reason = module.can_install()
     if not can_install:
         return jsonify({'success': False, 'error': reason}), 400
-    
-    # Zaten kurulu mu?
+
+    # Already installed?
     if config.is_module_completed(module_name):
-        return jsonify({'success': False, 'error': 'Modül zaten kurulu'}), 400
-    
-    # Zaten kuruluyor mu? (thread kontrolü)
+        return jsonify({'success': False, 'error': 'Module already installed'}), 400
+
+    # Already installing? (thread check)
     if module_name in _install_threads and _install_threads[module_name].is_alive():
-        return jsonify({'success': False, 'error': 'Modül kurulumu zaten devam ediyor'}), 400
-    
-    # Status'u installing yap
+        return jsonify({'success': False, 'error': 'Module installation already in progress'}), 400
+
+    # Set status to installing
     config.set_module_status(module_name, 'installing')
-    logger.info(f"Modül kurulumu başlatılıyor (async): {module_name}")
-    
-    # Background thread başlat
+    logger.info(f"Starting module installation (async): {module_name}")
+
+    # Start background thread
     thread = threading.Thread(
         target=_run_install_background,
         args=(module_name,),
@@ -336,59 +336,59 @@ def install_module(module_name: str):
     thread.start()
     
     return jsonify({
-        'success': True, 
+        'success': True,
         'status': 'installing',
-        'message': f'{module_name} kurulumu başlatıldı. Log sayfasından takip edebilirsiniz.'
+        'message': f'{module_name} installation started. You can follow from the log page.'
     })
 
 
 def _run_install_background(module_name: str):
     """
-    Background thread'de modül kurulumu çalıştır.
-    Thread içinde hata yakalama ve status güncelleme yapılır.
+    Run module installation in background thread.
+    Error handling and status updates are done within the thread.
     """
     module = get_module(module_name)
     if not module:
-        logger.error(f"Modül bulunamadı: {module_name}")
+        logger.error(f"Module not found: {module_name}")
         return
-    
+
     try:
-        logger.info(f"Background kurulum başladı: {module_name}")
-        
+        logger.info(f"Background installation started: {module_name}")
+
         success, message = module.install()
-        
-        # install() metodu kendi içinde status'u set edebilir 
-        # (örn: mok_pending, reboot_required)
-        config.reload()  # Güncel status'u oku
+
+        # install() method may set status internally
+        # (e.g. mok_pending, reboot_required)
+        config.reload()  # Read current status
         current_status = config.get_module_status(module_name)
-        
+
         if success:
-            # install() metodu özel bir status set ettiyse dokunma
+            # Don't touch if install() set a special status
             if current_status == 'installing':
                 config.set_module_status(module_name, 'completed')
-            logger.info(f"Kurulum tamamlandı: {module_name} - {message}")
+            logger.info(f"Installation completed: {module_name} - {message}")
         else:
-            # Modül kendi status'unu set ettiyse (mok_pending, reboot_required) dokunma
+            # Don't touch if module set its own status (mok_pending, reboot_required)
             if current_status == 'installing':
                 config.set_module_status(module_name, 'failed')
-                logger.error(f"Kurulum başarısız: {module_name} - {message}")
+                logger.error(f"Installation failed: {module_name} - {message}")
             else:
-                # mok_pending veya reboot_required - bu da bir "başarı" sayılır
-                logger.info(f"Kurulum özel durumda: {module_name} ({current_status}) - {message}")
-            
+                # mok_pending or reboot_required - this is also considered "success"
+                logger.info(f"Installation in special state: {module_name} ({current_status}) - {message}")
+
     except Exception as e:
         config.set_module_status(module_name, 'failed')
-        logger.exception(f"Kurulum exception: {module_name} - {e}")
+        logger.exception(f"Installation exception: {module_name} - {e}")
     finally:
-        # Thread referansını temizle
+        # Clean up thread reference
         if module_name in _install_threads:
             del _install_threads[module_name]
 
 
 @api_bp.route('/modules/<module_name>/status')
 def module_status(module_name: str):
-    """Modül durumunu döndür"""
-    config.reload()  # Güncel status için
+    """Return module status"""
+    config.reload()  # For current status
     status = config.get_module_status(module_name)
     return jsonify({
         'module': module_name,
@@ -403,30 +403,30 @@ def module_status(module_name: str):
 @api_bp.route('/nvidia/mok-info')
 def nvidia_mok_info():
     """
-    NVIDIA MOK durum bilgisi.
-    MOK atlandıysa uyarı göstermek için kullanılır.
+    NVIDIA MOK status information.
+    Used to show warning if MOK was skipped.
     """
     module = get_module('nvidia')
     if not module:
-        return jsonify({'error': 'NVIDIA modülü bulunamadı'}), 404
+        return jsonify({'error': 'NVIDIA module not found'}), 404
 
     try:
         info = module.get_mok_info()
         return jsonify(info)
     except Exception as e:
-        logger.error(f"MOK info hatası: {e}")
+        logger.error(f"MOK info error: {e}")
         return jsonify({'error': str(e)}), 500
 
 
 @api_bp.route('/nvidia/mok-reimport', methods=['POST'])
 def nvidia_mok_reimport():
     """
-    MOK'u yeniden import et.
-    Kullanıcı boot'ta atladıysa bu endpoint ile tekrar import yapılır.
+    Re-import MOK.
+    If user skipped at boot, this endpoint allows re-importing.
     """
     module = get_module('nvidia')
     if not module:
-        return jsonify({'success': False, 'error': 'NVIDIA modülü bulunamadı'}), 404
+        return jsonify({'success': False, 'error': 'NVIDIA module not found'}), 404
 
     try:
         success, message = module.reimport_mok()
@@ -435,21 +435,21 @@ def nvidia_mok_reimport():
             'message': message
         })
     except Exception as e:
-        logger.error(f"MOK reimport hatası: {e}")
+        logger.error(f"MOK reimport error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @api_bp.route('/modules/<module_name>/logs')
 def module_logs(module_name: str):
-    """Modül log'larını döndür"""
+    """Return module logs"""
     import os
 
     log_dir = '/var/log/kiosk-setup'
     log_file = os.path.join(log_dir, f"{module_name}.log")
-    
-    # Son N satırı al (query param ile belirlenebilir)
+
+    # Get last N lines (configurable via query param)
     lines = int(request.args.get('lines', 200))
-    
+
     logs = []
     if os.path.exists(log_file):
         try:
@@ -457,9 +457,9 @@ def module_logs(module_name: str):
                 all_lines = f.readlines()
                 logs = all_lines[-lines:] if len(all_lines) > lines else all_lines
         except Exception as e:
-            logs = [f"Log okuma hatası: {e}"]
+            logs = [f"Log read error: {e}"]
     else:
-        logs = [f"Log dosyası bulunamadı: {log_file}"]
+        logs = [f"Log file not found: {log_file}"]
     
     return jsonify({
         'module': module_name,
@@ -469,28 +469,28 @@ def module_logs(module_name: str):
 
 
 # =============================================================================
-# IP YAPILANDIRMA API (NetworkManager)
+# IP CONFIGURATION API (NetworkManager)
 # =============================================================================
 
 @api_bp.route('/network/set-ip', methods=['POST'])
 def set_network_ip():
     """
-    NetworkManager ile IP yapılandırma
+    IP configuration with NetworkManager
     mode: 'default' → 5.5.5.55/24, gateway 5.5.5.1
-    mode: 'dhcp' → DHCP (otomatik)
+    mode: 'dhcp' → DHCP (automatic)
     """
     data = request.get_json()
 
     if not data:
-        return jsonify({'success': False, 'error': 'Veri bulunamadı'}), 400
+        return jsonify({'success': False, 'error': 'No data found'}), 400
 
     mode = data.get('mode')
 
     if mode not in ['default', 'dhcp']:
-        return jsonify({'success': False, 'error': 'Geçersiz mod: default veya dhcp'}), 400
+        return jsonify({'success': False, 'error': 'Invalid mode: use default or dhcp'}), 400
 
     try:
-        # Aktif ethernet bağlantısını bul
+        # Find active ethernet connection
         result = subprocess.run(
             ['nmcli', '-t', '-f', 'NAME,TYPE,DEVICE', 'connection', 'show', '--active'],
             capture_output=True, text=True, timeout=10
@@ -505,7 +505,7 @@ def set_network_ip():
                     break
 
         if not connection_name:
-            # Aktif bağlantı yoksa, herhangi bir ethernet bağlantısını bul
+            # If no active connection, find any ethernet connection
             result = subprocess.run(
                 ['nmcli', '-t', '-f', 'NAME,TYPE', 'connection', 'show'],
                 capture_output=True, text=True, timeout=10
@@ -518,9 +518,9 @@ def set_network_ip():
                         break
 
         if not connection_name:
-            return jsonify({'success': False, 'error': 'Ethernet bağlantısı bulunamadı'}), 400
+            return jsonify({'success': False, 'error': 'Ethernet connection not found'}), 400
 
-        logger.info(f"IP değiştiriliyor: connection={connection_name}, mode={mode}")
+        logger.info(f"Changing IP: connection={connection_name}, mode={mode}")
 
         if mode == 'default':
             # Statik IP: 5.5.5.55/24, gateway 5.5.5.1
@@ -546,46 +546,46 @@ def set_network_ip():
         for cmd in cmds:
             result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
             if result.returncode != 0:
-                logger.error(f"nmcli hatası: {result.stderr}")
-                return jsonify({'success': False, 'error': result.stderr or 'nmcli hatası'}), 500
+                logger.error(f"nmcli error: {result.stderr}")
+                return jsonify({'success': False, 'error': result.stderr or 'nmcli error'}), 500
 
-        msg = 'Default IP (5.5.5.55) ayarlandı' if mode == 'default' else 'DHCP aktif edildi'
+        msg = 'Default IP (5.5.5.55) set' if mode == 'default' else 'DHCP enabled'
         logger.info(msg)
         return jsonify({'success': True, 'message': msg})
 
     except subprocess.TimeoutExpired:
-        return jsonify({'success': False, 'error': 'İşlem zaman aşımına uğradı'}), 500
+        return jsonify({'success': False, 'error': 'Operation timed out'}), 500
     except Exception as e:
-        logger.error(f"IP değiştirme hatası: {e}")
+        logger.error(f"IP change error: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # =============================================================================
-# KURULUM TAMAMLA API
+# SETUP COMPLETE API
 # =============================================================================
 
 @api_bp.route('/setup/complete', methods=['POST'])
 def complete_setup():
-    """Kurulumu tamamla"""
+    """Complete setup"""
     config.reload()  # Multi-worker sync
-    
-    # Tüm modüller tamamlanmış mı kontrol et
+
+    # Check if all modules are completed
     statuses = config.get_all_module_statuses()
     incomplete = [m for m, s in statuses.items() if s != 'completed']
-    
+
     if incomplete:
         return jsonify({
             'success': False,
-            'error': f'Tamamlanmamış modüller: {", ".join(incomplete)}'
+            'error': f'Incomplete modules: {", ".join(incomplete)}'
         }), 400
-    
+
     try:
-        # Kurulum tamamlandı olarak işaretle
+        # Mark setup as complete
         config.set_setup_complete(True)
-        
+
         return jsonify({
             'success': True,
-            'message': 'Kurulum tamamlandı! Sistem yeniden başlatılacak...'
+            'message': 'Setup complete! System will reboot...'
         })
         
     except Exception as e:
@@ -594,7 +594,7 @@ def complete_setup():
 
 @api_bp.route('/setup/status')
 def setup_status():
-    """Kurulum durumunu döndür"""
+    """Return setup status"""
     config.reload()  # Multi-worker sync
     statuses = config.get_all_module_statuses()
     
