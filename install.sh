@@ -673,6 +673,16 @@ systemctl enable NetworkManager 2>/dev/null || true
 systemctl start NetworkManager 2>/dev/null || true
 systemctl enable NetworkManager-wait-online 2>/dev/null || true
 
+# DNS doğrulaması (Tailscale vb. için gerekli)
+info "DNS bağlantısı doğrulanıyor..."
+for i in $(seq 1 15); do
+    if ping -c 1 -W 2 8.8.8.8 &>/dev/null && ping -c 1 -W 2 google.com &>/dev/null; then
+        log "DNS çalışıyor"
+        break
+    fi
+    sleep 2
+done
+
 # Doğrulama
 if systemctl is-active --quiet NetworkManager; then
     log "Network yapılandırması tamamlandı"
@@ -738,6 +748,7 @@ systemctl enable cockpit.socket 2>/dev/null || true
 systemctl start cockpit.socket 2>/dev/null || true
 
 # Polkit kuralları
+mkdir -p /etc/polkit-1/rules.d
 cat > /etc/polkit-1/rules.d/50-kiosk-network.rules << 'EOF'
 // NetworkManager izinleri
 polkit.addRule(function(action, subject) {
