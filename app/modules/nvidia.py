@@ -182,10 +182,12 @@ class NvidiaModule(BaseModule):
     def _is_mok_enrolled(self) -> bool:
         """
         MOK key UEFI'ye kayıtlı mı?
-        mokutil --list-enrolled ile kontrol eder.
+
+        NOT: Bu fonksiyon artık sadece referans için tutulmuş.
+        Asıl kontrol _detect_mok_status() içinde nvidia-smi ile yapılıyor.
         """
         try:
-            result = self.run_shell('mokutil --list-enrolled 2>/dev/null | grep -q "Kiosk\\|DKMS\\|Secure Boot"', check=False)
+            result = self.run_shell('mokutil --list-enrolled 2>/dev/null | grep -q "Kiosk\\|DKMS"', check=False)
             return result.returncode == 0
         except Exception:
             return False
@@ -206,32 +208,42 @@ class NvidiaModule(BaseModule):
         """
         MOK durumunu tespit et.
 
+        OUTCOME-BASED detection: Asıl sonuca (nvidia-smi çalışıyor mu?) bakarak tespit yapar.
+        Eski key-based tespit yanlış sonuç veriyordu çünkü eski enrolled key'ler
+        pattern'e uyuyor ama güncel DKMS modülü için geçerli değildi.
+
         Returns:
-            'enrolled': Key UEFI'de kayıtlı, NVIDIA çalışmalı
+            'enrolled': NVIDIA çalışıyor (key enrolled ve doğru key)
             'pending': Key import edildi, reboot bekleniyor
-            'skipped': Key import edilmişti ama kullanıcı atladı, re-import gerekli
+            'skipped': Reboot yapıldı ama NVIDIA çalışmıyor (kullanıcı MOK'u atladı)
             'not_needed': Secure Boot kapalı
             'no_key': MOK key dosyası yok
+            'not_installed': NVIDIA paketi kurulu değil
         """
-        # Secure Boot kapalıysa MOK gerekmez
+        # 1. Secure Boot kapalıysa MOK gerekmez
         if not self._is_secure_boot_enabled():
             return 'not_needed'
 
-        # MOK key dosyası var mı?
+        # 2. NVIDIA paketi kurulu değilse
+        if not self._is_package_installed():
+            return 'not_installed'
+
+        # 3. nvidia-smi çalışıyorsa = enrolled ve doğru key
+        #    Bu en güvenilir tespit yöntemi
+        if self._is_nvidia_working():
+            return 'enrolled'
+
+        # 4. MOK key dosyası var mı?
         mok_key = self._find_mok_key()
         if not mok_key:
             return 'no_key'
 
-        # Key zaten enrolled mı?
-        if self._is_mok_enrolled():
-            return 'enrolled'
-
-        # Pending import var mı?
+        # 5. Pending import var mı? (mokutil --list-new çıktısı var mı)
         if self._is_mok_pending():
             return 'pending'
 
-        # Key var ama enrolled değil ve pending de değil
-        # Bu durumda kullanıcı MOK ekranında atlamış demektir
+        # 6. nvidia-smi çalışmıyor, pending de yok
+        #    = Reboot yapıldı ama kullanıcı MOK'u atladı
         return 'skipped'
 
     def reimport_mok(self) -> Tuple[bool, str]:
@@ -279,11 +291,12 @@ class NvidiaModule(BaseModule):
 
         # Durum açıklaması
         status_messages = {
-            'enrolled': 'MOK kayıtlı, NVIDIA kullanılabilir',
+            'enrolled': 'MOK kayıtlı ve NVIDIA çalışıyor',
             'pending': f'MOK import beklemede. Reboot yapın, şifre: {mok_password}',
-            'skipped': f'MOK atlandı! Yeniden import gerekli. Şifre: {mok_password}',
+            'skipped': f'MOK atlandı! NVIDIA çalışmıyor. Yeniden import gerekli. Şifre: {mok_password}',
             'not_needed': 'Secure Boot kapalı, MOK gerekmiyor',
             'no_key': 'MOK key dosyası bulunamadı',
+            'not_installed': 'NVIDIA paketi henüz kurulmamış',
         }
         info['message'] = status_messages.get(mok_status, 'Bilinmeyen durum')
 

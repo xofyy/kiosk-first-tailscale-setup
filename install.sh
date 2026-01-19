@@ -829,6 +829,89 @@ systemctl enable x11vnc 2>/dev/null || true
 log "VNC kuruldu (X11 başladıktan sonra aktif olacak)"
 
 # =============================================================================
+# 18.5. NVIDIA FALLBACK SERVICE (nouveau etkinleştirme)
+# =============================================================================
+
+info "NVIDIA fallback service kuruluyor..."
+
+# nvidia modülü yüklenemezse nouveau'yu etkinleştiren script
+cat > /usr/local/bin/nvidia-fallback.sh << 'EOF'
+#!/bin/bash
+# NVIDIA Fallback Script
+# nvidia modülü yüklenemezse nouveau'yu etkinleştirir
+# Bu sayede MOK skip edilse bile ekran rotation çalışır
+
+LOG="/var/log/kiosk-setup/nvidia-fallback.log"
+mkdir -p "$(dirname "$LOG")"
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG"
+}
+
+log "NVIDIA fallback kontrolü başlıyor..."
+
+# nvidia modülü zaten yüklü mü?
+if lsmod | grep -q "^nvidia "; then
+    log "NVIDIA modülü yüklü, fallback gerekmiyor"
+    exit 0
+fi
+
+# nvidia yüklenebilir mi dene
+modprobe nvidia 2>/dev/null
+if lsmod | grep -q "^nvidia "; then
+    log "NVIDIA modülü başarıyla yüklendi"
+    exit 0
+fi
+
+# nvidia yüklenemedi, nouveau'yu etkinleştir
+log "NVIDIA yüklenemedi, nouveau etkinleştiriliyor..."
+
+# Blacklist'i bypass ederek nouveau yükle
+modprobe --ignore-blacklist nouveau 2>/dev/null
+
+if lsmod | grep -q "^nouveau "; then
+    log "nouveau başarıyla yüklendi (NVIDIA fallback)"
+    # DRM device oluşması için bekle
+    sleep 2
+    if [ -e /dev/dri/card0 ]; then
+        log "/dev/dri/card0 mevcut, GPU hazır"
+    else
+        log "UYARI: /dev/dri/card0 oluşmadı"
+    fi
+else
+    log "HATA: nouveau da yüklenemedi!"
+fi
+
+log "NVIDIA fallback kontrolü tamamlandı"
+EOF
+
+chmod +x /usr/local/bin/nvidia-fallback.sh
+
+# Systemd service - X başlamadan önce çalışır
+cat > /etc/systemd/system/nvidia-fallback.service << 'EOF'
+[Unit]
+Description=NVIDIA Fallback to Nouveau
+DefaultDependencies=no
+Before=display-manager.service
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nvidia-fallback.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target
+EOF
+
+systemctl daemon-reload
+systemctl enable nvidia-fallback.service
+
+log "NVIDIA fallback service kuruldu"
+
+# =============================================================================
 # 19. KIOSK YAPILANDIRMASI
 # =============================================================================
 
