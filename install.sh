@@ -1151,30 +1151,19 @@ fi
 log "Docker kurulumu tamamlandı"
 
 # =============================================================================
-# 23. SECURITY YAPILANDIRMASI (Temel)
+# 23. SECURITY PAKETLERİ KURULUMU
 # =============================================================================
 
-info "Temel güvenlik yapılandırılıyor..."
+info "Güvenlik paketleri kuruluyor..."
 
-# UFW ve fail2ban paketlerini kur
+# UFW ve fail2ban paketlerini kur (yapılandırma tailscale modülünde)
 apt-get install -y -qq ufw fail2ban
 
-# UFW sıfırla
-ufw --force reset 2>/dev/null || true
+# NOT: UFW yapılandırması ve etkinleştirme tailscale modülünde yapılacak
+# Çünkü tailscale0 interface'i enrollment sonrası oluşuyor
+# SSH ve Panel erişimi kurulum sırasında açık kalmalı
 
-# Varsayılan politikalar
-ufw default deny incoming
-ufw default allow outgoing
-ufw default deny routed
-
-# UFW etkinleştir
-ufw --force enable
-
-# NOT: Tailscale0 kuralları, SSH yapılandırması ve fail2ban config
-# tailscale modülünde headscale'e bağlandıktan sonra yapılandırılıyor.
-# Çünkü tailscale0 interface'i ancak tailscale up sonrası oluşuyor.
-
-log "Temel güvenlik yapılandırması tamamlandı (tam config tailscale modülünde)"
+log "Güvenlik paketleri kuruldu (yapılandırma tailscale modülünde)"
 
 # =============================================================================
 # 24. KURULUM DOĞRULAMASI (ÖZET)
@@ -1244,9 +1233,9 @@ check_command "docker ps --format '{{.Names}}' | grep -q local_database" "MongoD
 
 echo ""
 echo -e "${CYAN}Güvenlik:${NC}"
-check_command "ufw status | grep -q 'Status: active'" "UFW Firewall (temel)"
-check_command "which fail2ban-client" "Fail2ban (kurulu, config tailscale sonrası)"
-echo -e "  ${YELLOW}ℹ${NC} UFW kuralları ve SSH config tailscale modülünde yapılandırılacak"
+check_command "which ufw" "UFW (kurulu, tailscale sonrası etkinleşecek)"
+check_command "which fail2ban-client" "Fail2ban (kurulu, tailscale sonrası yapılandırılacak)"
+echo -e "  ${YELLOW}ℹ${NC} UFW ve SSH config tailscale modülünde yapılandırılacak"
 
 echo ""
 echo -e "${CYAN}Sonuç:${NC}"

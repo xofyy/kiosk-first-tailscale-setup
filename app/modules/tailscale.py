@@ -179,9 +179,18 @@ class TailscaleModule(BaseModule):
         self.logger.info("Güvenlik yapılandırması başlıyor...")
 
         try:
-            # 1. UFW tailscale0 kuralları
-            self.logger.info("UFW kuralları ekleniyor...")
+            # 1. UFW yapılandırması (sıfırdan)
+            self.logger.info("UFW yapılandırılıyor...")
 
+            # Önce sıfırla
+            self.run_shell('ufw --force reset 2>/dev/null || true', check=False)
+
+            # Varsayılan politikalar
+            self.run_shell('ufw default deny incoming', check=False)
+            self.run_shell('ufw default allow outgoing', check=False)
+            self.run_shell('ufw default deny routed', check=False)
+
+            # Tailscale0 üzerinden izinler
             ufw_rules = [
                 # Tailscale üzerinden SSH
                 'ufw allow in on tailscale0 to any port 22 proto tcp',
@@ -196,10 +205,12 @@ class TailscaleModule(BaseModule):
             ]
 
             for rule in ufw_rules:
-                result = self.run_shell(f'{rule} 2>/dev/null || true', check=False)
+                self.run_shell(f'{rule} 2>/dev/null || true', check=False)
                 self.logger.debug(f"UFW: {rule}")
 
-            self.logger.info("UFW kuralları eklendi")
+            # UFW'yi etkinleştir
+            self.run_shell('ufw --force enable', check=False)
+            self.logger.info("UFW yapılandırıldı ve etkinleştirildi")
 
             # 2. SSH yapılandırması (Tailscale-only)
             self.logger.info("SSH yapılandırılıyor...")
