@@ -35,7 +35,7 @@ class HardwareService:
         # SHA256 format (compatible with old script)
         sha_input = f"MOBO_SERIAL:{mb}|RAM_SERIALS:{ram}|DISK_SERIALS:{disk}"
         
-        # SHA256 hash al ve ilk 16 karakteri kullan (lowercase)
+        # Get SHA256 hash and use first 16 characters (lowercase)
         if mb or ram or disk:
             return hashlib.sha256(sha_input.encode()).hexdigest()[:16]
         
@@ -128,7 +128,7 @@ class HardwareService:
         except Exception as e:
             logger.debug(f"Could not get disk serials (lsblk): {e}")
         
-        # Fallback: udevadm ile dene (lsblk serial vermezse)
+        # Fallback: try udevadm (if lsblk doesn't return serial)
         if not serials:
             try:
                 result = subprocess.run(
@@ -169,7 +169,7 @@ class HardwareService:
         return ''
     
     def get_gpu_info(self) -> Optional[Dict[str, str]]:
-        """NVIDIA GPU bilgisini al"""
+        """Get NVIDIA GPU info"""
         try:
             result = subprocess.run(
                 ['nvidia-smi', '--query-gpu=name,driver_version,memory.total', '--format=csv,noheader'],
@@ -192,7 +192,7 @@ class HardwareService:
         return None
     
     def get_cpu_info(self) -> Dict[str, str]:
-        """CPU bilgisini al"""
+        """Get CPU info"""
         info = {
             'model': 'Unknown',
             'cores': '0'

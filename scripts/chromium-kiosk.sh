@@ -1,18 +1,18 @@
 #!/bin/bash
 # =============================================================================
 # Kiosk Setup Panel - Chromium Kiosk Mode
-# Ana kiosk uygulaması için Chromium başlatma scripti (Watchdog ile)
+# Chromium launch script for main kiosk application (with Watchdog)
 # =============================================================================
 
-# Lock dosyası ile çoklu instance önleme
+# Prevent multiple instances with lock file
 LOCK_FILE="/tmp/chromium-kiosk.lock"
 exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
-    echo "chromium-kiosk.sh zaten çalışıyor, çıkılıyor..."
+    echo "chromium-kiosk.sh already running, exiting..."
     exit 1
 fi
 
-# Config'den URL al veya varsayılan kullan
+# Get URL from config or use default
 CONFIG_FILE="/etc/kiosk-setup/config.yaml"
 URL="http://localhost:3000"
 
@@ -25,7 +25,7 @@ fi
 
 DATA_DIR="/tmp/chromium-kiosk"
 
-# Crash temizliği
+# Crash cleanup
 rm -rf "$DATA_DIR/SingletonLock" 2>/dev/null
 
 if [ -f "$DATA_DIR/Default/Preferences" ]; then
@@ -33,16 +33,16 @@ if [ -f "$DATA_DIR/Default/Preferences" ]; then
         "$DATA_DIR/Default/Preferences" 2>/dev/null
 fi
 
-# Mevcut Chromium'u kapat (varsa)
+# Kill existing Chromium (if any)
 pkill -f "chromium.*--user-data-dir=$DATA_DIR" 2>/dev/null
 sleep 0.5
 
-# Watchdog - crash olursa yeniden başlat
+# Watchdog - restart if crashed
 while true; do
-    # Data dizinini oluştur
+    # Create data directory
     mkdir -p "$DATA_DIR"
-    
-    # Chromium başlat
+
+    # Start Chromium
     chromium-browser \
         --user-data-dir="$DATA_DIR" \
         --kiosk \
@@ -67,7 +67,7 @@ while true; do
         --overscroll-history-navigation=0 \
         --autoplay-policy=no-user-gesture-required \
         "$URL"
-    
-    # Chromium kapanırsa 3 saniye bekle ve yeniden başlat
+
+    # If Chromium exits, wait 3 seconds and restart
     sleep 3
 done &

@@ -82,7 +82,7 @@ def check_service_status(service_config: Dict[str, Any]) -> Dict[str, Any]:
     check_type = service_config.get('check_type')
     check_value = service_config.get('check_value')
     
-    # check_value yoksa port'u kullan
+    # Use port if check_value is not set
     if check_value is None and check_type == 'port':
         check_value = service_config.get('port')
     

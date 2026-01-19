@@ -97,7 +97,7 @@ class NvidiaModule(BaseModule):
         self.logger.info("Installing NVIDIA Container Toolkit...")
 
         try:
-            # 1. GPG key ekle
+            # 1. Add GPG key
             result = self.run_shell(
                 'curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | '
                 'gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes',

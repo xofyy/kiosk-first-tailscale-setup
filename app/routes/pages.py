@@ -28,7 +28,7 @@ def home():
     )
 
 
-@pages_bp.route('/kurulum')
+@pages_bp.route('/install')
 def install():
     """Installation page - Module installations"""
     # Get module list
@@ -68,10 +68,10 @@ def services():
         except Exception:
             pass
     
-    # Her servisin durumunu kontrol et
+    # Check status of each service
     services_status = get_all_services_status(services_config)
-    
-    # Internal servisleri filtrele (panel gibi)
+
+    # Filter internal services (like panel)
     visible_services = {
         name: status for name, status in services_status.items()
         if not status.get('internal', False)

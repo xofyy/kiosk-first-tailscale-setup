@@ -51,11 +51,11 @@ class SystemService:
         }
     
     def get_hostname(self) -> str:
-        """Hostname'i al"""
+        """Get hostname"""
         return socket.gethostname()
     
     def get_ip_address(self) -> Optional[str]:
-        """Ana IP adresini al"""
+        """Get main IP address"""
         s = None
         try:
             # Get IP via default route
@@ -74,7 +74,7 @@ class SystemService:
                     pass
     
     def get_tailscale_ip(self) -> Optional[str]:
-        """Tailscale IP adresini al"""
+        """Get Tailscale IP address"""
         try:
             result = subprocess.run(
                 ['tailscale', 'ip', '-4'],
@@ -170,7 +170,7 @@ class SystemService:
             return "N/A"
     
     def get_memory_info(self) -> Dict[str, Any]:
-        """Bellek bilgisini al"""
+        """Get memory info"""
         try:
             with open('/proc/meminfo', 'r') as f:
                 meminfo = {}
@@ -197,7 +197,7 @@ class SystemService:
             return {'total_mb': 0, 'used_mb': 0, 'free_mb': 0, 'percent': 0}
     
     def get_disk_info(self) -> Dict[str, Any]:
-        """Disk bilgisini al (root partition)"""
+        """Get disk info (root partition)"""
         try:
             stat = os.statvfs('/')
             total = (stat.f_blocks * stat.f_frsize) / (1024 ** 3)  # GB
@@ -253,7 +253,7 @@ class SystemService:
 
         # 3. APPLY - Execute operations in order
         try:
-            # DHCP'yi durdur (varsa, hata vermez)
+            # Stop DHCP (if running, won't error if not)
             dhclient = self._find_dhclient()
             if dhclient:
                 subprocess.run(
@@ -265,13 +265,13 @@ class SystemService:
                 check=False, stderr=subprocess.DEVNULL, timeout=5
             )
             
-            # Mevcut IP'yi temizle
+            # Clear current IP
             subprocess.run(
                 ['ip', 'addr', 'flush', 'dev', interface],
                 check=True, timeout=10
             )
             
-            # Yeni IP ekle
+            # Add new IP
             cidr = self._netmask_to_cidr(netmask)
             subprocess.run(
                 ['ip', 'addr', 'add', f'{ip}/{cidr}', 'dev', interface],
@@ -292,7 +292,7 @@ class SystemService:
                 check=True, timeout=10
             )
             
-            # DNS ayarla
+            # Set DNS
             with open('/etc/resolv.conf', 'w') as f:
                 f.write(f"nameserver {dns}\n")
             
@@ -365,21 +365,21 @@ class SystemService:
         """Backup current network state"""
         backup = {}
         try:
-            # Mevcut IP bilgisi
+            # Current IP info
             result = subprocess.run(
                 ['ip', '-4', 'addr', 'show', interface],
                 capture_output=True, text=True, timeout=5
             )
             backup['ip_info'] = result.stdout
             
-            # Mevcut default route
+            # Current default route
             result = subprocess.run(
                 ['ip', 'route', 'show', 'default'],
                 capture_output=True, text=True, timeout=5
             )
             backup['default_route'] = result.stdout.strip()
             
-            # Mevcut DNS
+            # Current DNS
             if os.path.exists('/etc/resolv.conf'):
                 with open('/etc/resolv.conf', 'r') as f:
                     backup['dns'] = f.read()
@@ -415,6 +415,6 @@ class SystemService:
             return False
     
     def _find_dhclient(self) -> Optional[str]:
-        """dhclient binary'sini bul"""
+        """Find dhclient binary"""
         paths = ['/sbin/dhclient', '/usr/sbin/dhclient']
         return next((p for p in paths if os.path.exists(p)), None)

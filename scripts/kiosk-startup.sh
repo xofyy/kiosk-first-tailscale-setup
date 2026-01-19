@@ -1,22 +1,22 @@
 #!/bin/bash
 # =============================================================================
 # Kiosk Setup Panel - Startup Script
-# Openbox autostart tarafından çağrılır
+# Called by Openbox autostart
 # =============================================================================
 
-# Ekran ayarlarını uygula
+# Apply display settings
 /usr/local/bin/display-init.sh 2>/dev/null || true
 
-# Ekran koruyucu devre dışı
+# Disable screen saver
 xset s off
 xset -dpms
 xset s noblank
 
-# Setup tamamlanmış mı kontrol et
+# Check if setup is complete
 if [ -f /etc/kiosk-setup/.setup-complete ]; then
-    # Kiosk modunda başlat
+    # Start in kiosk mode
     /usr/local/bin/chromium-kiosk.sh &
 else
-    # Panel modunda başlat
+    # Start in panel mode
     /usr/local/bin/chromium-panel.sh &
 fi

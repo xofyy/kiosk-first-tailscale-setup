@@ -41,19 +41,19 @@
     --transition: 0.2s ease;
 }
 
-/* Scrollbar'ı gizle - WebKit (Chrome, Safari, Edge) */
+/* Hide scrollbar - WebKit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
     width: 0;
     height: 0;
     background: transparent;
 }
 
-/* Firefox için */
+/* For Firefox */
 html {
     scrollbar-width: none;
 }
 
-/* IE/Edge için */
+/* For IE/Edge */
 body, .main-content, .container {
     -ms-overflow-style: none;
     scrollbar-width: none;
@@ -64,7 +64,7 @@ body, .main-content, .container {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-    /* Metin seçimini engelle (kiosk modu için) */
+    /* Disable text selection (for kiosk mode) */
     -webkit-user-select: none;
     -moz-user-select: none;
     -ms-user-select: none;
@@ -72,7 +72,7 @@ body, .main-content, .container {
     -webkit-touch-callout: none;
 }
 
-/* Input alanlarında seçime izin ver */
+/* Allow selection in input fields */
 input, textarea, [contenteditable="true"] {
     -webkit-user-select: text;
     -moz-user-select: text;
@@ -685,7 +685,7 @@ body {
     line-height: 1.8;
     white-space: pre-wrap;
     word-break: break-all;
-    /* Loglarda seçime izin ver */
+    /* Allow selection in logs */
     -webkit-user-select: text;
     -moz-user-select: text;
     user-select: text;

@@ -2,23 +2,23 @@
 # Generated automatically - do not edit manually
 # /etc/ssh/sshd_config.d/99-tailscale-only.conf
 
-# Parola ile giriş kapalı
+# Password login disabled
 PasswordAuthentication no
 
-# Public key ile giriş kapalı (Tailscale kullanılacak)
+# Public key login disabled (will use Tailscale)
 PubkeyAuthentication no
 
-# PAM aktif (Tailscale auth için)
+# PAM enabled (for Tailscale auth)
 UsePAM yes
 
-# İzin verilen kullanıcılar
+# Allowed users
 AllowUsers root aco kiosk
 
-# Brute-force koruması
+# Brute-force protection
 MaxAuthTries 3
 MaxSessions 2
 
-# Bağlantı timeout
+# Connection timeout
 ClientAliveInterval 300
 ClientAliveCountMax 2
 

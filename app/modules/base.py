@@ -119,19 +119,19 @@ class MongoConfig:
         return self.get_module_status(module_name) == 'completed'
 
     def get_kiosk_id(self) -> Optional[str]:
-        """Kiosk ID'yi al"""
+        """Get Kiosk ID"""
         return self.get('kiosk_id')
 
     def set_kiosk_id(self, kiosk_id: str) -> bool:
-        """Kiosk ID'yi ayarla"""
+        """Set Kiosk ID"""
         return self.set('kiosk_id', kiosk_id)
 
     def get_hardware_id(self) -> Optional[str]:
-        """Hardware ID'yi al"""
+        """Get Hardware ID"""
         return self.get('hardware_id')
 
     def set_hardware_id(self, hardware_id: str) -> bool:
-        """Hardware ID'yi ayarla"""
+        """Set Hardware ID"""
         return self.set('hardware_id', hardware_id)
 
     def save(self):
@@ -196,7 +196,7 @@ class MongoConfig:
 # Global config instance
 mongo_config = MongoConfig()
 
-# Log dizini
+# Log directory
 LOG_DIR = '/var/log/kiosk-setup'
 
 
@@ -382,11 +382,11 @@ class BaseModule(ABC):
             raise
     
     def apt_install(self, packages: List[str]) -> bool:
-        """APT ile paket kur (noninteractive, real-time log)"""
+        """Install packages via APT (noninteractive, real-time log)"""
         if not packages:
             return True
-        
-        self.logger.info(f"Paketler kuruluyor: {', '.join(packages)}")
+
+        self.logger.info(f"Installing packages: {', '.join(packages)}")
         
         # Noninteractive environment
         env = os.environ.copy()
@@ -449,7 +449,7 @@ class BaseModule(ABC):
                     process.kill()
                     raise subprocess.TimeoutExpired(command, timeout)
             
-            # Sonucu bekle
+            # Wait for result
             return_code = process.wait()
             
             if return_code != 0:
@@ -500,7 +500,7 @@ class BaseModule(ABC):
             return False
     
     def render_template(self, template_name: str, context: Dict[str, Any]) -> str:
-        """Jinja2 template render et"""
+        """Render Jinja2 template"""
         from jinja2 import Environment, FileSystemLoader
         
         template_dirs = [
@@ -557,22 +557,22 @@ class BaseModule(ABC):
             
             # 1. quiet splash check (always)
             if 'quiet' not in grub_content or 'splash' not in grub_content:
-                # quiet splash yoksa ekle
+                # Add quiet splash if not present
                 if 'GRUB_CMDLINE_LINUX_DEFAULT="' in grub_content:
                     grub_content = grub_content.replace(
                         'GRUB_CMDLINE_LINUX_DEFAULT="',
                         'GRUB_CMDLINE_LINUX_DEFAULT="quiet splash '
                     )
-                    self.logger.info("GRUB: quiet splash eklendi")
-            
+                    self.logger.info("GRUB: quiet splash added")
+
             # 2. nvidia-drm.modeset=1 check
             if params.get('nvidia_modeset') and 'nvidia-drm.modeset=1' not in grub_content:
                 grub_content = grub_content.replace(
                     'GRUB_CMDLINE_LINUX_DEFAULT="',
                     'GRUB_CMDLINE_LINUX_DEFAULT="nvidia-drm.modeset=1 '
                 )
-                self.logger.info("GRUB: nvidia-drm.modeset=1 eklendi")
-            
+                self.logger.info("GRUB: nvidia-drm.modeset=1 added")
+
             # 3. fbcon rotation check
             grub_rotation = params.get('grub_rotation')
             if grub_rotation is not None and 'fbcon=rotate:' not in grub_content:
@@ -580,7 +580,7 @@ class BaseModule(ABC):
                     'GRUB_CMDLINE_LINUX_DEFAULT="',
                     f'GRUB_CMDLINE_LINUX_DEFAULT="fbcon=rotate:{grub_rotation} '
                 )
-                self.logger.info(f"GRUB: fbcon=rotate:{grub_rotation} eklendi")
+                self.logger.info(f"GRUB: fbcon=rotate:{grub_rotation} added")
             
             # Any changes?
             if grub_content != original_content:

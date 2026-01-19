@@ -14,7 +14,7 @@ WorkingDirectory=/opt/kiosk-setup-panel
 Environment="PATH=/opt/kiosk-setup-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
 
-# Gunicorn ile Flask başlat
+# Start Flask with Gunicorn
 ExecStart=/opt/kiosk-setup-panel/venv/bin/python -m gunicorn \
     --bind 0.0.0.0:4444 \
     --workers 2 \

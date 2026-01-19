@@ -1,32 +1,32 @@
 # Kiosk Setup Panel
 
-Ubuntu Server üzerine kurulacak, grafik tabanlı kiosk kurulum paneli.
+A graphical kiosk installation panel to be installed on Ubuntu Server.
 
-## Özellikler
+## Features
 
-- Dokunmatik ekran desteği (90° rotasyon)
-- Web tabanlı arayüz (Flask + Chromium)
-- MongoDB tabanlı yapılandırma sistemi
-- Otomatik kurulum (install.sh ile tüm temel bileşenler)
-- Web panelden NVIDIA ve Tailscale kurulumu
-- Nginx reverse proxy ile servis yönetimi
+- Touch screen support (90° rotation)
+- Web-based interface (Flask + Chromium)
+- MongoDB-based configuration system
+- Automatic installation (all base components via install.sh)
+- NVIDIA and Tailscale installation from web panel
+- Service management with Nginx reverse proxy
 
-## Kurulum Akışı
+## Installation Flow
 
 ```
-Ubuntu Server → install.sh → Reboot → Panel (4444) → NVIDIA/Tailscale → Tamamla → Kiosk
+Ubuntu Server → install.sh → Reboot → Panel (4444) → NVIDIA/Tailscale → Complete → Kiosk
 ```
 
-## Sistem Gereksinimleri
+## System Requirements
 
-- Ubuntu Server 22.04 LTS veya üzeri
-- NVIDIA GPU (opsiyonel, driver kurulumu için)
-- İnternet bağlantısı
-- Root yetkileri
+- Ubuntu Server 22.04 LTS or higher
+- NVIDIA GPU (optional, for driver installation)
+- Internet connection
+- Root privileges
 
-## Kurulum
+## Installation
 
-### Git ile Kurulum
+### Installation with Git
 
 ```bash
 git clone https://github.com/xofyy/kiosk-first-tailscale-setup.git
@@ -34,92 +34,92 @@ cd kiosk-first-tailscale-setup
 sudo bash install.sh
 ```
 
-### Tek Satır Kurulum
+### One-Line Installation
 
 ```bash
 curl -sSL https://raw.githubusercontent.com/xofyy/kiosk-first-tailscale-setup/main/install.sh | sudo bash
 ```
 
-## install.sh ile Otomatik Kurulan Bileşenler
+## Components Installed Automatically via install.sh
 
-| Bileşen | Açıklama |
-|---------|----------|
-| X11 / Openbox | Grafik arayüz |
-| Chromium | Kiosk tarayıcı |
-| NetworkManager | Ağ yönetimi |
+| Component | Description |
+|-----------|-------------|
+| X11 / Openbox | Graphical interface |
+| Chromium | Kiosk browser |
+| NetworkManager | Network management |
 | Nginx | Reverse proxy (port 4444) |
-| Cockpit | Web yönetim paneli |
-| VNC (x11vnc) | Uzak masaüstü |
-| Docker + MongoDB | Container ve veritabanı |
-| Netmon | Ağ izleme servisi |
-| Collector | Metrik toplama (Prometheus) |
-| UFW + Fail2ban | Güvenlik |
-| Tailscale (paket) | VPN kurulumu |
+| Cockpit | Web management panel |
+| VNC (x11vnc) | Remote desktop |
+| Docker + MongoDB | Container and database |
+| Netmon | Network monitoring service |
+| Collector | Metric collection (Prometheus) |
+| UFW + Fail2ban | Security |
+| Tailscale (package) | VPN installation |
 
-## Web Panel Modülleri
+## Web Panel Modules
 
-Panel üzerinden kurulacak modüller:
+Modules to be installed via panel:
 
-| Modül | Açıklama |
-|-------|----------|
-| NVIDIA | GPU driver + Secure Boot MOK yönetimi |
-| Tailscale | VPN enrollment + Headscale bağlantısı |
+| Module | Description |
+|--------|-------------|
+| NVIDIA | GPU driver + Secure Boot MOK management |
+| Tailscale | VPN enrollment + Headscale connection |
 
-## Panel Yapısı
+## Panel Structure
 
-| Sekme | İçerik |
-|-------|--------|
-| Anasayfa | Kiosk ID, bağlantı durumu, IP yapılandırma, sistem kontrol |
-| Kurulum | NVIDIA ve Tailscale modül kurulumları |
-| Loglar | Kurulum ve sistem logları |
-| Servisler | Cockpit, Mechatronic Controller erişimi |
+| Tab | Content |
+|-----|---------|
+| Home | Kiosk ID, connection status, IP configuration, system control |
+| Install | NVIDIA and Tailscale module installations |
+| Logs | Installation and system logs |
+| Services | Cockpit, Mechatronic Controller access |
 
-## Servisler
+## Services
 
-Nginx üzerinden erişilebilir servisler:
+Services accessible via Nginx:
 
-| Servis | Port | Path | Açıklama |
-|--------|------|------|----------|
+| Service | Port | Path | Description |
+|---------|------|------|-------------|
 | Panel | 5000 | / | Kiosk Setup Panel |
-| Cockpit | 9090 | /cockpit/ | Sistem yönetimi |
+| Cockpit | 9090 | /cockpit/ | System management |
 | Mechatronic | 1234 | /mechatronic_controller/ | Mechatronic Controller |
 
-## Panel Erişimi
+## Panel Access
 
-- **Yerel**: http://localhost:4444
+- **Local**: http://localhost:4444
 - **Tailscale**: http://TAILSCALE-IP:4444
 
-> Not: UFW kuralları gereği panel sadece Tailscale üzerinden erişilebilir.
+> Note: Due to UFW rules, the panel is only accessible via Tailscale.
 
-## Proje Yapısı
+## Project Structure
 
 ```
 kiosk-first-tailscale-setup/
-├── app/                        # Flask uygulaması
-│   ├── modules/                # Aktif: nvidia.py, tailscale.py
+├── app/                        # Flask application
+│   ├── modules/                # Active: nvidia.py, tailscale.py
 │   │   └── base.py             # MongoDB config client
-│   ├── routes/                 # API ve sayfa routes
+│   ├── routes/                 # API and page routes
 │   ├── services/               # System, Hardware, Enrollment
 │   ├── templates/              # HTML templates
-│   │   ├── base.html           # Ana şablon
-│   │   ├── home.html           # Anasayfa
-│   │   ├── install.html        # Kurulum
-│   │   ├── logs.html           # Loglar
-│   │   └── services.html       # Servisler
+│   │   ├── base.html           # Main template
+│   │   ├── home.html           # Home page
+│   │   ├── install.html        # Installation
+│   │   ├── logs.html           # Logs
+│   │   └── services.html       # Services
 │   └── static/                 # CSS + JavaScript
-├── scripts/                    # Shell scriptleri
+├── scripts/                    # Shell scripts
 │   ├── chromium-panel.sh       # Panel Chromium
 │   ├── chromium-kiosk.sh       # Kiosk Chromium
-│   ├── switch-to-*.sh          # Geçiş scriptleri
-│   └── display-init.sh         # Ekran ayarları
-├── install.sh                  # Ana kurulum scripti
-├── requirements.txt            # Python bağımlılıkları
+│   ├── switch-to-*.sh          # Switch scripts
+│   └── display-init.sh         # Display settings
+├── install.sh                  # Main installation script
+├── requirements.txt            # Python dependencies
 └── README.md
 ```
 
-## Yapılandırma (MongoDB)
+## Configuration (MongoDB)
 
-Tüm ayarlar MongoDB'de `kiosk.settings` collection'ında saklanır:
+All settings are stored in the `kiosk.settings` collection in MongoDB:
 
 ```json
 {
@@ -135,39 +135,39 @@ Tüm ayarlar MongoDB'de `kiosk.settings` collection'ında saklanır:
 }
 ```
 
-## Kurulum Sonrası Dizinler
+## Post-Installation Directories
 
 ```
-/opt/kiosk-setup-panel/        # Uygulama dosyaları
+/opt/kiosk-setup-panel/        # Application files
   ├── app/
   └── venv/                    # Python virtual environment
 /srv/docker/                   # Docker Compose
   └── docker-compose.yml       # MongoDB container
 /etc/nginx/
-  ├── kiosk-services.json      # Servis registry
+  ├── kiosk-services.json      # Service registry
   └── sites-available/kiosk-panel
-/var/log/kiosk-setup/          # Log dosyaları
+/var/log/kiosk-setup/          # Log files
 ```
 
-## Klavye Kısayolu
+## Keyboard Shortcut
 
-| Kısayol | İşlem |
-|---------|-------|
-| F10 | Panel ↔ Kiosk toggle |
+| Shortcut | Action |
+|----------|--------|
+| F10 | Panel <-> Kiosk toggle |
 
-> Not: Kurulum tamamlanmadan (setup_complete=false) F10 çalışmaz.
+> Note: F10 does not work until setup is complete (setup_complete=false).
 
-## Güvenlik
+## Security
 
-- UFW firewall (Tailscale-only erişim)
-- SSH sadece Tailscale üzerinden
-- Fail2ban brute-force koruması
-- MongoDB sadece localhost
+- UFW firewall (Tailscale-only access)
+- SSH only via Tailscale
+- Fail2ban brute-force protection
+- MongoDB localhost only
 
-## Lisans
+## License
 
 MIT License
 
-## Geliştirici
+## Developer
 
 xofyy - https://github.com/xofyy

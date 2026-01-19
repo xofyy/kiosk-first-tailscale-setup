@@ -2,7 +2,7 @@
 // Generated automatically - do not edit manually
 // /etc/polkit-1/rules.d/50-kiosk-network.rules
 
-// NetworkManager izinleri
+// NetworkManager permissions
 polkit.addRule(function(action, subject) {
     if (action.id.indexOf("org.freedesktop.NetworkManager") == 0 &&
         subject.user == "kiosk") {
@@ -10,11 +10,11 @@ polkit.addRule(function(action, subject) {
     }
 });
 
-// PackageKit izinleri (sınırlı)
+// PackageKit permissions (limited)
 polkit.addRule(function(action, subject) {
     if (action.id.indexOf("org.freedesktop.packagekit") == 0 &&
         subject.user == "kiosk") {
-        // Sadece görüntüleme, kurulum değil
+        // View only, not installation
         if (action.id == "org.freedesktop.packagekit.system-sources-refresh" ||
             action.id == "org.freedesktop.packagekit.package-info") {
             return polkit.Result.YES;
