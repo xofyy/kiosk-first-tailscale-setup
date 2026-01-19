@@ -100,4 +100,4 @@ check_pending_modules()
 
 if __name__ == '__main__':
     # Development server
-    app.run(host='0.0.0.0', port=8080, debug=True)
+    app.run(host='0.0.0.0', port=4444, debug=True)

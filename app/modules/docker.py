@@ -308,7 +308,7 @@ services:
     def _register_mechatronic_to_nginx(self) -> bool:
         """Mechatronic Controller'ı Nginx config'e ekle"""
         try:
-            nginx_port = self.get_config('nginx.port', 8080)
+            nginx_port = self.get_config('nginx.port', 4444)
             mech_config = self.get_config('services.mechcontroller', {})
             
             if not mech_config:

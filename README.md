@@ -14,7 +14,7 @@ Ubuntu Server üzerine kurulacak, grafik tabanlı kiosk kurulum paneli.
 ## Kurulum Akışı
 
 ```
-Ubuntu Server → install.sh → Reboot → Panel (8080) → Kurulumlar → Tamamla → Kiosk (3000)
+Ubuntu Server → install.sh → Reboot → Panel (4444) → Kurulumlar → Tamamla → Kiosk (3000)
 ```
 
 ## Sistem Gereksinimleri
@@ -63,15 +63,15 @@ Kurulum tamamlandıktan sonra:
 
 | Kısayol | İşlem |
 |---------|-------|
-| Ctrl+Alt+P | Panel'e geç (localhost:8080) |
+| Ctrl+Alt+P | Panel'e geç (localhost:4444) |
 | Ctrl+Alt+K | Kiosk'a geç (localhost:3000) |
 | Ctrl+Alt+C | Cockpit'e geç (localhost:9090) |
 
 ## Panel Erişimi
 
-- **Yerel**: http://localhost:8080
-- **Ağdan**: http://IP:8080
-- **Tailscale**: http://TAILSCALE-IP:8080
+- **Yerel**: http://localhost:4444
+- **Ağdan**: http://IP:4444 (sadece Tailscale üzerinden)
+- **Tailscale**: http://TAILSCALE-IP:4444
 
 ## Proje Yapısı
 

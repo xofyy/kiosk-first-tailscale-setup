@@ -13,7 +13,7 @@ network:
   dns_servers: ["8.8.8.8", "8.8.4.4"]
 
 nginx:
-  port: 8080
+  port: 4444
   panel_port: 5000
 
 nvidia:

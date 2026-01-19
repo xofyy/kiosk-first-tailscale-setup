@@ -148,7 +148,7 @@ server {{
     def _register_to_nginx(self) -> bool:
         """Cockpit'i nginx config'e ekle"""
         try:
-            nginx_port = self.get_config('nginx.port', 8080)
+            nginx_port = self.get_config('nginx.port', 4444)
             cockpit_port = self.get_config('cockpit.port', 9090)
             
             # 1. Services.json'dan mevcut servisleri oku
@@ -197,7 +197,7 @@ server {{
         """Cockpit kurulumu"""
         try:
             cockpit_port = self.get_config('cockpit.port', 9090)
-            nginx_port = self.get_config('nginx.port', 8080)
+            nginx_port = self.get_config('nginx.port', 4444)
             
             # =================================================================
             # 1. Cockpit Paketleri

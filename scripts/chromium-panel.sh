@@ -12,7 +12,7 @@ if ! flock -n 200; then
     exit 1
 fi
 
-URL="http://localhost:8080"
+URL="http://localhost:4444"
 DATA_DIR="/tmp/chromium-panel"
 
 # Crash temizliği

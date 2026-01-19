@@ -341,7 +341,7 @@ EOF
 # Panel için proxy config
 cat > /etc/nginx/sites-available/kiosk-panel << 'NGINX_EOF'
 server {
-    listen 8080;
+    listen 4444;
     server_name localhost;
     
     add_header X-Content-Type-Options "nosniff" always;
@@ -365,7 +365,7 @@ ln -sf /etc/nginx/sites-available/kiosk-panel /etc/nginx/sites-enabled/
 systemctl enable nginx
 systemctl restart nginx
 
-log "Nginx reverse proxy hazır (port: 8080)"
+log "Nginx reverse proxy hazır (port: 4444)"
 
 # =============================================================================
 # 11. SYSTEMD SERVİSLERİ
@@ -540,8 +540,8 @@ echo -e "${GREEN}║                     KURULUM TAMAMLANDI!                    
 echo -e "${GREEN}╚══════════════════════════════════════════════════════════════════════╝${NC}"
 echo ""
 echo -e "${CYAN}Panel Erişimi:${NC}"
-echo "  - Yerel: http://localhost:8080"
-echo "  - Ağdan: http://$(hostname -I | awk '{print $1}'):8080"
+echo "  - Yerel: http://localhost:4444"
+echo "  - Ağdan: http://$(hostname -I | awk '{print $1}'):4444"
 echo ""
 echo -e "${CYAN}Sonraki Adımlar:${NC}"
 echo -e "  1. Sistemi yeniden başlatın: ${YELLOW}sudo reboot${NC}"

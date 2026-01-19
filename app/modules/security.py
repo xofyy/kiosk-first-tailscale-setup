@@ -21,7 +21,6 @@ class SecurityModule(BaseModule):
         """Güvenlik yapılandırması"""
         try:
             vnc_port = self.get_config('vnc.port', 5900)
-            cockpit_port = self.get_config('cockpit.port', 9090)
             
             # 1. UFW kurulumu
             self.logger.info("UFW kuruluyor...")
@@ -48,11 +47,11 @@ class SecurityModule(BaseModule):
             # Tailscale üzerinden VNC
             self.run_shell(f'/usr/sbin/ufw allow in on tailscale0 to any port {vnc_port} proto tcp')
             
-            # Tailscale üzerinden Cockpit
-            self.run_shell(f'/usr/sbin/ufw allow in on tailscale0 to any port {cockpit_port} proto tcp')
+            # Tailscale üzerinden Panel (sadece VPN erişimi)
+            self.run_shell('/usr/sbin/ufw allow in on tailscale0 to any port 4444 proto tcp')
             
-            # Panel erişimi (yerel ağ ve Tailscale)
-            self.run_shell('/usr/sbin/ufw allow 8080/tcp')
+            # Tailscale üzerinden MongoDB
+            self.run_shell('/usr/sbin/ufw allow in on tailscale0 to any port 27017 proto tcp')
             
             # LAN'dan SSH engelle (Tailscale hariç)
             # Not: tailscale0 kuralı önce geldiği için Tailscale üzerinden erişim açık
