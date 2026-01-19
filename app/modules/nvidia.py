@@ -168,16 +168,130 @@ class NvidiaModule(BaseModule):
             '/var/lib/shim-signed/mok/MOK.der',
             '/var/lib/dkms/mok.pub',
         ]
-        
+
         for path in mok_paths:
             if os.path.exists(path):
                 return path
-        
+
         return ''
-    
+
     def _generate_mok_password(self) -> str:
         """1-8 arası rakamlardan 8 haneli random şifre üret"""
         return ''.join([str(random.randint(1, 8)) for _ in range(8)])
+
+    def _is_mok_enrolled(self) -> bool:
+        """
+        MOK key UEFI'ye kayıtlı mı?
+        mokutil --list-enrolled ile kontrol eder.
+        """
+        try:
+            result = self.run_shell('mokutil --list-enrolled 2>/dev/null | grep -q "Kiosk\\|DKMS\\|Secure Boot"', check=False)
+            return result.returncode == 0
+        except Exception:
+            return False
+
+    def _is_mok_pending(self) -> bool:
+        """
+        MOK import beklemede mi?
+        Yani bir sonraki boot'ta MOK ekranı gelecek mi?
+        """
+        try:
+            result = self.run_shell('mokutil --list-new 2>/dev/null', check=False)
+            # Çıktı varsa pending demek
+            return bool(result.stdout.strip())
+        except Exception:
+            return False
+
+    def _detect_mok_status(self) -> str:
+        """
+        MOK durumunu tespit et.
+
+        Returns:
+            'enrolled': Key UEFI'de kayıtlı, NVIDIA çalışmalı
+            'pending': Key import edildi, reboot bekleniyor
+            'skipped': Key import edilmişti ama kullanıcı atladı, re-import gerekli
+            'not_needed': Secure Boot kapalı
+            'no_key': MOK key dosyası yok
+        """
+        # Secure Boot kapalıysa MOK gerekmez
+        if not self._is_secure_boot_enabled():
+            return 'not_needed'
+
+        # MOK key dosyası var mı?
+        mok_key = self._find_mok_key()
+        if not mok_key:
+            return 'no_key'
+
+        # Key zaten enrolled mı?
+        if self._is_mok_enrolled():
+            return 'enrolled'
+
+        # Pending import var mı?
+        if self._is_mok_pending():
+            return 'pending'
+
+        # Key var ama enrolled değil ve pending de değil
+        # Bu durumda kullanıcı MOK ekranında atlamış demektir
+        return 'skipped'
+
+    def reimport_mok(self) -> Tuple[bool, str]:
+        """
+        MOK'u yeniden import et.
+        Kullanıcı boot'ta atladıysa tekrar import için kullanılır.
+        """
+        if not self._is_secure_boot_enabled():
+            return False, "Secure Boot kapalı, MOK gerekmiyor"
+
+        mok_status = self._detect_mok_status()
+
+        if mok_status == 'enrolled':
+            return True, "MOK zaten kayıtlı"
+
+        if mok_status == 'pending':
+            mok_pwd = self.get_config('mok_password', 'bilinmiyor')
+            return False, f"MOK import zaten beklemede. Reboot yapın ve şifreyi girin: {mok_pwd}"
+
+        # Re-import yap
+        self.logger.info("MOK yeniden import ediliyor...")
+
+        if self._setup_mok():
+            self._config.set_module_status(self.name, 'mok_pending')
+            mok_pwd = self.get_config('mok_password', 'bilinmiyor')
+            return True, f"MOK yeniden import edildi. Reboot sonrası şifre: {mok_pwd}"
+        else:
+            return False, "MOK import başarısız"
+
+    def get_mok_info(self) -> dict:
+        """
+        Panel için MOK durum bilgisi döndür.
+        """
+        mok_status = self._detect_mok_status()
+        mok_password = self.get_config('mok_password')
+
+        info = {
+            'status': mok_status,
+            'password': mok_password,
+            'secure_boot': self._is_secure_boot_enabled(),
+            'nvidia_working': self._is_nvidia_working(),
+            'module_loaded': self._is_module_loaded(),
+            'package_installed': self._is_package_installed(),
+        }
+
+        # Durum açıklaması
+        status_messages = {
+            'enrolled': 'MOK kayıtlı, NVIDIA kullanılabilir',
+            'pending': f'MOK import beklemede. Reboot yapın, şifre: {mok_password}',
+            'skipped': f'MOK atlandı! Yeniden import gerekli. Şifre: {mok_password}',
+            'not_needed': 'Secure Boot kapalı, MOK gerekmiyor',
+            'no_key': 'MOK key dosyası bulunamadı',
+        }
+        info['message'] = status_messages.get(mok_status, 'Bilinmeyen durum')
+
+        # Aksiyon gerekiyor mu?
+        info['action_required'] = mok_status in ('pending', 'skipped')
+        info['can_reimport'] = mok_status == 'skipped'
+
+        return info
 
     def _setup_mok(self) -> bool:
         """MOK key'i UEFI'ye kaydet"""

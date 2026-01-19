@@ -396,11 +396,54 @@ def module_status(module_name: str):
     })
 
 
+# =============================================================================
+# NVIDIA MOK API
+# =============================================================================
+
+@api_bp.route('/nvidia/mok-info')
+def nvidia_mok_info():
+    """
+    NVIDIA MOK durum bilgisi.
+    MOK atlandıysa uyarı göstermek için kullanılır.
+    """
+    module = get_module('nvidia')
+    if not module:
+        return jsonify({'error': 'NVIDIA modülü bulunamadı'}), 404
+
+    try:
+        info = module.get_mok_info()
+        return jsonify(info)
+    except Exception as e:
+        logger.error(f"MOK info hatası: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/nvidia/mok-reimport', methods=['POST'])
+def nvidia_mok_reimport():
+    """
+    MOK'u yeniden import et.
+    Kullanıcı boot'ta atladıysa bu endpoint ile tekrar import yapılır.
+    """
+    module = get_module('nvidia')
+    if not module:
+        return jsonify({'success': False, 'error': 'NVIDIA modülü bulunamadı'}), 404
+
+    try:
+        success, message = module.reimport_mok()
+        return jsonify({
+            'success': success,
+            'message': message
+        })
+    except Exception as e:
+        logger.error(f"MOK reimport hatası: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @api_bp.route('/modules/<module_name>/logs')
 def module_logs(module_name: str):
     """Modül log'larını döndür"""
     import os
-    
+
     log_dir = '/var/log/kiosk-setup'
     log_file = os.path.join(log_dir, f"{module_name}.log")
     

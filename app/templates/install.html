@@ -12,6 +12,9 @@
     </div>
     {% endif %}
 
+    <!-- MOK Uyarısı (dinamik olarak yüklenecek) -->
+    <div id="mok-alert-container"></div>
+
     <!-- Kurulum Modülleri -->
     <section class="section modules-section">
         <h2 class="section-title">Kurulum Modülleri</h2>
@@ -108,5 +111,80 @@
 <script>
     // Sayfa yüklendiğinde ilerlemeyi güncelle
     updateProgress();
+
+    // MOK durumunu kontrol et
+    checkMokStatus();
+
+    async function checkMokStatus() {
+        try {
+            const response = await fetch('/api/nvidia/mok-info');
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const container = document.getElementById('mok-alert-container');
+
+            // MOK skipped - uyarı göster
+            if (data.status === 'skipped') {
+                container.innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>MOK Atlandı!</strong>
+                        <p>NVIDIA driver'ı imzalanmadı, bu yüzden çalışmıyor.</p>
+                        <p>MOK Şifresi: <code>${data.password || '--------'}</code></p>
+                        <button class="btn btn-warning" onclick="reimportMok()">
+                            MOK Yeniden Import Et
+                        </button>
+                        <small class="d-block mt-1">
+                            Import sonrası sistem yeniden başlayacak.
+                            Mavi ekranda "Enroll MOK" seçip şifreyi girin.
+                        </small>
+                    </div>
+                `;
+            }
+            // MOK pending - bilgi göster
+            else if (data.status === 'pending') {
+                container.innerHTML = `
+                    <div class="alert alert-info">
+                        <strong>MOK Onayı Bekleniyor</strong>
+                        <p>Sistem yeniden başlatıldığında mavi ekranda "Enroll MOK" seçin.</p>
+                        <p>MOK Şifresi: <code>${data.password || '--------'}</code></p>
+                        <button class="btn btn-warning" onclick="rebootSystem()">
+                            Şimdi Yeniden Başlat
+                        </button>
+                    </div>
+                `;
+            }
+            // MOK enrolled ve NVIDIA çalışıyor - başarı
+            else if (data.status === 'enrolled' && data.nvidia_working) {
+                // Hiçbir uyarı gösterme, her şey yolunda
+                container.innerHTML = '';
+            }
+
+        } catch (error) {
+            console.log('MOK kontrol hatası:', error);
+        }
+    }
+
+    async function reimportMok() {
+        if (!confirm('MOK yeniden import edilecek ve sistem yeniden başlatılacak. Devam?')) {
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/nvidia/mok-reimport', {
+                method: 'POST'
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                alert(data.message + '\n\nSistem yeniden başlatılıyor...');
+                // Reboot
+                await fetch('/api/system/reboot', { method: 'POST' });
+            } else {
+                alert('Hata: ' + data.message);
+            }
+        } catch (error) {
+            alert('MOK import hatası: ' + error);
+        }
+    }
 </script>
 {% endblock %}

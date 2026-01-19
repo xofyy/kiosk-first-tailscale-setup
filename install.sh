@@ -1151,12 +1151,13 @@ fi
 log "Docker kurulumu tamamlandı"
 
 # =============================================================================
-# 23. SECURITY YAPILANDIRMASI
+# 23. SECURITY YAPILANDIRMASI (Temel)
 # =============================================================================
 
-info "Güvenlik yapılandırılıyor..."
+info "Temel güvenlik yapılandırılıyor..."
 
-apt-get install -y -qq ufw
+# UFW ve fail2ban paketlerini kur
+apt-get install -y -qq ufw fail2ban
 
 # UFW sıfırla
 ufw --force reset 2>/dev/null || true
@@ -1166,82 +1167,14 @@ ufw default deny incoming
 ufw default allow outgoing
 ufw default deny routed
 
-# Tailscale üzerinden SSH
-ufw allow in on tailscale0 to any port 22 proto tcp 2>/dev/null || true
-
-# Tailscale üzerinden VNC
-ufw allow in on tailscale0 to any port 5900 proto tcp 2>/dev/null || true
-
-# Tailscale üzerinden Panel
-ufw allow in on tailscale0 to any port 4444 proto tcp 2>/dev/null || true
-
-# Tailscale üzerinden MongoDB
-ufw allow in on tailscale0 to any port 27017 proto tcp 2>/dev/null || true
-
-# LAN'dan SSH engelle
-ufw deny 22/tcp 2>/dev/null || true
-
 # UFW etkinleştir
 ufw --force enable
 
-# SSH yapılandırması
-mkdir -p /etc/ssh/sshd_config.d
-cat > /etc/ssh/sshd_config.d/99-tailscale-only.conf << 'EOF'
-# Tailscale-only SSH Configuration
-PermitRootLogin yes
-PasswordAuthentication no
-PubkeyAuthentication no
-KbdInteractiveAuthentication no
-ChallengeResponseAuthentication no
-UsePAM yes
-AllowUsers root aco kiosk
-AllowTcpForwarding yes
-X11Forwarding no
-PermitTunnel no
-GatewayPorts no
-LoginGraceTime 20
-MaxAuthTries 3
-MaxSessions 2
-ClientAliveInterval 300
-ClientAliveCountMax 2
-LogLevel VERBOSE
-EOF
+# NOT: Tailscale0 kuralları, SSH yapılandırması ve fail2ban config
+# tailscale modülünde headscale'e bağlandıktan sonra yapılandırılıyor.
+# Çünkü tailscale0 interface'i ancak tailscale up sonrası oluşuyor.
 
-systemctl restart sshd 2>/dev/null || true
-
-# Fail2ban
-apt-get install -y -qq fail2ban 2>/dev/null || true
-
-if command -v fail2ban-client &>/dev/null; then
-    mkdir -p /etc/fail2ban/jail.d
-    cat > /etc/fail2ban/jail.d/sshd.conf << 'EOF'
-[sshd]
-enabled = true
-port = ssh
-filter = sshd
-backend = systemd
-maxretry = 3
-bantime = 3600
-findtime = 600
-EOF
-    systemctl enable fail2ban 2>/dev/null || true
-    systemctl restart fail2ban 2>/dev/null || true
-fi
-
-# Güvenlik doğrulaması
-if ufw status | grep -q "Status: active"; then
-    log "UFW firewall aktif"
-else
-    warn "UFW firewall aktif değil"
-fi
-
-if systemctl is-active --quiet fail2ban 2>/dev/null; then
-    log "Fail2ban çalışıyor"
-else
-    warn "Fail2ban kurulmadı veya çalışmıyor"
-fi
-
-log "Güvenlik yapılandırması tamamlandı"
+log "Temel güvenlik yapılandırması tamamlandı (tam config tailscale modülünde)"
 
 # =============================================================================
 # 24. KURULUM DOĞRULAMASI (ÖZET)
@@ -1311,8 +1244,9 @@ check_command "docker ps --format '{{.Names}}' | grep -q local_database" "MongoD
 
 echo ""
 echo -e "${CYAN}Güvenlik:${NC}"
-check_command "ufw status | grep -q 'Status: active'" "UFW Firewall"
-check_service "fail2ban" "Fail2ban"
+check_command "ufw status | grep -q 'Status: active'" "UFW Firewall (temel)"
+check_command "which fail2ban-client" "Fail2ban (kurulu, config tailscale sonrası)"
+echo -e "  ${YELLOW}ℹ${NC} UFW kuralları ve SSH config tailscale modülünde yapılandırılacak"
 
 echo ""
 echo -e "${CYAN}Sonuç:${NC}"

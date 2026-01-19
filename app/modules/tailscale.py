@@ -160,12 +160,102 @@ class TailscaleModule(BaseModule):
             # 10. Kiosk ID'yi MongoDB'ye kaydet (diğer servisler için)
             self._save_kiosk_id_to_mongodb(kiosk_id, hardware_id)
 
+            # 11. Güvenlik yapılandırması (UFW kuralları, SSH, fail2ban)
+            # tailscale0 interface artık mevcut, kurallar eklenebilir
+            self._configure_security()
+
             self.logger.info("Tailscale kurulumu tamamlandı")
             return True, "Tailscale kuruldu ve Headscale'e bağlandı"
 
         except Exception as e:
             self.logger.error(f"Tailscale kurulum hatası: {e}")
             return False, str(e)
+
+    def _configure_security(self) -> bool:
+        """
+        Tailscale bağlantısı sonrası güvenlik yapılandırması.
+        UFW kuralları, SSH config ve fail2ban ayarları.
+        """
+        self.logger.info("Güvenlik yapılandırması başlıyor...")
+
+        try:
+            # 1. UFW tailscale0 kuralları
+            self.logger.info("UFW kuralları ekleniyor...")
+
+            ufw_rules = [
+                # Tailscale üzerinden SSH
+                'ufw allow in on tailscale0 to any port 22 proto tcp',
+                # Tailscale üzerinden VNC
+                'ufw allow in on tailscale0 to any port 5900 proto tcp',
+                # Tailscale üzerinden Panel
+                'ufw allow in on tailscale0 to any port 4444 proto tcp',
+                # Tailscale üzerinden MongoDB
+                'ufw allow in on tailscale0 to any port 27017 proto tcp',
+                # LAN'dan SSH engelle (tailscale kuralları öncelikli)
+                'ufw deny 22/tcp',
+            ]
+
+            for rule in ufw_rules:
+                result = self.run_shell(f'{rule} 2>/dev/null || true', check=False)
+                self.logger.debug(f"UFW: {rule}")
+
+            self.logger.info("UFW kuralları eklendi")
+
+            # 2. SSH yapılandırması (Tailscale-only)
+            self.logger.info("SSH yapılandırılıyor...")
+
+            ssh_config = """# Tailscale-only SSH Configuration
+# Bu dosya tailscale modülü tarafından oluşturuldu
+
+PermitRootLogin yes
+PasswordAuthentication no
+PubkeyAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+AllowUsers root aco kiosk
+AllowTcpForwarding yes
+X11Forwarding no
+PermitTunnel no
+GatewayPorts no
+LoginGraceTime 20
+MaxAuthTries 3
+MaxSessions 2
+ClientAliveInterval 300
+ClientAliveCountMax 2
+LogLevel VERBOSE
+"""
+            if self.write_file('/etc/ssh/sshd_config.d/99-tailscale-only.conf', ssh_config):
+                self.systemctl('restart', 'sshd')
+                self.logger.info("SSH yapılandırması tamamlandı")
+            else:
+                self.logger.warning("SSH config yazılamadı")
+
+            # 3. Fail2ban yapılandırması
+            self.logger.info("Fail2ban yapılandırılıyor...")
+
+            fail2ban_config = """[sshd]
+enabled = true
+port = ssh
+filter = sshd
+backend = systemd
+maxretry = 3
+bantime = 3600
+findtime = 600
+"""
+            if self.write_file('/etc/fail2ban/jail.d/sshd.conf', fail2ban_config):
+                self.systemctl('enable', 'fail2ban')
+                self.systemctl('restart', 'fail2ban')
+                self.logger.info("Fail2ban yapılandırması tamamlandı")
+            else:
+                self.logger.warning("Fail2ban config yazılamadı")
+
+            self.logger.info("Güvenlik yapılandırması tamamlandı")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Güvenlik yapılandırma hatası: {e}")
+            return False
 
     def _save_kiosk_id_to_mongodb(self, kiosk_id: str, hardware_id: str) -> None:
         """Kiosk ID'yi MongoDB'ye kaydet"""
