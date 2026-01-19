@@ -4,14 +4,14 @@
 # Ekran ayarları başlatma scripti
 # =============================================================================
 
-# Config'den rotation değerini al
-CONFIG_FILE="/etc/kiosk-setup/config.yaml"
+# Varsayılan rotation
 ROTATION="right"
 
-if [ -f "$CONFIG_FILE" ]; then
-    CONFIGURED_ROTATION=$(grep -E "^\s*rotation:" "$CONFIG_FILE" | head -1 | awk '{print $2}' | tr -d '"')
-    if [ -n "$CONFIGURED_ROTATION" ]; then
-        ROTATION="$CONFIGURED_ROTATION"
+# MongoDB'den rotation değerini almayı dene
+if command -v mongosh &>/dev/null; then
+    MONGO_ROTATION=$(mongosh --quiet --eval 'db.getSiblingDB("kiosk").settings.findOne({}, {kiosk_rotation: 1})?.kiosk_rotation' 2>/dev/null)
+    if [[ -n "$MONGO_ROTATION" && "$MONGO_ROTATION" != "null" ]]; then
+        ROTATION="$MONGO_ROTATION"
     fi
 fi
 
@@ -25,26 +25,31 @@ if [ -z "$DISPLAY" ]; then
     export DISPLAY=:0
 fi
 
-# Bağlı ekranları bul
-CONNECTED_OUTPUT=$(xrandr | grep ' connected' | head -1 | cut -d' ' -f1)
+# X/NVIDIA hazır olana kadar bekle (max 10 saniye)
+echo "X server hazır olması bekleniyor..."
+for i in $(seq 1 10); do
+    CONNECTED_OUTPUT=$(xrandr 2>/dev/null | grep ' connected' | head -1 | cut -d' ' -f1)
+    if [ -n "$CONNECTED_OUTPUT" ]; then
+        break
+    fi
+    sleep 1
+done
 
 if [ -n "$CONNECTED_OUTPUT" ]; then
     echo "Ekran bulundu: $CONNECTED_OUTPUT"
     echo "Rotation: $ROTATION"
-    
-    # Ekran rotasyonunu uygula
-    xrandr --output "$CONNECTED_OUTPUT" --rotate "$ROTATION" 2>/dev/null
-    
-    if [ $? -eq 0 ]; then
-        echo "Ekran rotasyonu uygulandı"
-    else
-        echo "Ekran rotasyonu uygulanamadı"
-    fi
-else
-    echo "Bağlı ekran bulunamadı"
-fi
 
-# Fare imleci ayarları
-# Cursor'u gizlemek için unclutter kullanılacak (openbox autostart'ta)
+    # Ekran rotasyonunu uygula (retry ile)
+    for attempt in 1 2 3; do
+        xrandr --output "$CONNECTED_OUTPUT" --rotate "$ROTATION" 2>/dev/null
+        if [ $? -eq 0 ]; then
+            echo "Ekran rotasyonu uygulandı (attempt $attempt)"
+            break
+        fi
+        sleep 1
+    done
+else
+    echo "Bağlı ekran bulunamadı (10 saniye beklendi)"
+fi
 
 echo "Display initialization completed"

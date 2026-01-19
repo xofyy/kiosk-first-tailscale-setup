@@ -53,6 +53,10 @@ KIOSK_USER="kiosk"
 INSTALL_DIR="/opt/kiosk-setup-panel"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Non-interactive apt kurulumu için
+export DEBIAN_FRONTEND=noninteractive
+export APT_LISTCHANGES_FRONTEND=none
+
 # =============================================================================
 # ROOT KONTROLÜ
 # =============================================================================
@@ -545,6 +549,10 @@ if [[ ! -f "$KIOSK_HOME/.config/openbox/autostart" ]]; then
 xset s off
 xset -dpms
 xset s noblank
+
+# Ekran rotasyonunu uygula (NVIDIA/MOK durumundan bağımsız)
+# display-init.sh kendi içinde bekleme ve retry mantığına sahip
+/usr/local/bin/display-init.sh &
 
 # Setup tamamlanmış mı kontrol et
 # NOT: Bu dosya panel tarafından MongoDB'deki setup_complete değerine göre oluşturulur
