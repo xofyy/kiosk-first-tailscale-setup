@@ -1,6 +1,9 @@
 """
 Kiosk Setup Panel - Tailscale Module
-Tailscale VPN kurulumu ve Enrollment
+Tailscale Enrollment ve Headscale bağlantısı
+
+Not: Tailscale paketi install.sh'da kuruldu.
+Bu modül sadece enrollment ve headscale bağlantısı yapar.
 """
 
 import time
@@ -11,7 +14,6 @@ from app.modules.base import BaseModule
 from app.services.system import SystemService
 from app.services.hardware import HardwareService
 from app.services.enrollment import EnrollmentService
-# DIP: Global config import kaldırıldı, self._config kullanılıyor
 
 # Sabitler
 HEADSCALE_URL = "https://headscale.xofyy.com"
@@ -104,23 +106,15 @@ class TailscaleModule(BaseModule):
             
             if not auth_key:
                 return False, "Yönetici onayı alınamadı veya zaman aşımı"
-            
+
             self.logger.info("Yönetici onayı alındı!")
-            
-            # 6. Tailscale kurulu mu kontrol et
-            if self._is_tailscale_installed():
-                self.logger.info("Tailscale zaten kurulu")
-            else:
-                self.logger.info("Tailscale kuruluyor...")
-                result = self.run_shell('curl -fsSL https://tailscale.com/install.sh | sh', check=False)
-                if result.returncode != 0:
-                    return False, f"Tailscale kurulum scripti başarısız: {result.stderr}"
-                
-                # Kurulum doğrulaması
-                if not self._is_tailscale_installed():
-                    return False, "Tailscale kurulumu başarısız"
-                self.logger.info("Tailscale kuruldu")
-            
+
+            # 6. Tailscale kurulu mu kontrol et (install.sh'da kurulmuş olmalı)
+            if not self._is_tailscale_installed():
+                return False, "Tailscale kurulu değil! install.sh çalıştırıldı mı?"
+
+            self.logger.info("Tailscale kurulu ✓")
+
             # 7. Tailscaled servisini başlat
             self.logger.info("Tailscaled servisi başlatılıyor...")
             if not self.systemctl('enable', 'tailscaled'):
@@ -163,9 +157,44 @@ class TailscaleModule(BaseModule):
             else:
                 self.logger.warning("Tailscale bağlantısı doğrulanamadı (ama işlem devam ediyor)")
             
+            # 10. Kiosk ID'yi MongoDB'ye kaydet (diğer servisler için)
+            self._save_kiosk_id_to_mongodb(kiosk_id, hardware_id)
+
             self.logger.info("Tailscale kurulumu tamamlandı")
             return True, "Tailscale kuruldu ve Headscale'e bağlandı"
-            
+
         except Exception as e:
             self.logger.error(f"Tailscale kurulum hatası: {e}")
             return False, str(e)
+
+    def _save_kiosk_id_to_mongodb(self, kiosk_id: str, hardware_id: str) -> None:
+        """Kiosk ID'yi MongoDB'ye kaydet"""
+        try:
+            import socket
+            from datetime import datetime
+            from pymongo import MongoClient
+
+            client = MongoClient('mongodb://localhost:27017/', serverSelectionTimeoutMS=5000)
+            db = client['kiosk']
+            collection = db['settings']
+
+            # Kayıt oluştur/güncelle
+            document = {
+                'kiosk_id': kiosk_id,
+                'hardware_id': hardware_id,
+                'hostname': socket.gethostname(),
+                'registered_at': datetime.utcnow(),
+                'setup_complete': False
+            }
+
+            collection.update_one(
+                {},
+                {'$set': document},
+                upsert=True
+            )
+
+            client.close()
+            self.logger.info(f"Kiosk ID MongoDB'ye kaydedildi: {kiosk_id}")
+
+        except Exception as e:
+            self.logger.warning(f"MongoDB kayıt hatası: {e}")

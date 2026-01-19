@@ -1,79 +1,44 @@
 """
 Kiosk Setup Panel - Page Routes
 HTML sayfa endpoint'leri
+
+MongoDB tabanlı config sistemi.
 """
 
 import os
 
-from flask import Blueprint, render_template, redirect, url_for
+from flask import Blueprint, render_template
 
-from app.config import config
+from app.modules.base import mongo_config as config
 from app.services.system import SystemService
-from app.modules import get_all_modules, get_module
+from app.modules import get_all_modules
 
 pages_bp = Blueprint('pages', __name__)
 
 
 @pages_bp.route('/')
-def index():
-    """Ana sayfa - Kurulum paneli"""
-    # config.reload() kaldırıldı - atomic write sayesinde gerek yok
-    
-    # Sistem bilgilerini al (internet kontrolü YAPMADAN - hızlı sayfa yüklemesi için)
-    # Internet bilgileri JavaScript ile async olarak güncellenir (main.js)
+def home():
+    """Anasayfa - Sistem durumu ve IP yapılandırma"""
     system = SystemService()
     system_info = system.get_system_info_fast()
-    
+
+    return render_template(
+        'home.html',
+        system_info=system_info
+    )
+
+
+@pages_bp.route('/kurulum')
+def install():
+    """Kurulum sayfası - Modül kurulumları"""
     # Modül listesini al
     modules = get_all_modules()
     module_statuses = config.get_all_module_statuses()
-    
-    # Network modülü kuruldu mu? (IP ayarı için)
-    network_installed = config.is_module_completed('network')
-    
+
     return render_template(
-        'index.html',
-        system_info=system_info,
+        'install.html',
         modules=modules,
-        module_statuses=module_statuses,
-        network_installed=network_installed
-    )
-
-
-@pages_bp.route('/settings')
-def settings():
-    """Ayarlar sayfası"""
-    config.reload()  # Güncel config'i oku
-    
-    # Modül durumlarını al (kilitli ayarlar için)
-    module_statuses = config.get_all_module_statuses()
-    
-    # Tüm ayarları al
-    all_config = config.get_all()
-    
-    return render_template(
-        'settings.html',
-        config=all_config,
         module_statuses=module_statuses
-    )
-
-
-@pages_bp.route('/module/<module_name>')
-def module_detail(module_name: str):
-    """Modül detay sayfası"""
-    config.reload()  # Güncel config'i oku
-    
-    module = get_module(module_name)
-    if not module:
-        return redirect(url_for('pages.index'))
-    
-    module_info = module.get_info()
-    module_status = config.get_module_status(module_name)
-    
-    return render_template(
-        'module_detail.html',
-        module=module_info,
-        status=module_status
     )
 
 

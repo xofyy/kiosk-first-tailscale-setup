@@ -51,7 +51,6 @@ info() {
 
 KIOSK_USER="kiosk"
 INSTALL_DIR="/opt/kiosk-setup-panel"
-CONFIG_DIR="/etc/kiosk-setup"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # =============================================================================
@@ -157,11 +156,12 @@ fi
 
 info "Dizin yapısı oluşturuluyor..."
 
-# Config dizini
-mkdir -p "$CONFIG_DIR"
-
 # Install dizini
 mkdir -p "$INSTALL_DIR"
+
+# Setup marker dizini (setup_complete flag dosyası için)
+# NOT: Config artık MongoDB'de, bu dizin sadece .setup-complete marker için
+mkdir -p /etc/kiosk-setup
 
 # Installer log dosyası
 touch "$LOG_FILE"
@@ -184,20 +184,11 @@ info "Uygulama dosyaları kopyalanıyor..."
 if [[ -d "$SCRIPT_DIR/app" ]]; then
     cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
     cp -r "$SCRIPT_DIR/templates" "$INSTALL_DIR/" 2>/dev/null || true
-    cp -r "$SCRIPT_DIR/config" "$INSTALL_DIR/" 2>/dev/null || true
     cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
     log "Dosyalar kopyalandı: $SCRIPT_DIR -> $INSTALL_DIR"
 fi
 
-# Default config
-if [[ ! -f "$CONFIG_DIR/config.yaml" ]]; then
-    if [[ -f "$INSTALL_DIR/config/default.yaml" ]]; then
-        cp "$INSTALL_DIR/config/default.yaml" "$CONFIG_DIR/config.yaml"
-    elif [[ -f "$SCRIPT_DIR/config/default.yaml" ]]; then
-        cp "$SCRIPT_DIR/config/default.yaml" "$CONFIG_DIR/config.yaml"
-    fi
-    log "Varsayılan yapılandırma oluşturuldu"
-fi
+# NOT: Config artık MongoDB'de tutuluyor (Docker bölümünde oluşturuluyor)
 
 # =============================================================================
 # 6. PYTHON VIRTUAL ENVIRONMENT
@@ -258,17 +249,9 @@ TOUCH_CONF="$XORG_CONF_DIR/99-touch-rotation.conf"
 
 mkdir -p "$XORG_CONF_DIR"
 
-# Config'den touch ayarlarını al
+# Hardcoded touch ayarları (90 derece saat yönünde rotasyon)
 TOUCH_VENDOR_ID="222a:0001"
 TOUCH_MATRIX="0 1 0 -1 0 1 0 0 1"
-
-if [[ -f "$CONFIG_DIR/config.yaml" ]]; then
-    CONFIGURED_VENDOR=$(grep -E "^\s*touch_vendor_id:" "$CONFIG_DIR/config.yaml" | head -1 | sed 's/.*touch_vendor_id:\s*//' | tr -d '"' | xargs)
-    CONFIGURED_MATRIX=$(grep -E "^\s*touch_matrix:" "$CONFIG_DIR/config.yaml" | head -1 | sed 's/.*touch_matrix:\s*//' | tr -d '"' | xargs)
-    
-    [[ -n "$CONFIGURED_VENDOR" ]] && TOUCH_VENDOR_ID="$CONFIGURED_VENDOR"
-    [[ -n "$CONFIGURED_MATRIX" ]] && TOUCH_MATRIX="$CONFIGURED_MATRIX"
-fi
 
 # Xorg config oluştur (sadece yoksa veya farklıysa)
 TOUCH_CONF_CONTENT="# Touchscreen Rotation Configuration
@@ -334,6 +317,22 @@ cat > /etc/nginx/kiosk-services.json << 'EOF'
     "path": "/",
     "websocket": false,
     "internal": true
+  },
+  "mechcontroller": {
+    "display_name": "Mechatronic Controller",
+    "port": 1234,
+    "path": "/mechatronic_controller/",
+    "websocket": true,
+    "check_type": "port",
+    "check_value": 1234
+  },
+  "cockpit": {
+    "display_name": "Cockpit",
+    "port": 9090,
+    "path": "/cockpit/",
+    "websocket": true,
+    "check_type": "systemd",
+    "check_value": "cockpit.socket"
   }
 }
 EOF
@@ -358,6 +357,72 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
+
+    # Mechatronic Controller
+    location /mechatronic_controller/ {
+        proxy_pass http://127.0.0.1:1234/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket desteği
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+
+        # HTML path rewrite
+        sub_filter 'src="/' 'src="/mechatronic_controller/';
+        sub_filter 'href="/' 'href="/mechatronic_controller/';
+        sub_filter "src='/" "src='/mechatronic_controller/";
+        sub_filter "href='/" "href='/mechatronic_controller/";
+        sub_filter_once off;
+        sub_filter_types text/html;
+        proxy_set_header Accept-Encoding "";
+    }
+
+    # Mechatronic socket.io (root path erişimi için)
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:1234/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }
+
+    # Mechatronic API endpoint
+    location = /ip-config {
+        proxy_pass http://127.0.0.1:1234/ip-config;
+        proxy_set_header Host $host;
+    }
+
+    # Cockpit static dosyaları
+    location /cockpit/static/ {
+        proxy_pass http://127.0.0.1:9090/cockpit/cockpit/static/;
+        proxy_set_header Host $host:$server_port;
+    }
+
+    # Cockpit ana
+    location /cockpit/ {
+        proxy_pass http://127.0.0.1:9090;
+        proxy_set_header Host $host:$server_port;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Origin http://localhost:4444;
+
+        # WebSocket
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+
+        # iframe için
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
+    }
 }
 NGINX_EOF
 
@@ -365,7 +430,12 @@ ln -sf /etc/nginx/sites-available/kiosk-panel /etc/nginx/sites-enabled/
 systemctl enable nginx
 systemctl restart nginx
 
-log "Nginx reverse proxy hazır (port: 4444)"
+# Doğrulama
+if systemctl is-active --quiet nginx; then
+    log "Nginx reverse proxy hazır (port: 4444)"
+else
+    warn "Nginx başlatılamadı"
+fi
 
 # =============================================================================
 # 11. SYSTEMD SERVİSLERİ
@@ -379,7 +449,8 @@ SERVICE_FILE="/etc/systemd/system/kiosk-panel.service"
 cat > "$SERVICE_FILE" << 'EOF'
 [Unit]
 Description=Kiosk Setup Panel Web Server
-After=network.target
+After=network.target docker.service
+Wants=docker.service
 
 [Service]
 Type=simple
@@ -476,11 +547,12 @@ xset -dpms
 xset s noblank
 
 # Setup tamamlanmış mı kontrol et
+# NOT: Bu dosya panel tarafından MongoDB'deki setup_complete değerine göre oluşturulur
 if [ -f /etc/kiosk-setup/.setup-complete ]; then
-    # Kiosk modunda başlat
+    # Kiosk modunda başlat (kurulum tamamlandı)
     /usr/local/bin/chromium-kiosk.sh &
 else
-    # Panel modunda başlat
+    # Panel modunda başlat (kurulum devam ediyor)
     /usr/local/bin/chromium-panel.sh &
 fi
 EOF
@@ -523,12 +595,714 @@ chown -R "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
 log "Kiosk kullanıcı yapılandırması tamamlandı"
 
 # =============================================================================
-# 14. SERVİSİ BAŞLAT
+# 14. SERVİS ENABLE (Docker/MongoDB sonrası başlatılacak)
 # =============================================================================
 
-info "Panel servisi başlatılıyor..."
+info "Panel servisi etkinleştiriliyor..."
+# NOT: Panel MongoDB'ye bağımlı, Docker kurulumundan sonra başlatılacak
+log "Panel servisi etkinleştirildi (MongoDB hazır olduktan sonra başlatılacak)"
 
-systemctl start kiosk-panel.service || warn "Panel servisi başlatılamadı (uygulama dosyaları eksik olabilir)"
+# =============================================================================
+# 15. NETWORK YAPILANDIRMASI
+# =============================================================================
+
+info "Network yapılandırılıyor..."
+
+# NetworkManager kurulumu
+if ! dpkg -l | grep -q "^ii  network-manager "; then
+    apt-get install -y -qq network-manager
+fi
+
+# cloud-init network devre dışı
+CLOUD_INIT_FILE="/etc/cloud/cloud.cfg.d/99-disable-network-config.cfg"
+if [[ ! -f "$CLOUD_INIT_FILE" ]]; then
+    mkdir -p /etc/cloud/cloud.cfg.d
+    echo "network: {config: disabled}" > "$CLOUD_INIT_FILE"
+    log "cloud-init network devre dışı bırakıldı"
+fi
+
+# Varsayılan interface'i bul
+DEFAULT_IFACE=$(ip route | grep default | awk '{print $5}' | head -1)
+[[ -z "$DEFAULT_IFACE" ]] && DEFAULT_IFACE="eth0"
+
+# Netplan yedekle ve yapılandır
+mkdir -p /etc/netplan/backup
+for f in /etc/netplan/*.yaml; do
+    [[ "$f" == *"01-network-manager"* ]] && continue
+    [[ -f "$f" ]] && mv "$f" /etc/netplan/backup/ 2>/dev/null || true
+done
+
+cat > /etc/netplan/01-network-manager.yaml << EOF
+# Network configuration managed by NetworkManager
+network:
+  version: 2
+  renderer: NetworkManager
+  ethernets:
+    $DEFAULT_IFACE:
+      dhcp4: true
+      dhcp4-overrides:
+        use-dns: false
+      nameservers:
+        addresses:
+          - 8.8.8.8
+          - 8.8.4.4
+EOF
+
+# Netplan uygula
+netplan apply 2>/dev/null || true
+
+# systemd-networkd-wait-online mask (boot hızı için)
+systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
+systemctl stop systemd-networkd-wait-online.service 2>/dev/null || true
+systemctl disable systemd-networkd 2>/dev/null || true
+systemctl stop systemd-networkd 2>/dev/null || true
+
+# DNS yapılandırması
+cat > /etc/systemd/resolved.conf << 'EOF'
+[Resolve]
+DNS=8.8.8.8 8.8.4.4
+FallbackDNS=1.1.1.1 9.9.9.9
+Domains=~.
+DNSStubListener=yes
+EOF
+
+systemctl restart systemd-resolved 2>/dev/null || true
+
+# NetworkManager servisleri
+systemctl enable NetworkManager 2>/dev/null || true
+systemctl start NetworkManager 2>/dev/null || true
+systemctl enable NetworkManager-wait-online 2>/dev/null || true
+
+# Doğrulama
+if systemctl is-active --quiet NetworkManager; then
+    log "Network yapılandırması tamamlandı"
+else
+    warn "NetworkManager başlatılamadı"
+fi
+
+# =============================================================================
+# 16. TAILSCALE KURULUMU (sadece paket)
+# =============================================================================
+
+info "Tailscale kuruluyor..."
+
+if ! command -v tailscale &> /dev/null; then
+    curl -fsSL https://tailscale.com/install.sh | sh
+    log "Tailscale kuruldu"
+else
+    log "Tailscale zaten kurulu"
+fi
+
+# Servisi etkinleştir ve başlat
+systemctl enable tailscaled 2>/dev/null || true
+systemctl start tailscaled 2>/dev/null || true
+
+# Doğrulama
+if systemctl is-active --quiet tailscaled; then
+    log "Tailscale hazır (enrollment panelden yapılacak)"
+else
+    warn "Tailscaled başlatılamadı"
+fi
+
+# =============================================================================
+# 17. COCKPIT KURULUMU
+# =============================================================================
+
+info "Cockpit kuruluyor..."
+
+COCKPIT_PACKAGES=(
+    cockpit
+    cockpit-system
+    cockpit-networkmanager
+    cockpit-storaged
+    cockpit-packagekit
+)
+
+apt-get install -y -qq "${COCKPIT_PACKAGES[@]}"
+
+# Cockpit yapılandırması
+mkdir -p /etc/cockpit
+cat > /etc/cockpit/cockpit.conf << 'EOF'
+[WebService]
+UrlRoot=/cockpit
+Origins = http://localhost:4444 ws://localhost:4444
+AllowUnencrypted = true
+AllowEmbedding = true
+
+[Session]
+IdleTimeout = 0
+EOF
+
+# Cockpit servisi
+systemctl enable cockpit.socket 2>/dev/null || true
+systemctl start cockpit.socket 2>/dev/null || true
+
+# Polkit kuralları
+cat > /etc/polkit-1/rules.d/50-kiosk-network.rules << 'EOF'
+// NetworkManager izinleri
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.NetworkManager") == 0 &&
+        subject.user == "kiosk") {
+        return polkit.Result.YES;
+    }
+});
+
+// PackageKit izinleri (sınırlı)
+polkit.addRule(function(action, subject) {
+    if (action.id.indexOf("org.freedesktop.packagekit") == 0 &&
+        subject.user == "kiosk") {
+        if (action.id == "org.freedesktop.packagekit.system-sources-refresh" ||
+            action.id == "org.freedesktop.packagekit.package-info") {
+            return polkit.Result.YES;
+        }
+    }
+});
+EOF
+
+# NOT: Nginx config ve services.json Section 10'da oluşturuldu (Panel + Mechatronic + Cockpit)
+
+# Doğrulama
+if systemctl is-active --quiet cockpit.socket; then
+    log "Cockpit kuruldu"
+else
+    warn "Cockpit socket başlatılamadı"
+fi
+
+# =============================================================================
+# 18. VNC KURULUMU
+# =============================================================================
+
+info "VNC kuruluyor..."
+
+apt-get install -y -qq x11vnc
+
+# VNC dizini
+VNC_DIR="/home/$KIOSK_USER/.vnc"
+mkdir -p "$VNC_DIR"
+
+# VNC şifresi (varsayılan: aco)
+VNC_PASSWORD="aco"
+x11vnc -storepasswd "$VNC_PASSWORD" "$VNC_DIR/passwd" 2>/dev/null || true
+chown -R "$KIOSK_USER:$KIOSK_USER" "$VNC_DIR"
+
+# x11vnc systemd service
+cat > /etc/systemd/system/x11vnc.service << EOF
+[Unit]
+Description=x11vnc VNC Server
+After=display-manager.service network.target
+
+[Service]
+Type=simple
+User=$KIOSK_USER
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/x11vnc -display :0 -forever -shared -localhost -rfbport 5900 -rfbauth $VNC_DIR/passwd -noxdamage
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+systemctl daemon-reload
+systemctl enable x11vnc 2>/dev/null || true
+# Start edilmiyor - X11 başladıktan sonra otomatik başlayacak
+
+log "VNC kuruldu (X11 başladıktan sonra aktif olacak)"
+
+# =============================================================================
+# 19. KIOSK YAPILANDIRMASI
+# =============================================================================
+
+info "Kiosk yapılandırılıyor..."
+
+# Kiosk kullanıcı şifresi
+KIOSK_PASSWORD="aco"
+echo "kiosk:$KIOSK_PASSWORD" | chpasswd 2>/dev/null || true
+
+# GRUB rotation (fbcon=rotate:1 for right rotation)
+GRUB_FILE="/etc/default/grub"
+if [[ -f "$GRUB_FILE" ]]; then
+    # Mevcut GRUB_CMDLINE_LINUX_DEFAULT'u al
+    CURRENT_CMDLINE=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT" "$GRUB_FILE" | cut -d'"' -f2)
+
+    # fbcon ve nvidia parametreleri ekle (yoksa)
+    NEW_CMDLINE="$CURRENT_CMDLINE"
+    [[ "$NEW_CMDLINE" != *"fbcon=rotate:1"* ]] && NEW_CMDLINE="$NEW_CMDLINE fbcon=rotate:1"
+    [[ "$NEW_CMDLINE" != *"nvidia-drm.modeset=1"* ]] && NEW_CMDLINE="$NEW_CMDLINE nvidia-drm.modeset=1"
+    [[ "$NEW_CMDLINE" != *"quiet"* ]] && NEW_CMDLINE="quiet $NEW_CMDLINE"
+    [[ "$NEW_CMDLINE" != *"splash"* ]] && NEW_CMDLINE="$NEW_CMDLINE splash"
+
+    # Güncelle
+    sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW_CMDLINE\"|" "$GRUB_FILE"
+    update-grub 2>/dev/null || true
+    log "GRUB rotation ayarlandı"
+fi
+
+log "Kiosk yapılandırması tamamlandı"
+
+# =============================================================================
+# 20. NETMON KURULUMU
+# =============================================================================
+
+info "Netmon kuruluyor..."
+
+apt-get install -y -qq git nethogs python3-pip
+
+NETMON_DIR="/opt/netmon"
+
+# Mevcut varsa kaldır
+[[ -d "$NETMON_DIR" ]] && rm -rf "$NETMON_DIR"
+
+# Klonla
+git clone https://github.com/xofyy/netmon.git "$NETMON_DIR" 2>/dev/null || {
+    warn "netmon repo klonlanamadı"
+}
+
+if [[ -d "$NETMON_DIR" ]]; then
+    # pip güncellemeleri
+    /usr/bin/pip3 install --upgrade pip setuptools wheel 2>/dev/null || true
+    /usr/bin/pip3 uninstall -y UNKNOWN 2>/dev/null || true
+    rm -rf "$NETMON_DIR/build" "$NETMON_DIR"/*.egg-info 2>/dev/null || true
+
+    # Kur
+    cd "$NETMON_DIR" && /usr/bin/pip3 install --no-cache-dir --force-reinstall . 2>/dev/null || true
+
+    # Config
+    mkdir -p /etc/netmon
+    cat > /etc/netmon/config.yaml << 'EOF'
+# netmon Configuration
+db_write_interval: 30
+data_retention_days: 90
+log_level: INFO
+database_path: /var/lib/netmon/data.db
+EOF
+
+    mkdir -p /var/lib/netmon
+
+    # Systemd service
+    [[ -f "$NETMON_DIR/systemd/netmon.service" ]] && cp "$NETMON_DIR/systemd/netmon.service" /etc/systemd/system/
+
+    systemctl daemon-reload
+    systemctl enable netmon 2>/dev/null || true
+    systemctl start netmon 2>/dev/null || true
+
+    # Doğrulama
+    if systemctl is-active --quiet netmon; then
+        log "Netmon kuruldu ve çalışıyor"
+    else
+        warn "Netmon kuruldu ama başlatılamadı"
+    fi
+else
+    warn "Netmon kurulumu atlandı"
+fi
+
+# =============================================================================
+# 21. COLLECTOR KURULUMU
+# =============================================================================
+
+info "Collector kuruluyor..."
+
+apt-get install -y -qq git python3-pip prometheus-node-exporter
+
+# prometheus-node-exporter
+systemctl enable prometheus-node-exporter 2>/dev/null || true
+systemctl start prometheus-node-exporter 2>/dev/null || true
+
+COLLECTOR_DIR="/opt/collector-agent"
+
+# Mevcut varsa kaldır
+[[ -d "$COLLECTOR_DIR" ]] && rm -rf "$COLLECTOR_DIR"
+
+# Klonla
+git clone https://github.com/xofyy/collector-agent.git "$COLLECTOR_DIR" 2>/dev/null || {
+    warn "collector-agent repo klonlanamadı"
+}
+
+if [[ -d "$COLLECTOR_DIR" ]]; then
+    # pip güncellemeleri
+    /usr/bin/pip3 install --upgrade pip setuptools wheel 2>/dev/null || true
+    /usr/bin/pip3 uninstall -y UNKNOWN 2>/dev/null || true
+    rm -rf "$COLLECTOR_DIR/build" "$COLLECTOR_DIR"/*.egg-info 2>/dev/null || true
+
+    # Kur
+    cd "$COLLECTOR_DIR" && /usr/bin/pip3 install --no-cache-dir --force-reinstall . 2>/dev/null || true
+
+    # Config
+    mkdir -p /etc/collector-agent
+    cat > /etc/collector-agent/config.yaml << 'EOF'
+# collector-agent Configuration
+interval: 30
+
+node_exporter:
+  enabled: true
+  url: "http://localhost:9100/metrics"
+  timeout: 5
+
+nvidia_smi:
+  enabled: true
+
+logging:
+  level: INFO
+  file: /var/log/collector-agent.log
+EOF
+
+    # Systemd service
+    [[ -f "$COLLECTOR_DIR/systemd/collector-agent.service" ]] && cp "$COLLECTOR_DIR/systemd/collector-agent.service" /etc/systemd/system/
+
+    systemctl daemon-reload
+    systemctl enable collector-agent 2>/dev/null || true
+    systemctl start collector-agent 2>/dev/null || true
+
+    # Doğrulama
+    sleep 2
+    if systemctl is-active --quiet collector-agent; then
+        log "Collector kuruldu ve çalışıyor"
+    else
+        warn "Collector kuruldu ama başlatılamadı"
+    fi
+
+    if systemctl is-active --quiet prometheus-node-exporter; then
+        log "Prometheus Node Exporter çalışıyor"
+    else
+        warn "Prometheus Node Exporter başlatılamadı"
+    fi
+else
+    warn "Collector kurulumu atlandı"
+fi
+
+# =============================================================================
+# 22. DOCKER KURULUMU
+# =============================================================================
+
+info "Docker kuruluyor..."
+
+# Eski paketleri kaldır
+OLD_DOCKER_PKGS="docker.io docker-doc docker-compose docker-compose-v2 podman-docker containerd runc"
+for pkg in $OLD_DOCKER_PKGS; do
+    apt-get remove -y "$pkg" 2>/dev/null || true
+done
+
+# Gerekli paketler
+apt-get install -y -qq ca-certificates curl gnupg python3-pip python3-docker python3-pymongo
+
+# Docker GPG key
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg --yes
+chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Docker repo
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" | tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+apt-get update -qq
+
+# Docker paketleri
+apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plugin docker-buildx-plugin
+
+# Docker daemon.json (NVIDIA runtime NVIDIA modülünde eklenir)
+mkdir -p /etc/docker
+cat > /etc/docker/daemon.json << 'EOF'
+{
+    "log-driver": "json-file",
+    "log-opts": {
+        "max-size": "10m",
+        "max-file": "3"
+    },
+    "storage-driver": "overlay2"
+}
+EOF
+
+# Docker servisi
+systemctl enable docker 2>/dev/null || true
+systemctl restart docker 2>/dev/null || true
+
+# Docker doğrulaması
+sleep 2
+docker --version && log "Docker kuruldu: $(docker --version)"
+docker compose version && log "Docker Compose: $(docker compose version)"
+
+# Registry login (hardcoded)
+REGISTRY_URL="acolinux.azurecr.io"
+REGISTRY_USER="acolinux"
+REGISTRY_PASS="YOUR_REGISTRY_PASSWORD_HERE"
+
+if [[ -n "$REGISTRY_USER" && -n "$REGISTRY_PASS" && "$REGISTRY_PASS" != "YOUR_REGISTRY_PASSWORD_HERE" ]]; then
+    echo "$REGISTRY_PASS" | docker login "$REGISTRY_URL" -u "$REGISTRY_USER" --password-stdin 2>/dev/null || true
+fi
+
+# MongoDB docker-compose
+COMPOSE_PATH="/srv/docker"
+MONGODB_DATA_PATH="/home/aco/mongo-data"
+
+mkdir -p "$COMPOSE_PATH"
+mkdir -p "$MONGODB_DATA_PATH"
+
+# MongoDB image - private registry varsa kullan, yoksa official
+MONGO_IMAGE="${REGISTRY_URL}/mongodb:latest"
+if [[ "$REGISTRY_PASS" == "YOUR_REGISTRY_PASSWORD_HERE" ]] || [[ -z "$REGISTRY_PASS" ]]; then
+    MONGO_IMAGE="mongo:7"
+    info "Private registry erişimi yok, official MongoDB image kullanılacak"
+fi
+
+cat > "$COMPOSE_PATH/docker-compose.yml" << EOF
+# Docker Compose Configuration
+# Generated by Kiosk Setup Panel
+
+services:
+  local_database:
+    image: ${MONGO_IMAGE}
+    container_name: local_database
+    network_mode: host
+    restart: always
+    volumes:
+      - ${MONGODB_DATA_PATH}:/data/db
+EOF
+
+# MongoDB başlat
+cd "$COMPOSE_PATH" && docker compose up -d 2>/dev/null || {
+    warn "MongoDB başlatılamadı"
+}
+
+# MongoDB hazır olana kadar bekle
+info "MongoDB hazır olması bekleniyor..."
+MONGO_READY=false
+for i in $(seq 1 60); do
+    if docker exec local_database mongosh --eval "db.runCommand({ping:1})" &>/dev/null; then
+        MONGO_READY=true
+        break
+    fi
+    sleep 1
+done
+
+if [[ "$MONGO_READY" == "true" ]]; then
+    log "MongoDB hazır"
+
+    # Varsayılan settings oluştur
+    docker exec local_database mongosh --eval '
+        db = db.getSiblingDB("kiosk");
+        db.settings.updateOne(
+            {},
+            {
+                $setOnInsert: {
+                    kiosk_id: null,
+                    hardware_id: null,
+                    mok_password: null,
+                    nvidia_driver: "535",
+                    modules: {
+                        nvidia: "pending",
+                        tailscale: "pending"
+                    },
+                    setup_complete: false
+                }
+            },
+            {upsert: true}
+        );
+    ' 2>/dev/null || true
+    log "MongoDB varsayılan ayarları oluşturuldu"
+
+    # Panel servisini başlat (artık MongoDB hazır)
+    info "Panel servisi başlatılıyor..."
+    systemctl start kiosk-panel.service || warn "Panel servisi başlatılamadı"
+
+    # Panel doğrulaması
+    sleep 2
+    if systemctl is-active --quiet kiosk-panel; then
+        log "Panel servisi çalışıyor"
+    else
+        warn "Panel servisi başlatılamadı"
+    fi
+else
+    warn "MongoDB başlatılamadı (60 saniye timeout)"
+    # Yine de paneli başlatmayı dene
+    systemctl start kiosk-panel.service 2>/dev/null || true
+fi
+
+# Docker ve MongoDB doğrulaması
+if systemctl is-active --quiet docker; then
+    log "Docker servisi çalışıyor"
+else
+    warn "Docker servisi çalışmıyor"
+fi
+
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "local_database"; then
+    log "MongoDB container çalışıyor"
+else
+    warn "MongoDB container çalışmıyor"
+fi
+
+log "Docker kurulumu tamamlandı"
+
+# =============================================================================
+# 23. SECURITY YAPILANDIRMASI
+# =============================================================================
+
+info "Güvenlik yapılandırılıyor..."
+
+apt-get install -y -qq ufw
+
+# UFW sıfırla
+ufw --force reset 2>/dev/null || true
+
+# Varsayılan politikalar
+ufw default deny incoming
+ufw default allow outgoing
+ufw default deny routed
+
+# Tailscale üzerinden SSH
+ufw allow in on tailscale0 to any port 22 proto tcp 2>/dev/null || true
+
+# Tailscale üzerinden VNC
+ufw allow in on tailscale0 to any port 5900 proto tcp 2>/dev/null || true
+
+# Tailscale üzerinden Panel
+ufw allow in on tailscale0 to any port 4444 proto tcp 2>/dev/null || true
+
+# Tailscale üzerinden MongoDB
+ufw allow in on tailscale0 to any port 27017 proto tcp 2>/dev/null || true
+
+# LAN'dan SSH engelle
+ufw deny 22/tcp 2>/dev/null || true
+
+# UFW etkinleştir
+ufw --force enable
+
+# SSH yapılandırması
+mkdir -p /etc/ssh/sshd_config.d
+cat > /etc/ssh/sshd_config.d/99-tailscale-only.conf << 'EOF'
+# Tailscale-only SSH Configuration
+PermitRootLogin yes
+PasswordAuthentication no
+PubkeyAuthentication no
+KbdInteractiveAuthentication no
+ChallengeResponseAuthentication no
+UsePAM yes
+AllowUsers root aco kiosk
+AllowTcpForwarding yes
+X11Forwarding no
+PermitTunnel no
+GatewayPorts no
+LoginGraceTime 20
+MaxAuthTries 3
+MaxSessions 2
+ClientAliveInterval 300
+ClientAliveCountMax 2
+LogLevel VERBOSE
+EOF
+
+systemctl restart sshd 2>/dev/null || true
+
+# Fail2ban
+apt-get install -y -qq fail2ban 2>/dev/null || true
+
+if command -v fail2ban-client &>/dev/null; then
+    mkdir -p /etc/fail2ban/jail.d
+    cat > /etc/fail2ban/jail.d/sshd.conf << 'EOF'
+[sshd]
+enabled = true
+port = ssh
+filter = sshd
+backend = systemd
+maxretry = 3
+bantime = 3600
+findtime = 600
+EOF
+    systemctl enable fail2ban 2>/dev/null || true
+    systemctl restart fail2ban 2>/dev/null || true
+fi
+
+# Güvenlik doğrulaması
+if ufw status | grep -q "Status: active"; then
+    log "UFW firewall aktif"
+else
+    warn "UFW firewall aktif değil"
+fi
+
+if systemctl is-active --quiet fail2ban 2>/dev/null; then
+    log "Fail2ban çalışıyor"
+else
+    warn "Fail2ban kurulmadı veya çalışmıyor"
+fi
+
+log "Güvenlik yapılandırması tamamlandı"
+
+# =============================================================================
+# 24. KURULUM DOĞRULAMASI (ÖZET)
+# =============================================================================
+
+info "Kurulum doğrulaması yapılıyor..."
+echo ""
+
+# Sayaçlar
+TOTAL_CHECKS=0
+PASSED_CHECKS=0
+FAILED_CHECKS=0
+
+check_service() {
+    local service_name="$1"
+    local display_name="$2"
+    TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+
+    if systemctl is-active --quiet "$service_name" 2>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} $display_name"
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+        return 0
+    else
+        echo -e "  ${RED}✗${NC} $display_name"
+        FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        return 1
+    fi
+}
+
+check_command() {
+    local command="$1"
+    local display_name="$2"
+    TOTAL_CHECKS=$((TOTAL_CHECKS + 1))
+
+    if eval "$command" &>/dev/null; then
+        echo -e "  ${GREEN}✓${NC} $display_name"
+        PASSED_CHECKS=$((PASSED_CHECKS + 1))
+        return 0
+    else
+        echo -e "  ${RED}✗${NC} $display_name"
+        FAILED_CHECKS=$((FAILED_CHECKS + 1))
+        return 1
+    fi
+}
+
+echo -e "${CYAN}Temel Servisler:${NC}"
+check_service "nginx" "Nginx (Reverse Proxy)"
+check_service "NetworkManager" "NetworkManager"
+check_service "docker" "Docker"
+check_service "kiosk-panel" "Kiosk Panel"
+
+echo ""
+echo -e "${CYAN}Ağ Servisleri:${NC}"
+check_service "tailscaled" "Tailscaled"
+check_service "cockpit.socket" "Cockpit"
+
+echo ""
+echo -e "${CYAN}Uygulama Servisleri:${NC}"
+check_service "x11vnc" "VNC Server"
+check_service "netmon" "Netmon"
+check_service "collector-agent" "Collector Agent"
+check_service "prometheus-node-exporter" "Node Exporter"
+
+echo ""
+echo -e "${CYAN}Konteynerler:${NC}"
+check_command "docker ps --format '{{.Names}}' | grep -q local_database" "MongoDB Container"
+
+echo ""
+echo -e "${CYAN}Güvenlik:${NC}"
+check_command "ufw status | grep -q 'Status: active'" "UFW Firewall"
+check_service "fail2ban" "Fail2ban"
+
+echo ""
+echo -e "${CYAN}Sonuç:${NC}"
+echo -e "  Toplam: $TOTAL_CHECKS | ${GREEN}Başarılı: $PASSED_CHECKS${NC} | ${RED}Başarısız: $FAILED_CHECKS${NC}"
+
+if [[ $FAILED_CHECKS -gt 0 ]]; then
+    echo ""
+    warn "Bazı bileşenler başlatılamadı. Reboot sonrası tekrar kontrol edin."
+fi
 
 # =============================================================================
 # TAMAMLANDI

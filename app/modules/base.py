@@ -1,6 +1,8 @@
 """
 Kiosk Setup Panel - Base Module Class
 Tüm kurulum modüllerinin temel sınıfı
+
+MongoDB tabanlı config sistemi.
 """
 
 import os
@@ -10,10 +12,189 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Tuple, List, Optional
 from datetime import datetime
 
-# DIP: Config lazy import - constructor injection destekli
-# from app.config import config  # Artık __init__'de inject edilir
-
 logger = logging.getLogger(__name__)
+
+# MongoDB bağlantı ayarları
+MONGO_URI = "mongodb://localhost:27017/"
+MONGO_DB = "kiosk"
+MONGO_COLLECTION = "settings"
+
+
+class MongoConfig:
+    """
+    MongoDB tabanlı config yönetimi.
+    Singleton pattern ile tek instance.
+    """
+    _instance = None
+    _client = None
+    _db = None
+    _collection = None
+
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
+
+    def _ensure_connection(self):
+        """MongoDB bağlantısını sağla"""
+        if self._client is None:
+            try:
+                from pymongo import MongoClient
+                self._client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+                self._db = self._client[MONGO_DB]
+                self._collection = self._db[MONGO_COLLECTION]
+                # Bağlantı testi
+                self._client.admin.command('ping')
+            except Exception as e:
+                logger.warning(f"MongoDB bağlantı hatası: {e}")
+                self._client = None
+                self._db = None
+                self._collection = None
+
+    def _get_settings(self) -> Dict[str, Any]:
+        """Settings dökümanını al"""
+        self._ensure_connection()
+        if self._collection is None:
+            return {}
+
+        try:
+            doc = self._collection.find_one({})
+            return doc if doc else {}
+        except Exception as e:
+            logger.warning(f"MongoDB okuma hatası: {e}")
+            return {}
+
+    def get(self, key: str, default: Any = None) -> Any:
+        """
+        Config değeri al (noktalı notation destekli).
+        Örnek: get('modules.nvidia') veya get('kiosk_id')
+        """
+        settings = self._get_settings()
+
+        # Noktalı notation desteği
+        keys = key.split('.')
+        value = settings
+
+        for k in keys:
+            if isinstance(value, dict):
+                value = value.get(k)
+            else:
+                return default
+
+            if value is None:
+                return default
+
+        return value
+
+    def set(self, key: str, value: Any) -> bool:
+        """
+        Config değeri ayarla (noktalı notation destekli).
+        """
+        self._ensure_connection()
+        if self._collection is None:
+            return False
+
+        try:
+            self._collection.update_one(
+                {},
+                {'$set': {key: value}},
+                upsert=True
+            )
+            return True
+        except Exception as e:
+            logger.warning(f"MongoDB yazma hatası: {e}")
+            return False
+
+    def get_module_status(self, module_name: str) -> str:
+        """Modül durumunu al"""
+        return self.get(f'modules.{module_name}', 'pending')
+
+    def set_module_status(self, module_name: str, status: str) -> bool:
+        """Modül durumunu ayarla"""
+        return self.set(f'modules.{module_name}', status)
+
+    def is_module_completed(self, module_name: str) -> bool:
+        """Modül tamamlandı mı?"""
+        return self.get_module_status(module_name) == 'completed'
+
+    def get_kiosk_id(self) -> Optional[str]:
+        """Kiosk ID'yi al"""
+        return self.get('kiosk_id')
+
+    def set_kiosk_id(self, kiosk_id: str) -> bool:
+        """Kiosk ID'yi ayarla"""
+        return self.set('kiosk_id', kiosk_id)
+
+    def get_hardware_id(self) -> Optional[str]:
+        """Hardware ID'yi al"""
+        return self.get('hardware_id')
+
+    def set_hardware_id(self, hardware_id: str) -> bool:
+        """Hardware ID'yi ayarla"""
+        return self.set('hardware_id', hardware_id)
+
+    def save(self):
+        """Compatibility method - MongoDB auto-save"""
+        pass
+
+    def reload(self):
+        """Compatibility method - MongoDB always fresh"""
+        pass
+
+    def get_all(self) -> Dict[str, Any]:
+        """Tüm settings'i döndür"""
+        settings = self._get_settings()
+        # _id alanını kaldır
+        if '_id' in settings:
+            del settings['_id']
+        return settings
+
+    def get_all_module_statuses(self) -> Dict[str, str]:
+        """Tüm modül durumlarını döndür"""
+        modules = self.get('modules', {})
+        return modules if isinstance(modules, dict) else {}
+
+    def is_setting_locked(self, key: str) -> bool:
+        """
+        Ayar kilitli mi? (Artık MongoDB'de lock sistemi yok)
+        Tüm ayarlar değiştirilebilir.
+        """
+        return False
+
+    def set_setup_complete(self, complete: bool) -> bool:
+        """
+        Kurulum tamamlandı işareti.
+        MongoDB'ye yazar ve marker dosyasını senkronize eder.
+        """
+        result = self.set('setup_complete', complete)
+
+        # Marker dosyasını senkronize et (openbox autostart için)
+        marker_file = '/etc/kiosk-setup/.setup-complete'
+        try:
+            if complete:
+                # Dosyayı oluştur
+                os.makedirs(os.path.dirname(marker_file), exist_ok=True)
+                with open(marker_file, 'w') as f:
+                    f.write(f'# Setup completed at {datetime.now().isoformat()}\n')
+                logger.info(f"Setup complete marker oluşturuldu: {marker_file}")
+            else:
+                # Dosyayı sil
+                if os.path.exists(marker_file):
+                    os.remove(marker_file)
+                    logger.info(f"Setup complete marker silindi: {marker_file}")
+        except Exception as e:
+            logger.warning(f"Marker dosyası senkronizasyon hatası: {e}")
+
+        return result
+
+    def is_setup_complete(self) -> bool:
+        """Kurulum tamamlandı mı?"""
+        return self.get('setup_complete', False)
+
+
+# Global config instance
+mongo_config = MongoConfig()
 
 # Log dizini
 LOG_DIR = '/var/log/kiosk-setup'
@@ -71,22 +252,21 @@ class BaseModule(ABC):
     order: int = 0
     dependencies: List[str] = []
     
-    def __init__(self, config_instance: 'Config' = None):
+    def __init__(self, config_instance: 'MongoConfig' = None):
         """
         BaseModule constructor.
-        
+
         Args:
             config_instance: Opsiyonel config nesnesi (DIP için).
-                             None ise global config kullanılır.
+                             None ise global mongo_config kullanılır.
                              Test için mock config geçilebilir.
         """
-        # DIP: Dependency Injection - config dışarıdan geçilebilir
+        # MongoDB tabanlı config
         if config_instance is None:
-            from app.config import config as default_config
-            self._config = default_config
+            self._config = mongo_config
         else:
             self._config = config_instance
-        
+
         self.logger = setup_module_logger(self.name)
         self._log_file = os.path.join(LOG_DIR, f"{self.name}.log")
     

@@ -2,22 +2,23 @@
 Kiosk Setup Panel - NVIDIA Module
 NVIDIA GPU driver kurulumu
 
-Eski script mantığı ile yeniden yazıldı:
+Özellikler:
 - GPU kontrolü (lspci)
 - Secure Boot kontrolü (mokutil)
 - Paket kontrolü (dpkg)
 - Modül kontrolü (lsmod)
 - nvidia-smi doğrulaması
 - MOK key yönetimi
+- Random MOK password üretimi (1-8 arası 8 hane)
 """
 
 import os
+import random
 from typing import Tuple
 
 from app.modules import register_module
 from app.modules.base import BaseModule
 from app.services.system import SystemService
-# DIP: Global config import kaldırıldı, self._config kullanılıyor
 
 
 @register_module
@@ -84,6 +85,80 @@ class NvidiaModule(BaseModule):
             return False
     
     # =========================================================================
+    # NVIDIA Container Toolkit
+    # =========================================================================
+
+    def _install_container_toolkit(self) -> bool:
+        """
+        NVIDIA Container Toolkit kurulumu.
+        Docker ile GPU kullanımı için gerekli.
+        NVIDIA driver kurulumu tamamlandıktan sonra çağrılmalı.
+        """
+        self.logger.info("NVIDIA Container Toolkit kuruluyor...")
+
+        try:
+            # 1. GPG key ekle
+            result = self.run_shell(
+                'curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | '
+                'gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg --yes',
+                check=False
+            )
+            if result.returncode != 0:
+                self.logger.warning(f"NVIDIA GPG key eklenemedi: {result.stderr}")
+                return False
+
+            # 2. Repo ekle
+            result = self.run_shell(
+                'curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | '
+                'sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g" | '
+                'tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null',
+                check=False
+            )
+            if result.returncode != 0:
+                self.logger.warning(f"NVIDIA repo eklenemedi: {result.stderr}")
+                return False
+
+            # 3. Paketi kur
+            self.run_command(['apt-get', 'update', '-qq'], check=False)
+            if not self.apt_install(['nvidia-container-toolkit']):
+                self.logger.warning("nvidia-container-toolkit paketi kurulamadı")
+                return False
+
+            # 4. Docker daemon.json güncelle
+            self.logger.info("Docker NVIDIA runtime yapılandırılıyor...")
+            daemon_config = """{
+    "log-driver": "json-file",
+    "log-opts": {
+        "max-size": "10m",
+        "max-file": "3"
+    },
+    "storage-driver": "overlay2",
+    "runtimes": {
+        "nvidia": {
+            "path": "nvidia-container-runtime",
+            "runtimeArgs": []
+        }
+    }
+}
+"""
+            if not self.write_file('/etc/docker/daemon.json', daemon_config):
+                self.logger.warning("Docker daemon.json güncellenemedi")
+                return False
+
+            # 5. nvidia-ctk ile yapılandır
+            self.run_shell('nvidia-ctk runtime configure --runtime=docker', check=False)
+
+            # 6. Docker'ı yeniden başlat
+            self.systemctl('restart', 'docker')
+
+            self.logger.info("NVIDIA Container Toolkit kurulumu tamamlandı")
+            return True
+
+        except Exception as e:
+            self.logger.error(f"Container Toolkit kurulum hatası: {e}")
+            return False
+
+    # =========================================================================
     # MOK Key Yönetimi
     # =========================================================================
     
@@ -100,9 +175,20 @@ class NvidiaModule(BaseModule):
         
         return ''
     
+    def _generate_mok_password(self) -> str:
+        """1-8 arası rakamlardan 8 haneli random şifre üret"""
+        return ''.join([str(random.randint(1, 8)) for _ in range(8)])
+
     def _setup_mok(self) -> bool:
         """MOK key'i UEFI'ye kaydet"""
-        mok_password = self.get_config('passwords.mok', '12345678')
+        # MOK password üret veya mevcut olanı al
+        mok_password = self.get_config('mok_password')
+        if not mok_password:
+            mok_password = self._generate_mok_password()
+            # MongoDB'ye kaydet
+            self._config.set('mok_password', mok_password)
+            self.logger.info(f"MOK şifresi oluşturuldu: {mok_password}")
+
         mok_der = self._find_mok_key()
         
         if not mok_der:
@@ -170,6 +256,8 @@ class NvidiaModule(BaseModule):
         # =====================================================================
         if self._is_nvidia_working():
             self.logger.info("NVIDIA sürücüsü zaten çalışıyor")
+            # Container Toolkit kur (yoksa)
+            self._install_container_toolkit()
             return True, "NVIDIA sürücüsü zaten çalışıyor"
         
         # =====================================================================
@@ -180,26 +268,33 @@ class NvidiaModule(BaseModule):
             
             if self._is_nvidia_working():
                 self.logger.info("MOK onayı tamamlandı, NVIDIA çalışıyor")
+                # Container Toolkit kur
+                self._install_container_toolkit()
                 return True, "MOK onayı tamamlandı, NVIDIA sürücüsü aktif"
-            
+
             if self._is_module_loaded():
                 self.logger.info("NVIDIA modülü yüklü, nvidia-smi bekliyor")
+                # Container Toolkit kur
+                self._install_container_toolkit()
                 return True, "NVIDIA modülü yüklendi"
             
             # Hala çalışmıyor - MOK onayı yapılmamış
             self.logger.warning("MOK onayı hala bekleniyor")
             # Status'u mok_pending olarak bırak
             self._config.set_module_status(self.name, 'mok_pending')
-            return False, "MOK onayı bekleniyor. Reboot yapın ve mavi ekranda 'Enroll MOK' seçin. Şifre: " + self.get_config('passwords.mok', '12345678')
+            mok_pwd = self.get_config('mok_password', 'oluşturulmadı')
+            return False, f"MOK onayı bekleniyor. Reboot yapın ve mavi ekranda 'Enroll MOK' seçin. Şifre: {mok_pwd}"
         
         # =====================================================================
         # 4. Reboot Required Durumu
         # =====================================================================
         if current_status == 'reboot_required':
             self.logger.info("Reboot required durumu kontrol ediliyor...")
-            
+
             if self._is_nvidia_working():
                 self.logger.info("Reboot sonrası NVIDIA çalışıyor")
+                # Container Toolkit kur
+                self._install_container_toolkit()
                 return True, "NVIDIA sürücüsü aktif"
             
             # Hala çalışmıyor - reboot yapılmamış
@@ -244,8 +339,8 @@ class NvidiaModule(BaseModule):
             if self._setup_mok():
                 self.logger.info("MOK kaydedildi, reboot sonrası onay gerekecek")
                 self._config.set_module_status(self.name, 'mok_pending')
-                mok_password = self.get_config('passwords.mok', '12345678')
-                return False, f"NVIDIA kuruldu. Reboot sonrası mavi ekranda 'Enroll MOK' seçin. Şifre: {mok_password}"
+                mok_pwd = self.get_config('mok_password', 'oluşturulmadı')
+                return False, f"NVIDIA kuruldu. Reboot sonrası mavi ekranda 'Enroll MOK' seçin. Şifre: {mok_pwd}"
             else:
                 self.logger.warning("MOK ayarlanamadı, yine de reboot gerekli")
                 self._config.set_module_status(self.name, 'reboot_required')

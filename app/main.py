@@ -1,5 +1,7 @@
 """
 Kiosk Setup Panel - Flask Application Entry Point
+
+MongoDB tabanlı config sistemi.
 """
 
 import os
@@ -7,7 +9,7 @@ import logging
 import subprocess
 from flask import Flask
 
-from app.config import config
+from app.modules.base import mongo_config as config
 from app.routes.pages import pages_bp
 from app.routes.api import api_bp
 

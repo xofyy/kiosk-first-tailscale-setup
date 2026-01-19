@@ -1,0 +1,112 @@
+{% extends "base.html" %}
+
+{% block title %}Kurulum - Kiosk Setup Panel{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Kiosk ID Uyarısı (eğer yoksa) -->
+    {% if not kiosk_id %}
+    <div class="alert alert-warning">
+        <strong>Dikkat:</strong> Kuruluma başlamadan önce
+        <a href="{{ url_for('pages.home') }}">Anasayfa</a>'dan Kiosk ID belirlemelisiniz.
+    </div>
+    {% endif %}
+
+    <!-- Kurulum Modülleri -->
+    <section class="section modules-section">
+        <h2 class="section-title">Kurulum Modülleri</h2>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="overall-progress" style="width: 0%"></div>
+        </div>
+        <p class="progress-text" id="progress-text">0 / {{ modules|length }} modül tamamlandı</p>
+
+        <div class="modules-list">
+            {% for module in modules %}
+            {% set status = module_statuses.get(module.name, 'pending') %}
+            <div class="module-card" data-module="{{ module.name }}" data-status="{{ status }}">
+                <div class="module-order">{{ module.order }}</div>
+
+                <div class="module-info">
+                    <h3 class="module-name">{{ module.display_name }}</h3>
+                    <p class="module-desc">{{ module.description }}</p>
+                    {% if module.dependencies %}
+                    <span class="module-deps">Bağımlılık: {{ module.dependencies | join(', ') }}</span>
+                    {% endif %}
+                </div>
+
+                <div class="module-status">
+                    {% if status == 'completed' %}
+                    <span class="status-badge success">✓ Tamamlandı</span>
+                    {% elif status == 'installing' %}
+                    <span class="status-badge warning">⟳ Kuruluyor...</span>
+                    {% elif status == 'failed' %}
+                    <span class="status-badge error">✗ Hata</span>
+                    {% elif status == 'reboot_required' %}
+                    <span class="status-badge info">↻ Reboot Gerekli</span>
+                    {% elif status == 'mok_pending' %}
+                    <span class="status-badge info">🔐 MOK Onayı Bekliyor</span>
+                    {% else %}
+                    <span class="status-badge">Bekliyor</span>
+                    {% endif %}
+
+                    {% if module.name == 'nvidia' and status == 'mok_pending' %}
+                    <div class="mok-password-info">
+                        <strong>MOK Şifresi:</strong>
+                        <code class="mok-password">{{ config.get('mok_password', '--------') }}</code>
+                        <small>Reboot sonrası mavi ekranda "Enroll MOK" seçin ve bu şifreyi girin</small>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="module-actions">
+                    {% if status == 'completed' %}
+                    <button class="btn btn-secondary" disabled>Kuruldu</button>
+                    {% elif status == 'installing' %}
+                    <button class="btn btn-secondary" disabled>
+                        <span class="spinner"></span> Kuruluyor
+                    </button>
+                    {% elif status == 'reboot_required' or status == 'mok_pending' %}
+                    <button class="btn btn-warning btn-reboot" onclick="rebootSystem()">
+                        Yeniden Başlat
+                    </button>
+                    {% else %}
+                    <button class="btn btn-primary btn-install"
+                            data-module="{{ module.name }}"
+                            onclick="installModule('{{ module.name }}')"
+                            {% if not kiosk_id and module.name == 'tailscale' %}disabled title="Önce Kiosk ID gerekli"{% endif %}>
+                        Kur
+                    </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </section>
+
+    <!-- Kurulumu Tamamla -->
+    <section class="section complete-section">
+        <div class="complete-panel">
+            <h2>Kurulumu Tamamla</h2>
+            <p>Tüm modüller kurulduktan sonra kurulumu tamamlayabilirsiniz.</p>
+
+            <button class="btn btn-success btn-lg" id="btn-complete"
+                    onclick="completeSetup()" disabled>
+                Kurulumu Tamamla
+            </button>
+
+            <p class="text-muted mt-2">
+                <small>Tamamlandığında sistem kiosk moduna geçecek ve yeniden başlatılacak.</small>
+            </p>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', filename='js/modules.js') }}"></script>
+<script>
+    // Sayfa yüklendiğinde ilerlemeyi güncelle
+    updateProgress();
+</script>
+{% endblock %}

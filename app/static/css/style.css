@@ -632,40 +632,12 @@ body {
 }
 
 /* =============================================================================
-   Settings Page
+   Page Title (shared)
    ============================================================================= */
-
-.settings-page {
-    max-width: 900px;
-    margin: 0 auto;
-}
 
 .page-title {
     font-size: var(--font-size-xl);
     margin-bottom: var(--spacing-xl);
-}
-
-.settings-section {
-    background: var(--color-surface);
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius-lg);
-    padding: var(--spacing-lg);
-    margin-bottom: var(--spacing-lg);
-}
-
-.settings-section h3 {
-    font-size: var(--font-size-base);
-    color: var(--color-primary);
-    margin-bottom: var(--spacing-md);
-    padding-bottom: var(--spacing-sm);
-    border-bottom: 1px solid var(--color-border);
-}
-
-.locked-badge {
-    display: inline-block;
-    margin-top: var(--spacing-xs);
-    font-size: 12px;
-    color: var(--color-warning);
 }
 
 /* =============================================================================
@@ -953,4 +925,247 @@ body {
     .form-row {
         grid-template-columns: 1fr;
     }
+}
+
+/* =============================================================================
+   MOK Password Info
+   ============================================================================= */
+
+.mok-password-info {
+    margin-top: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: rgba(255, 204, 0, 0.1);
+    border: 1px solid var(--color-warning);
+    border-radius: var(--border-radius);
+    text-align: left;
+}
+
+.mok-password-info strong {
+    color: var(--color-warning);
+    display: block;
+    margin-bottom: var(--spacing-xs);
+}
+
+.mok-password-info .mok-password {
+    display: block;
+    font-size: var(--font-size-xl);
+    font-weight: bold;
+    color: var(--color-primary);
+    background: var(--color-bg);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius);
+    margin: var(--spacing-sm) 0;
+    letter-spacing: 4px;
+    text-align: center;
+}
+
+.mok-password-info small {
+    display: block;
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+    line-height: 1.4;
+}
+
+/* =============================================================================
+   Home Page - Kiosk ID Display
+   ============================================================================= */
+
+.kiosk-section {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.kiosk-id-display {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-md);
+    background: var(--color-bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.kiosk-id-label {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-base);
+}
+
+.kiosk-id-value {
+    font-size: var(--font-size-xl);
+    font-weight: bold;
+    color: var(--color-primary);
+    letter-spacing: 2px;
+}
+
+.kiosk-id-panel {
+    padding: var(--spacing-md);
+}
+
+.kiosk-id-form {
+    display: flex;
+    gap: var(--spacing-md);
+    align-items: flex-end;
+    margin-top: var(--spacing-md);
+}
+
+.kiosk-id-form .form-group {
+    flex: 1;
+}
+
+.kiosk-id-form .form-control-lg {
+    font-size: var(--font-size-lg);
+    padding: var(--spacing-md);
+    text-transform: uppercase;
+    letter-spacing: 2px;
+}
+
+/* =============================================================================
+   Home Page - IP Configuration Buttons
+   ============================================================================= */
+
+.ip-section {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.ip-config-buttons {
+    text-align: center;
+}
+
+.ip-buttons-row {
+    display: flex;
+    gap: var(--spacing-lg);
+    justify-content: center;
+    margin: var(--spacing-lg) 0;
+}
+
+.btn-ip-config {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+    padding: var(--spacing-lg) var(--spacing-xl);
+    background: var(--color-bg-tertiary);
+    border: 2px solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: all var(--transition);
+    min-width: 200px;
+}
+
+.btn-ip-config:hover {
+    border-color: var(--color-primary);
+    background: var(--color-surface-hover);
+}
+
+.btn-ip-config:active {
+    transform: scale(0.98);
+}
+
+.btn-ip-config .btn-icon {
+    font-size: 2rem;
+}
+
+.btn-ip-config .btn-text {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    text-align: left;
+}
+
+.btn-ip-config .btn-text strong {
+    font-size: var(--font-size-lg);
+    color: var(--color-text);
+}
+
+.btn-ip-config .btn-text small {
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-top: 2px;
+}
+
+.ip-current-info {
+    color: var(--color-text-secondary);
+    font-size: var(--font-size-sm);
+}
+
+.ip-current-info strong {
+    color: var(--color-primary);
+    font-family: var(--font-family);
+}
+
+/* =============================================================================
+   Alert Boxes
+   ============================================================================= */
+
+.alert {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border-radius: var(--border-radius);
+    margin-bottom: var(--spacing-lg);
+}
+
+.alert-warning {
+    background: rgba(255, 204, 0, 0.1);
+    border: 1px solid var(--color-warning);
+    color: var(--color-warning);
+}
+
+.alert-warning a {
+    color: var(--color-primary);
+    text-decoration: underline;
+}
+
+/* =============================================================================
+   System Controls (Power Buttons)
+   ============================================================================= */
+
+.system-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-lg);
+}
+
+.btn-power {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-sm) var(--spacing-md);
+    border-radius: var(--border-radius);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    cursor: pointer;
+    transition: all var(--transition);
+    border: 1px solid transparent;
+}
+
+.btn-power .btn-icon {
+    font-size: 1.1rem;
+}
+
+.btn-reboot {
+    background: rgba(255, 204, 0, 0.15);
+    color: var(--color-warning);
+    border-color: rgba(255, 204, 0, 0.3);
+}
+
+.btn-reboot:hover {
+    background: rgba(255, 204, 0, 0.25);
+    border-color: var(--color-warning);
+}
+
+.btn-shutdown {
+    background: rgba(255, 68, 85, 0.15);
+    color: var(--color-error);
+    border-color: rgba(255, 68, 85, 0.3);
+}
+
+.btn-shutdown:hover {
+    background: rgba(255, 68, 85, 0.25);
+    border-color: var(--color-error);
 }

@@ -33,13 +33,16 @@ def get_module_names() -> List[str]:
 
 
 # Modülleri import et (register_module decorator ile otomatik kaydolurlar)
+# Sadece aktif modüller - diğerleri install.sh'da kuruldu
 from app.modules.nvidia import NvidiaModule
 from app.modules.tailscale import TailscaleModule
-from app.modules.network import NetworkModule
-from app.modules.cockpit import CockpitModule
-from app.modules.kiosk import KioskModule
-from app.modules.vnc import VNCModule
-from app.modules.netmon import NetmonModule
-from app.modules.collector import CollectorModule
-from app.modules.docker import DockerModule
-from app.modules.security import SecurityModule
+
+# İnaktif modüller (dosyalar mevcut ama import edilmiyor):
+# - network.py
+# - cockpit.py
+# - kiosk.py
+# - vnc.py
+# - netmon.py
+# - collector.py
+# - docker.py
+# - security.py

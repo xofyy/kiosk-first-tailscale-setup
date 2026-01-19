@@ -1,0 +1,268 @@
+{% extends "base.html" %}
+
+{% block title %}Anasayfa - Kiosk Setup Panel{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+    <!-- Sistem Kontrol -->
+    <div class="system-controls">
+        <button class="btn btn-power btn-reboot" onclick="systemReboot()">
+            <span class="btn-icon">↻</span>
+            Yeniden Başlat
+        </button>
+        <button class="btn btn-power btn-shutdown" onclick="systemShutdown()">
+            <span class="btn-icon">⏻</span>
+            Kapat
+        </button>
+    </div>
+
+    <!-- Kiosk ID Bölümü -->
+    <section class="section kiosk-section">
+        <h2 class="section-title">Kiosk Kimliği</h2>
+
+        {% if kiosk_id %}
+        <div class="kiosk-id-display">
+            <span class="kiosk-id-label">Kiosk ID:</span>
+            <span class="kiosk-id-value">{{ kiosk_id }}</span>
+        </div>
+        {% else %}
+        <div class="kiosk-id-panel">
+            <p class="text-muted">Kuruluma başlamadan önce Kiosk ID belirlemelisiniz.</p>
+
+            <form id="kiosk-id-form" class="kiosk-id-form">
+                <div class="form-group">
+                    <input type="text" name="kiosk_id" class="form-control form-control-lg"
+                           placeholder="KIOSK-001" pattern="[A-Z0-9_-]+"
+                           title="Sadece büyük harf, rakam, tire ve alt çizgi">
+                    <small class="text-muted">Örnek: KIOSK-001, BRANCH-ISTANBUL-01</small>
+                </div>
+                <button type="submit" class="btn btn-primary">Kaydet</button>
+            </form>
+        </div>
+        {% endif %}
+    </section>
+
+    <!-- Bağlantı Durumu -->
+    <section class="section connection-section">
+        <h2 class="section-title">Bağlantı Durumu</h2>
+
+        <div class="connection-grid">
+            <div class="connection-card">
+                <div class="connection-icon">🌐</div>
+                <div class="connection-info">
+                    <span class="connection-label">İnternet</span>
+                    <span class="connection-value" id="conn-internet">
+                        {% if system_info.internet is none %}
+                        <span class="status-badge">Kontrol ediliyor...</span>
+                        {% elif system_info.internet %}
+                        <span class="status-badge success">Bağlı</span>
+                        {% else %}
+                        <span class="status-badge error">Bağlı Değil</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <div class="connection-card">
+                <div class="connection-icon">📡</div>
+                <div class="connection-info">
+                    <span class="connection-label">IP Adresi</span>
+                    <span class="connection-value" id="conn-ip">{{ system_info.ip_address or 'Kontrol ediliyor...' }}</span>
+                </div>
+            </div>
+
+            <div class="connection-card">
+                <div class="connection-icon">🔗</div>
+                <div class="connection-info">
+                    <span class="connection-label">Tailscale IP</span>
+                    <span class="connection-value" id="conn-tailscale">{{ system_info.tailscale_ip or 'Bağlı değil' }}</span>
+                </div>
+            </div>
+
+            <div class="connection-card">
+                <div class="connection-icon">🔍</div>
+                <div class="connection-info">
+                    <span class="connection-label">DNS</span>
+                    <span class="connection-value" id="conn-dns">
+                        {% if system_info.dns_working is none %}
+                        <span class="status-badge">Kontrol ediliyor...</span>
+                        {% elif system_info.dns_working %}
+                        <span class="status-badge success">Çalışıyor</span>
+                        {% else %}
+                        <span class="status-badge error">Hata</span>
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- IP Yapılandırma -->
+    <section class="section ip-section">
+        <h2 class="section-title">IP Yapılandırma</h2>
+
+        <div class="ip-config-buttons">
+            <p class="text-muted">Ağ yapılandırmasını hızlıca değiştirin:</p>
+
+            <div class="ip-buttons-row">
+                <button class="btn btn-lg btn-ip-config" id="btn-default-ip" onclick="setDefaultIP()">
+                    <span class="btn-icon">🔧</span>
+                    <span class="btn-text">
+                        <strong>Default IP</strong>
+                        <small>5.5.5.55 / 5.5.5.1</small>
+                    </span>
+                </button>
+
+                <button class="btn btn-lg btn-ip-config" id="btn-public-ip" onclick="setPublicIP()">
+                    <span class="btn-icon">🌍</span>
+                    <span class="btn-text">
+                        <strong>Public IP</strong>
+                        <small>DHCP (Otomatik)</small>
+                    </span>
+                </button>
+            </div>
+
+            <p class="ip-current-info" id="ip-current-info">
+                Mevcut: <strong id="current-ip-display">{{ system_info.ip_address or '...' }}</strong>
+            </p>
+        </div>
+    </section>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Kiosk ID Form
+const kioskIdForm = document.getElementById('kiosk-id-form');
+if (kioskIdForm) {
+    kioskIdForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const input = kioskIdForm.querySelector('input[name="kiosk_id"]');
+        const kiosk_id = input.value.toUpperCase().trim();
+
+        if (!kiosk_id) {
+            showToast('Kiosk ID gerekli', 'error');
+            return;
+        }
+
+        try {
+            const response = await fetch('/api/kiosk-id', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ kiosk_id })
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                showToast('Kiosk ID kaydedildi', 'success');
+                setTimeout(() => location.reload(), 1000);
+            } else {
+                showToast(data.error || 'Hata oluştu', 'error');
+            }
+        } catch (error) {
+            showToast('Bağlantı hatası', 'error');
+        }
+    });
+}
+
+// Default IP (5.5.5.55)
+async function setDefaultIP() {
+    const btn = document.getElementById('btn-default-ip');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Ayarlanıyor...';
+
+    try {
+        const response = await fetch('/api/network/set-ip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'default' })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Default IP ayarlandı: 5.5.5.55', 'success');
+            document.getElementById('current-ip-display').textContent = '5.5.5.55';
+            updateConnectionStatus();
+        } else {
+            showToast(data.error || 'IP ayarlanamadı', 'error');
+        }
+    } catch (error) {
+        showToast('Bağlantı hatası', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">🔧</span><span class="btn-text"><strong>Default IP</strong><small>5.5.5.55 / 5.5.5.1</small></span>';
+    }
+}
+
+// Public IP (DHCP)
+async function setPublicIP() {
+    const btn = document.getElementById('btn-public-ip');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Ayarlanıyor...';
+
+    try {
+        const response = await fetch('/api/network/set-ip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ mode: 'dhcp' })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('DHCP aktif edildi', 'success');
+            updateConnectionStatus();
+        } else {
+            showToast(data.error || 'DHCP ayarlanamadı', 'error');
+        }
+    } catch (error) {
+        showToast('Bağlantı hatası', 'error');
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<span class="btn-icon">🌍</span><span class="btn-text"><strong>Public IP</strong><small>DHCP (Otomatik)</small></span>';
+    }
+}
+
+// Sistem Yeniden Başlat
+async function systemReboot() {
+    if (!confirm('Sistemi yeniden başlatmak istediğinize emin misiniz?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/system/reboot', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Sistem yeniden başlatılıyor...', 'success');
+        } else {
+            showToast(data.error || 'Hata oluştu', 'error');
+        }
+    } catch (error) {
+        showToast('Bağlantı hatası', 'error');
+    }
+}
+
+// Sistem Kapat
+async function systemShutdown() {
+    if (!confirm('Sistemi kapatmak istediğinize emin misiniz?')) {
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/system/shutdown', { method: 'POST' });
+        const data = await response.json();
+
+        if (data.success) {
+            showToast('Sistem kapatılıyor...', 'success');
+        } else {
+            showToast(data.error || 'Hata oluştu', 'error');
+        }
+    } catch (error) {
+        showToast('Bağlantı hatası', 'error');
+    }
+}
+</script>
+{% endblock %}

@@ -1,6 +1,8 @@
 """
 Kiosk Setup Panel - REST API Routes
 API endpoint'leri
+
+MongoDB tabanlı config sistemi.
 """
 
 import subprocess
@@ -9,7 +11,7 @@ import logging
 import time
 from flask import Blueprint, jsonify, request
 
-from app.config import config
+from app.modules.base import mongo_config as config
 from app.services.system import SystemService
 from app.services.hardware import HardwareService
 from app.modules import get_module, get_all_modules
@@ -124,6 +126,16 @@ def reboot_system():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@api_bp.route('/system/shutdown', methods=['POST'])
+def shutdown_system():
+    """Sistemi kapat"""
+    try:
+        subprocess.Popen(['systemctl', 'poweroff'])
+        return jsonify({'success': True, 'message': 'Sistem kapatılıyor...'})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 # =============================================================================
 # HARDWARE API
 # =============================================================================
@@ -145,6 +157,7 @@ def hardware_id():
 @api_bp.route('/kiosk-id', methods=['GET'])
 def get_kiosk_id():
     """Kiosk ID'yi döndür"""
+    config.reload()  # Multi-worker sync
     return jsonify({
         'kiosk_id': config.get_kiosk_id(),
         'is_set': bool(config.get_kiosk_id())
@@ -154,6 +167,7 @@ def get_kiosk_id():
 @api_bp.route('/kiosk-id', methods=['POST'])
 def set_kiosk_id():
     """Kiosk ID'yi ayarla (sadece ilk giriş)"""
+    config.reload()  # Multi-worker sync
     # Zaten ayarlanmışsa engelle
     if config.get_kiosk_id():
         return jsonify({
@@ -193,6 +207,7 @@ def set_kiosk_id():
 @api_bp.route('/config')
 def get_config():
     """Tüm yapılandırmayı döndür"""
+    config.reload()  # Multi-worker sync
     return jsonify(config.get_all())
 
 
@@ -252,6 +267,7 @@ def update_config():
 @api_bp.route('/modules')
 def list_modules():
     """Tüm modülleri listele"""
+    config.reload()  # Multi-worker sync
     modules = get_all_modules()
     statuses = config.get_all_module_statuses()
     
@@ -267,6 +283,7 @@ def list_modules():
 @api_bp.route('/modules/<module_name>')
 def module_info(module_name: str):
     """Modül bilgilerini döndür"""
+    config.reload()  # Multi-worker sync
     module = get_module(module_name)
     
     if not module:
@@ -285,6 +302,7 @@ def install_module(module_name: str):
     Modül kurulumunu başlat (async - background thread)
     Kurulum arka planda çalışır, API hemen döner
     """
+    config.reload()  # Multi-worker sync - kritik: dependency ve status kontrolü için
     module = get_module(module_name)
     
     if not module:
@@ -408,75 +426,94 @@ def module_logs(module_name: str):
 
 
 # =============================================================================
-# IP YAPILANDIRMA API (Network modülünden önce)
+# IP YAPILANDIRMA API (NetworkManager)
 # =============================================================================
 
-@api_bp.route('/network/temporary-ip', methods=['POST'])
-def set_temporary_ip():
+@api_bp.route('/network/set-ip', methods=['POST'])
+def set_network_ip():
     """
-    Geçici statik IP ayarla (Network modülünden önce kullanılır)
-    DHCP başarısız olduğunda geçici erişim için
+    NetworkManager ile IP yapılandırma
+    mode: 'default' → 5.5.5.55/24, gateway 5.5.5.1
+    mode: 'dhcp' → DHCP (otomatik)
     """
-    # Network modülü kurulduysa devre dışı
-    if config.is_module_completed('network'):
-        return jsonify({
-            'success': False,
-            'error': 'Network modülü kurulu, NetworkManager kullanın'
-        }), 400
-    
     data = request.get_json()
-    
+
     if not data:
         return jsonify({'success': False, 'error': 'Veri bulunamadı'}), 400
-    
-    ip = data.get('ip')
-    netmask = data.get('netmask', '255.255.255.0')
-    gateway = data.get('gateway')
-    dns = data.get('dns', '8.8.8.8')
-    interface = data.get('interface', 'eth0')
-    
-    if not ip or not gateway:
-        return jsonify({'success': False, 'error': 'IP ve Gateway gerekli'}), 400
-    
-    try:
-        system = SystemService()
-        result = system.set_temporary_ip(interface, ip, netmask, gateway, dns)
-        
-        if result['success']:
-            return jsonify({'success': True, 'message': 'IP ayarlandı'})
-        else:
-            return jsonify(result), 400
-            
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
 
+    mode = data.get('mode')
 
-@api_bp.route('/network/reset-dhcp', methods=['POST'])
-def reset_to_dhcp():
-    """
-    DHCP'ye geri dön (Network modülünden önce kullanılır)
-    Statik IP ayarını kaldırıp DHCP'yi aktif eder
-    """
-    # Network modülü kurulduysa devre dışı
-    if config.is_module_completed('network'):
-        return jsonify({
-            'success': False,
-            'error': 'Network modülü kurulu, NetworkManager kullanın'
-        }), 400
-    
-    data = request.get_json() or {}
-    interface = data.get('interface', 'eth0')
-    
+    if mode not in ['default', 'dhcp']:
+        return jsonify({'success': False, 'error': 'Geçersiz mod: default veya dhcp'}), 400
+
     try:
-        system = SystemService()
-        result = system.reset_to_dhcp(interface)
-        
-        if result['success']:
-            return jsonify({'success': True, 'message': 'DHCP aktif edildi'})
+        # Aktif ethernet bağlantısını bul
+        result = subprocess.run(
+            ['nmcli', '-t', '-f', 'NAME,TYPE,DEVICE', 'connection', 'show', '--active'],
+            capture_output=True, text=True, timeout=10
+        )
+
+        connection_name = None
+        for line in result.stdout.strip().split('\n'):
+            if line:
+                parts = line.split(':')
+                if len(parts) >= 2 and parts[1] == '802-3-ethernet':
+                    connection_name = parts[0]
+                    break
+
+        if not connection_name:
+            # Aktif bağlantı yoksa, herhangi bir ethernet bağlantısını bul
+            result = subprocess.run(
+                ['nmcli', '-t', '-f', 'NAME,TYPE', 'connection', 'show'],
+                capture_output=True, text=True, timeout=10
+            )
+            for line in result.stdout.strip().split('\n'):
+                if line:
+                    parts = line.split(':')
+                    if len(parts) >= 2 and parts[1] == '802-3-ethernet':
+                        connection_name = parts[0]
+                        break
+
+        if not connection_name:
+            return jsonify({'success': False, 'error': 'Ethernet bağlantısı bulunamadı'}), 400
+
+        logger.info(f"IP değiştiriliyor: connection={connection_name}, mode={mode}")
+
+        if mode == 'default':
+            # Statik IP: 5.5.5.55/24, gateway 5.5.5.1
+            cmds = [
+                ['nmcli', 'connection', 'modify', connection_name,
+                 'ipv4.addresses', '5.5.5.55/24',
+                 'ipv4.gateway', '5.5.5.1',
+                 'ipv4.dns', '8.8.8.8',
+                 'ipv4.method', 'manual'],
+                ['nmcli', 'connection', 'up', connection_name]
+            ]
         else:
-            return jsonify(result), 400
-            
+            # DHCP
+            cmds = [
+                ['nmcli', 'connection', 'modify', connection_name,
+                 'ipv4.addresses', '',
+                 'ipv4.gateway', '',
+                 'ipv4.dns', '',
+                 'ipv4.method', 'auto'],
+                ['nmcli', 'connection', 'up', connection_name]
+            ]
+
+        for cmd in cmds:
+            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+            if result.returncode != 0:
+                logger.error(f"nmcli hatası: {result.stderr}")
+                return jsonify({'success': False, 'error': result.stderr or 'nmcli hatası'}), 500
+
+        msg = 'Default IP (5.5.5.55) ayarlandı' if mode == 'default' else 'DHCP aktif edildi'
+        logger.info(msg)
+        return jsonify({'success': True, 'message': msg})
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'İşlem zaman aşımına uğradı'}), 500
     except Exception as e:
+        logger.error(f"IP değiştirme hatası: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
@@ -487,6 +524,7 @@ def reset_to_dhcp():
 @api_bp.route('/setup/complete', methods=['POST'])
 def complete_setup():
     """Kurulumu tamamla"""
+    config.reload()  # Multi-worker sync
     
     # Tüm modüller tamamlanmış mı kontrol et
     statuses = config.get_all_module_statuses()
@@ -514,6 +552,7 @@ def complete_setup():
 @api_bp.route('/setup/status')
 def setup_status():
     """Kurulum durumunu döndür"""
+    config.reload()  # Multi-worker sync
     statuses = config.get_all_module_statuses()
     
     total = len(statuses)

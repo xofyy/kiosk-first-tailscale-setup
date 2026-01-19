@@ -16,12 +16,14 @@
                 <h1>Kiosk Setup Panel</h1>
             </div>
             <nav class="header-nav">
-                <a href="{{ url_for('pages.index') }}" class="nav-link {% if request.endpoint == 'pages.index' %}active{% endif %}">
+                <a href="{{ url_for('pages.home') }}" class="nav-link {% if request.endpoint == 'pages.home' %}active{% endif %}">
+                    Anasayfa
+                </a>
+                {% if not is_setup_complete %}
+                <a href="{{ url_for('pages.install') }}" class="nav-link {% if request.endpoint == 'pages.install' %}active{% endif %}">
                     Kurulum
                 </a>
-                <a href="{{ url_for('pages.settings') }}" class="nav-link {% if request.endpoint == 'pages.settings' %}active{% endif %}">
-                    Ayarlar
-                </a>
+                {% endif %}
                 <a href="{{ url_for('pages.logs') }}" class="nav-link {% if request.endpoint == 'pages.logs' %}active{% endif %}">
                     Loglar
                 </a>
