@@ -75,7 +75,7 @@ clear
 echo -e "${CYAN}"
 echo "╔══════════════════════════════════════════════════════════════════════╗"
 echo "║                                                                      ║"
-echo "║               ACO Maintenance Panel - INSTALLER                          ║"
+echo "║               ACO Maintenance Panel - INSTALLER                      ║"
 echo "║                                                                      ║"
 echo "╚══════════════════════════════════════════════════════════════════════╝"
 echo -e "${NC}"
@@ -1346,12 +1346,11 @@ check_service() {
     if systemctl is-active --quiet "$service_name" 2>/dev/null; then
         echo -e "  ${GREEN}✓${NC} $display_name"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
-        return 0
     else
         echo -e "  ${RED}✗${NC} $display_name"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
-        return 1
     fi
+    return 0
 }
 
 check_command() {
@@ -1362,12 +1361,11 @@ check_command() {
     if eval "$command" &>/dev/null; then
         echo -e "  ${GREEN}✓${NC} $display_name"
         PASSED_CHECKS=$((PASSED_CHECKS + 1))
-        return 0
     else
         echo -e "  ${RED}✗${NC} $display_name"
         FAILED_CHECKS=$((FAILED_CHECKS + 1))
-        return 1
     fi
+    return 0
 }
 
 echo -e "${CYAN}Base Services:${NC}"
