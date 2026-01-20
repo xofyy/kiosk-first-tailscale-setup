@@ -118,12 +118,16 @@ class TailscaleModule(BaseModule):
             # 7. Start tailscaled service
             self.logger.info("Starting tailscaled service...")
             if not self.systemctl('enable', 'tailscaled'):
-                self.logger.warning("Failed to enable tailscaled")
+                return False, "Failed to enable tailscaled service"
             if not self.systemctl('start', 'tailscaled'):
-                self.logger.warning("Failed to start tailscaled")
+                return False, "Failed to start tailscaled service"
 
             # Wait for service to start
             time.sleep(3)
+
+            # Verify tailscaled is running
+            if not self.systemctl('is-active', 'tailscaled'):
+                return False, "Tailscaled service is not running"
 
             # 8. Connect to Headscale (with full parameters!)
             self.logger.info(f"Connecting to Headscale: {HEADSCALE_URL}")
@@ -147,22 +151,27 @@ class TailscaleModule(BaseModule):
             # 9. Verify connection
             time.sleep(3)
 
-            if self._is_tailscale_connected():
-                self.logger.info("Tailscale connection verified")
+            if not self._is_tailscale_connected():
+                self.logger.error("Tailscale connection not verified")
+                return False, "Tailscale connection to Headscale could not be verified"
 
-                # Log status info
-                status_result = self.run_command(['tailscale', 'status'], check=False)
-                if status_result.returncode == 0:
-                    self.logger.info(f"Tailscale status:\n{status_result.stdout}")
-            else:
-                self.logger.warning("Tailscale connection not verified (but continuing)")
+            self.logger.info("Tailscale connection verified")
+
+            # Log status info
+            status_result = self.run_command(['tailscale', 'status'], check=False)
+            if status_result.returncode == 0:
+                self.logger.info(f"Tailscale status:\n{status_result.stdout}")
 
             # 10. Save RVM ID to MongoDB (for other services)
-            self._save_rvm_id_to_mongodb(rvm_id, hardware_id)
+            mongo_ok, mongo_error = self._save_rvm_id_to_mongodb(rvm_id, hardware_id)
+            if not mongo_ok:
+                return False, f"MongoDB save failed: {mongo_error}"
 
             # 11. Security configuration (UFW rules, SSH, fail2ban)
             # tailscale0 interface is now available, rules can be added
-            self._configure_security()
+            security_ok, security_error = self._configure_security()
+            if not security_ok:
+                return False, f"Security configuration failed: {security_error}"
 
             self.logger.info("Tailscale installation completed")
             return True, "Tailscale installed and connected to Headscale"
@@ -171,37 +180,44 @@ class TailscaleModule(BaseModule):
             self.logger.error(f"Tailscale installation error: {e}")
             return False, str(e)
 
-    def _configure_security(self) -> bool:
+    def _configure_security(self) -> Tuple[bool, str]:
         """
         Security configuration after Tailscale connection.
         UFW rules, SSH config and fail2ban settings.
+        Returns (success, error_message)
         """
         self.logger.info("Starting security configuration...")
 
         try:
-            # 1. UFW configuration (from scratch)
+            # 1. Check if UFW is installed
+            ufw_check = self.run_shell('which /usr/sbin/ufw', check=False)
+            if ufw_check.returncode != 0:
+                self.logger.error("UFW is not installed!")
+                return False, "UFW is not installed. Run install.sh first."
+
+            # 2. UFW configuration (from scratch)
             self.logger.info("Configuring UFW...")
 
             # Reset first
-            self.run_shell('ufw --force reset 2>/dev/null || true', check=False)
+            self.run_shell('/usr/sbin/ufw --force reset 2>/dev/null || true', check=False)
 
             # Default policies
-            self.run_shell('ufw default deny incoming', check=False)
-            self.run_shell('ufw default allow outgoing', check=False)
-            self.run_shell('ufw default deny routed', check=False)
+            self.run_shell('/usr/sbin/ufw default deny incoming', check=False)
+            self.run_shell('/usr/sbin/ufw default allow outgoing', check=False)
+            self.run_shell('/usr/sbin/ufw default deny routed', check=False)
 
             # Tailscale0 interface permissions
             ufw_rules = [
                 # SSH via Tailscale
-                ('ufw allow in on tailscale0 to any port 22 proto tcp', '22/tcp on tailscale0'),
+                ('/usr/sbin/ufw allow in on tailscale0 to any port 22 proto tcp', '22/tcp on tailscale0'),
                 # VNC via Tailscale
-                ('ufw allow in on tailscale0 to any port 5900 proto tcp', '5900/tcp on tailscale0'),
+                ('/usr/sbin/ufw allow in on tailscale0 to any port 5900 proto tcp', '5900/tcp on tailscale0'),
                 # Panel via Tailscale
-                ('ufw allow in on tailscale0 to any port 4444 proto tcp', '4444/tcp on tailscale0'),
+                ('/usr/sbin/ufw allow in on tailscale0 to any port 4444 proto tcp', '4444/tcp on tailscale0'),
                 # MongoDB via Tailscale
-                ('ufw allow in on tailscale0 to any port 27017 proto tcp', '27017/tcp on tailscale0'),
+                ('/usr/sbin/ufw allow in on tailscale0 to any port 27017 proto tcp', '27017/tcp on tailscale0'),
                 # Deny SSH from LAN (tailscale rules take priority)
-                ('ufw deny 22/tcp', '22/tcp'),
+                ('/usr/sbin/ufw deny 22/tcp', '22/tcp'),
             ]
 
             rules_added = 0
@@ -215,15 +231,20 @@ class TailscaleModule(BaseModule):
 
             self.logger.info(f"UFW: {rules_added}/{len(ufw_rules)} rules added")
 
+            # Check if any rules were added
+            if rules_added == 0:
+                return False, "Failed to add any UFW rules"
+
             # Enable UFW
-            ufw_enable_result = self.run_shell('ufw --force enable', check=False)
+            ufw_enable_result = self.run_shell('/usr/sbin/ufw --force enable', check=False)
             if ufw_enable_result.returncode == 0:
                 self.logger.info("UFW enabled")
             else:
                 self.logger.error(f"Failed to enable UFW: {ufw_enable_result.stderr}")
+                return False, f"Failed to enable UFW: {ufw_enable_result.stderr}"
 
             # Verify: UFW status and rules
-            ufw_status = self.run_shell('ufw status', check=False)
+            ufw_status = self.run_shell('/usr/sbin/ufw status', check=False)
             if 'active' in ufw_status.stdout.lower():
                 self.logger.info("UFW status verified: active")
 
@@ -238,8 +259,9 @@ class TailscaleModule(BaseModule):
                 self.logger.info(f"UFW rules verified: {rules_verified}/{len(ufw_rules)}")
             else:
                 self.logger.error(f"UFW not active! Status: {ufw_status.stdout.strip()}")
+                return False, "UFW failed to activate"
 
-            # 2. SSH configuration (Tailscale-only)
+            # 3. SSH configuration (Tailscale-only)
             self.logger.info("Configuring SSH...")
 
             ssh_config = """# Tailscale-only SSH Configuration
@@ -263,14 +285,24 @@ ClientAliveInterval 300
 ClientAliveCountMax 2
 LogLevel VERBOSE
 """
-            if self.write_file('/etc/ssh/sshd_config.d/99-tailscale-only.conf', ssh_config):
-                self.systemctl('restart', 'sshd')
-                self.logger.info("SSH configuration completed")
-            else:
-                self.logger.warning("Failed to write SSH config")
+            if not self.write_file('/etc/ssh/sshd_config.d/99-tailscale-only.conf', ssh_config):
+                self.logger.error("Failed to write SSH config")
+                return False, "Failed to write SSH configuration"
 
-            # 3. Fail2ban configuration
+            if not self.systemctl('restart', 'sshd'):
+                self.logger.error("Failed to restart SSHD")
+                return False, "Failed to restart SSH service"
+
+            self.logger.info("SSH configuration completed")
+
+            # 4. Fail2ban configuration
             self.logger.info("Configuring Fail2ban...")
+
+            # Check if fail2ban is installed
+            fail2ban_check = self.run_shell('which fail2ban-client', check=False)
+            if fail2ban_check.returncode != 0:
+                self.logger.error("Fail2ban is not installed!")
+                return False, "Fail2ban is not installed. Run install.sh first."
 
             fail2ban_config = """[sshd]
 enabled = true
@@ -281,22 +313,26 @@ maxretry = 3
 bantime = 3600
 findtime = 600
 """
-            if self.write_file('/etc/fail2ban/jail.d/sshd.conf', fail2ban_config):
-                self.systemctl('enable', 'fail2ban')
-                self.systemctl('restart', 'fail2ban')
-                self.logger.info("Fail2ban configuration completed")
-            else:
-                self.logger.warning("Failed to write Fail2ban config")
+            if not self.write_file('/etc/fail2ban/jail.d/sshd.conf', fail2ban_config):
+                self.logger.error("Failed to write Fail2ban config")
+                return False, "Failed to write Fail2ban configuration"
+
+            self.systemctl('enable', 'fail2ban')
+            if not self.systemctl('restart', 'fail2ban'):
+                self.logger.error("Failed to restart Fail2ban")
+                return False, "Failed to restart Fail2ban service"
+
+            self.logger.info("Fail2ban configuration completed")
 
             self.logger.info("Security configuration completed")
-            return True
+            return True, ""
 
         except Exception as e:
             self.logger.error(f"Security configuration error: {e}")
-            return False
+            return False, str(e)
 
-    def _save_rvm_id_to_mongodb(self, rvm_id: str, hardware_id: str) -> None:
-        """Save RVM ID to MongoDB"""
+    def _save_rvm_id_to_mongodb(self, rvm_id: str, hardware_id: str) -> Tuple[bool, str]:
+        """Save RVM ID to MongoDB. Returns (success, error_message)"""
         try:
             import socket
             from datetime import datetime
@@ -315,14 +351,21 @@ findtime = 600
                 'setup_complete': False
             }
 
-            collection.update_one(
+            result = collection.update_one(
                 {},
                 {'$set': document},
                 upsert=True
             )
 
             client.close()
-            self.logger.info(f"RVM ID saved to MongoDB: {rvm_id}")
+
+            if result.modified_count > 0 or result.upserted_id:
+                self.logger.info(f"RVM ID saved to MongoDB: {rvm_id}")
+                return True, ""
+            else:
+                self.logger.error("MongoDB update returned no changes")
+                return False, "MongoDB update failed - no changes made"
 
         except Exception as e:
-            self.logger.warning(f"MongoDB save error: {e}")
+            self.logger.error(f"MongoDB save error: {e}")
+            return False, f"MongoDB error: {str(e)}"

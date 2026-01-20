@@ -146,12 +146,32 @@ class NvidiaModule(BaseModule):
                 return False
 
             # 5. Configure with nvidia-ctk
-            self.run_shell('nvidia-ctk runtime configure --runtime=docker', check=False)
+            result = self.run_shell('nvidia-ctk runtime configure --runtime=docker', check=False)
+            if result.returncode != 0:
+                self.logger.error(f"Failed to configure nvidia-ctk: {result.stderr}")
+                return False
 
             # 6. Restart Docker
-            self.systemctl('restart', 'docker')
+            if not self.systemctl('restart', 'docker'):
+                self.logger.error("Failed to restart Docker after Container Toolkit configuration")
+                return False
 
-            self.logger.info("NVIDIA Container Toolkit installation completed")
+            # 7. Verify Container Toolkit is working
+            self.logger.info("Verifying NVIDIA Container Toolkit...")
+
+            # Check if nvidia-ctk command works
+            result = self.run_shell('nvidia-ctk --version', check=False)
+            if result.returncode != 0:
+                self.logger.error("nvidia-ctk command not working")
+                return False
+
+            # Check if Docker can see nvidia runtime
+            result = self.run_shell('docker info 2>/dev/null | grep -q "nvidia"', check=False)
+            if result.returncode != 0:
+                self.logger.error("Docker nvidia runtime not detected")
+                return False
+
+            self.logger.info("NVIDIA Container Toolkit installation and verification completed")
             return True
 
         except Exception as e:
@@ -384,7 +404,8 @@ class NvidiaModule(BaseModule):
         if self._is_nvidia_working():
             self.logger.info("NVIDIA driver already working")
             # Install Container Toolkit (if not present)
-            self._install_container_toolkit()
+            if not self._install_container_toolkit():
+                return False, "NVIDIA driver working but Container Toolkit installation failed"
             return True, "NVIDIA driver already working"
 
         # =====================================================================
@@ -396,13 +417,15 @@ class NvidiaModule(BaseModule):
             if self._is_nvidia_working():
                 self.logger.info("MOK enrollment completed, NVIDIA working")
                 # Install Container Toolkit
-                self._install_container_toolkit()
+                if not self._install_container_toolkit():
+                    return False, "MOK completed but Container Toolkit installation failed"
                 return True, "MOK enrollment completed, NVIDIA driver active"
 
             if self._is_module_loaded():
                 self.logger.info("NVIDIA module loaded, waiting for nvidia-smi")
                 # Install Container Toolkit
-                self._install_container_toolkit()
+                if not self._install_container_toolkit():
+                    return False, "NVIDIA module loaded but Container Toolkit installation failed"
                 return True, "NVIDIA module loaded"
 
             # Still not working - MOK not enrolled
@@ -421,7 +444,8 @@ class NvidiaModule(BaseModule):
             if self._is_nvidia_working():
                 self.logger.info("NVIDIA working after reboot")
                 # Install Container Toolkit
-                self._install_container_toolkit()
+                if not self._install_container_toolkit():
+                    return False, "NVIDIA working but Container Toolkit installation failed"
                 return True, "NVIDIA driver active"
 
             # Still not working - reboot not done
@@ -449,13 +473,15 @@ class NvidiaModule(BaseModule):
         # 6. GRUB Configuration (quiet splash + nvidia modeset)
         # =====================================================================
         if not self.configure_grub({'nvidia_modeset': True}):
-            self.logger.warning("GRUB configuration failed")
+            self.logger.error("GRUB configuration failed")
+            return False, "GRUB configuration for nvidia_modeset failed"
 
         # =====================================================================
         # 7. nvidia-persistenced Service
         # =====================================================================
         if not self.systemctl('enable', 'nvidia-persistenced'):
-            self.logger.warning("Failed to enable nvidia-persistenced")
+            self.logger.error("Failed to enable nvidia-persistenced")
+            return False, "Failed to enable nvidia-persistenced service"
 
         # =====================================================================
         # 8. Secure Boot and MOK Status
