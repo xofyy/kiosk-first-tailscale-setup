@@ -255,6 +255,46 @@ body {
 }
 
 /* =============================================================================
+   System Info
+   ============================================================================= */
+
+.system-info-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-md);
+}
+
+@media (max-width: 768px) {
+    .system-info-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+.system-info-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.system-info-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.system-info-value {
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    font-weight: 500;
+    word-break: break-word;
+}
+
+/* =============================================================================
    Connection Cards
    ============================================================================= */
 

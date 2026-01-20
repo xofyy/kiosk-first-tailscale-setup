@@ -1268,8 +1268,8 @@ if [[ "$MONGO_READY" == "true" ]]; then
                     mok_password: null,
                     nvidia_driver: "535",
                     modules: {
-                        nvidia: "pending",
-                        tailscale: "pending"
+                        "remote-connection": "pending",
+                        nvidia: "pending"
                     },
                     setup_complete: false
                 }

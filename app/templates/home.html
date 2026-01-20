@@ -76,6 +76,29 @@
         {% endif %}
     </section>
 
+    <!-- System Info -->
+    <section class="section system-info-section">
+        <h2 class="section-title">System Information</h2>
+        <div class="system-info-grid">
+            <div class="system-info-item">
+                <span class="system-info-label">Hostname</span>
+                <span class="system-info-value">{{ system_info.hostname }}</span>
+            </div>
+            <div class="system-info-item">
+                <span class="system-info-label">OS</span>
+                <span class="system-info-value">{{ system_info.os_info.name }}</span>
+            </div>
+            <div class="system-info-item">
+                <span class="system-info-label">Kernel</span>
+                <span class="system-info-value">{{ system_info.kernel }}</span>
+            </div>
+            <div class="system-info-item">
+                <span class="system-info-label">Uptime</span>
+                <span class="system-info-value">{{ system_info.uptime }}</span>
+            </div>
+        </div>
+    </section>
+
     <!-- Connection Status -->
     <section class="section connection-section">
         <h2 class="section-title">Connection Status</h2>
@@ -102,14 +125,6 @@
                 <div class="connection-info">
                     <span class="connection-label">IP Address</span>
                     <span class="connection-value" id="conn-ip">{{ system_info.ip_address or 'Checking...' }}</span>
-                </div>
-            </div>
-
-            <div class="connection-card">
-                <div class="connection-icon">🔗</div>
-                <div class="connection-info">
-                    <span class="connection-label">Remote Connection IP</span>
-                    <span class="connection-value" id="conn-tailscale">{{ system_info.tailscale_ip or 'Not connected' }}</span>
                 </div>
             </div>
 

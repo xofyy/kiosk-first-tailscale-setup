@@ -27,7 +27,7 @@ class NvidiaModule(BaseModule):
     display_name = "NVIDIA Driver"
     description = "NVIDIA GPU driver installation, MOK key and GRUB configuration"
     order = 2
-    dependencies = ['remote-coonnection']  # Requires Tailscale/Remote Connection first
+    dependencies = ['remote-connection']  # Requires Tailscale/Remote Connection first
 
     def _check_prerequisites(self) -> Tuple[bool, str]:
         """Check internet connection"""

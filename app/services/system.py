@@ -46,6 +46,8 @@ class SystemService:
             'dns_working': None,  # JS will update
             'interfaces': self.get_network_interfaces(),  # Fast (local)
             'uptime': self.get_uptime(),  # Fast (/proc read)
+            'kernel': self.get_kernel_version(),  # Fast (/proc read)
+            'os_info': self.get_os_info(),  # Fast (file read)
             'memory': self.get_memory_info(),  # Fast (/proc read)
             'disk': self.get_disk_info(),  # Fast (statvfs)
         }
@@ -168,7 +170,38 @@ class SystemService:
         except Exception as e:
             logger.debug(f"Could not get uptime: {e}")
             return "N/A"
-    
+
+    def get_kernel_version(self) -> str:
+        """Get kernel version"""
+        try:
+            with open('/proc/version', 'r') as f:
+                version_line = f.readline()
+                # Extract version number (e.g., "5.15.0-generic")
+                parts = version_line.split()
+                if len(parts) >= 3:
+                    return parts[2]
+            return "N/A"
+        except Exception as e:
+            logger.debug(f"Could not get kernel version: {e}")
+            return "N/A"
+
+    def get_os_info(self) -> Dict[str, str]:
+        """Get OS information from /etc/os-release"""
+        try:
+            os_info = {'name': 'Linux', 'version': ''}
+            if os.path.exists('/etc/os-release'):
+                with open('/etc/os-release', 'r') as f:
+                    for line in f:
+                        if line.startswith('PRETTY_NAME='):
+                            # Remove quotes and newline
+                            os_info['name'] = line.split('=', 1)[1].strip().strip('"')
+                        elif line.startswith('VERSION_ID='):
+                            os_info['version'] = line.split('=', 1)[1].strip().strip('"')
+            return os_info
+        except Exception as e:
+            logger.debug(f"Could not get OS info: {e}")
+            return {'name': 'Linux', 'version': ''}
+
     def get_memory_info(self) -> Dict[str, Any]:
         """Get memory info"""
         try:
@@ -560,7 +593,7 @@ class SystemService:
 
         try:
             # Get module status from MongoDB
-            module_status = config.get_module_status('remote-coonnection')
+            module_status = config.get_module_status('remote-connection')
 
             # Check if Tailscale is connected
             is_connected = False

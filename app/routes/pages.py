@@ -23,7 +23,7 @@ def home():
     system_info = system.get_system_info_fast()
 
     # Check if Tailscale/Remote Connection is completed (for rvm_id edit permission)
-    tailscale_completed = config.get_module_status('remote-coonnection') == 'completed'
+    tailscale_completed = config.get_module_status('remote-connection') == 'completed'
 
     # Get component statuses for dashboard
     component_statuses = system.get_component_statuses()

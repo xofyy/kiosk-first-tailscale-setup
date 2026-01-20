@@ -169,8 +169,8 @@ def set_rvm_id():
     """Set or update RVM ID (blocked after Tailscale installation)"""
     config.reload()  # Multi-worker sync
 
-    # Block if Tailscale is already installed (hostname is locked)
-    if config.get_module_status('tailscale') == 'completed':
+    # Block if Remote Connection is already installed (hostname is locked)
+    if config.get_module_status('remote-connection') == 'completed':
         return jsonify({
             'success': False,
             'error': 'Cannot change RVM ID after Tailscale installation'

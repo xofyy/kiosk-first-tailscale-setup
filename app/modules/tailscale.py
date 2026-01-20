@@ -22,7 +22,7 @@ APPROVAL_TIMEOUT = 300  # 5 minutes
 
 @register_module
 class TailscaleModule(BaseModule):
-    name = "remote-coonnection"
+    name = "remote-connection"
     display_name = "Remote Connection"
     description = "Remote connection setup and Enrollment registration"
     order = 1

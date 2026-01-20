@@ -28,7 +28,7 @@ class NetworkModule(BaseModule):
     display_name = "Network"
     description = "NetworkManager installation, DNS configuration"
     order = 3
-    dependencies = ["nvidia", "tailscale"]
+    dependencies = ["nvidia", "remote-connection"]
     
     # =========================================================================
     # STATUS CHECK FUNCTIONS
