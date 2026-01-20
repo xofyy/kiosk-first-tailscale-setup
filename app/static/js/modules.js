@@ -24,7 +24,7 @@ async function installModule(moduleName) {
     const statusBadge = moduleCard.querySelector('.module-status .status-badge');
     if (statusBadge) {
         statusBadge.className = 'status-badge warning';
-        statusBadge.textContent = '⟳ Installing...';
+        statusBadge.innerHTML = '<svg class="icon-sm icon-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Installing...';
     }
 
     showToast(`${moduleName} installation started...`, 'info');
@@ -59,7 +59,7 @@ function handleInstallError(moduleCard, installBtn, statusBadge, errorMessage) {
 
     if (statusBadge) {
         statusBadge.className = 'status-badge error';
-        statusBadge.textContent = '✗ Error';
+        statusBadge.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Error';
     }
 
     showToast(errorMessage || 'Installation could not start', 'error');
@@ -141,7 +141,7 @@ function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge success';
-                statusBadge.textContent = '✓ Completed';
+                statusBadge.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Completed';
             }
             showToast(message || `${moduleName} installation completed`, 'success');
             break;
@@ -154,7 +154,7 @@ function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge warning';
-                statusBadge.textContent = '⟳ Installing...';
+                statusBadge.innerHTML = '<svg class="icon-sm icon-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg> Installing...';
             }
             break;
 
@@ -167,7 +167,7 @@ function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge info';
-                statusBadge.textContent = '↻ Reboot Required';
+                statusBadge.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"/><path d="M3 12a9 9 0 0 1 15-6.7L21 8"/><path d="M3 22v-6h6"/><path d="M21 12a9 9 0 0 1-15 6.7L3 16"/></svg> Reboot Required';
             }
             showToast(message || 'Reboot required', 'warning');
             showRebootPrompt(message);
@@ -182,7 +182,7 @@ function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge info';
-                statusBadge.textContent = '🔐 MOK Pending';
+                statusBadge.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg> MOK Pending';
             }
             showToast(message || 'Reboot required for MOK approval', 'warning');
             showMokInstructions(message);
@@ -198,7 +198,7 @@ function updateModuleUI(moduleCard, installBtn, statusBadge, status, message) {
             }
             if (statusBadge) {
                 statusBadge.className = 'status-badge error';
-                statusBadge.textContent = '✗ Error';
+                statusBadge.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> Error';
             }
             if (status === 'failed') {
                 showToast(message || `${moduleName} installation failed`, 'error');
@@ -271,7 +271,7 @@ async function updateProgress() {
         if (completeBtn) {
             if (data.complete) {
                 // Setup already completed
-                completeBtn.textContent = '✓ Setup Complete';
+                completeBtn.innerHTML = '<svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg> Setup Complete';
                 completeBtn.disabled = true;
                 completeBtn.classList.remove('btn-success');
                 completeBtn.classList.add('btn-secondary');

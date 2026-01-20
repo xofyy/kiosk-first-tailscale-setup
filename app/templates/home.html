@@ -105,7 +105,12 @@
 
         <div class="connection-grid">
             <div class="connection-card">
-                <div class="connection-icon">🌐</div>
+                <div class="connection-icon">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                </div>
                 <div class="connection-info">
                     <span class="connection-label">Internet</span>
                     <span class="connection-value" id="conn-internet">
@@ -121,7 +126,11 @@
             </div>
 
             <div class="connection-card">
-                <div class="connection-icon">📡</div>
+                <div class="connection-icon">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
+                    </svg>
+                </div>
                 <div class="connection-info">
                     <span class="connection-label">IP Address</span>
                     <span class="connection-value" id="conn-ip">{{ system_info.ip_address or 'Checking...' }}</span>
@@ -129,7 +138,12 @@
             </div>
 
             <div class="connection-card">
-                <div class="connection-icon">🔍</div>
+                <div class="connection-icon">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"/>
+                        <path d="m21 21-4.35-4.35"/>
+                    </svg>
+                </div>
                 <div class="connection-info">
                     <span class="connection-label">DNS</span>
                     <span class="connection-value" id="conn-dns">
@@ -155,7 +169,11 @@
 
             <div class="ip-buttons-row">
                 <button class="btn btn-lg btn-ip-config" id="btn-default-ip" onclick="setDefaultIP()">
-                    <span class="btn-icon">🔧</span>
+                    <span class="btn-icon">
+                        <svg class="icon icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                        </svg>
+                    </span>
                     <span class="btn-text">
                         <strong>Default IP</strong>
                         <small>5.5.5.55 / 5.5.5.1</small>
@@ -163,7 +181,12 @@
                 </button>
 
                 <button class="btn btn-lg btn-ip-config" id="btn-public-ip" onclick="setPublicIP()">
-                    <span class="btn-icon">🌍</span>
+                    <span class="btn-icon">
+                        <svg class="icon icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                    </span>
                     <span class="btn-text">
                         <strong>Public IP</strong>
                         <small>DHCP (Automatic)</small>
@@ -190,7 +213,13 @@
             <!-- Docker -->
             <div class="component-card {% if components.docker.ok %}component-ok{% else %}component-error{% endif %}" id="component-docker">
                 <div class="component-header">
-                    <span class="component-icon">🐳</span>
+                    <span class="component-icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+                            <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+                            <line x1="12" y1="22.08" x2="12" y2="12"/>
+                        </svg>
+                    </span>
                     <span class="component-name">{{ components.docker.label }}</span>
                 </div>
                 <div class="component-status" id="component-docker-status">
@@ -208,7 +237,13 @@
             <!-- MongoDB -->
             <div class="component-card {% if components.mongodb.ok %}component-ok{% else %}component-error{% endif %}" id="component-mongodb">
                 <div class="component-header">
-                    <span class="component-icon">🍃</span>
+                    <span class="component-icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <ellipse cx="12" cy="5" rx="9" ry="3"/>
+                            <path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/>
+                            <path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>
+                        </svg>
+                    </span>
                     <span class="component-name">{{ components.mongodb.label }}</span>
                 </div>
                 <div class="component-status" id="component-mongodb-status">
@@ -226,7 +261,12 @@
             <!-- Remote Connection (Tailscale) -->
             <div class="component-card {% if components.tailscale.ok %}component-ok{% elif components.tailscale.status == 'not_enrolled' %}component-pending{% else %}component-error{% endif %}" id="component-tailscale">
                 <div class="component-header">
-                    <span class="component-icon">🔗</span>
+                    <span class="component-icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                        </svg>
+                    </span>
                     <span class="component-name">{{ components.tailscale.label }}</span>
                 </div>
                 <div class="component-status" id="component-tailscale-status">
@@ -247,7 +287,13 @@
             <!-- NVIDIA -->
             <div class="component-card {% if components.nvidia.ok %}component-ok{% elif components.nvidia.status in ['mok_pending', 'reboot_required'] %}component-warning{% elif components.nvidia.status == 'not_installed' %}component-pending{% else %}component-error{% endif %}" id="component-nvidia">
                 <div class="component-header">
-                    <span class="component-icon">🖥️</span>
+                    <span class="component-icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                            <line x1="8" y1="21" x2="16" y2="21"/>
+                            <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                    </span>
                     <span class="component-name">{{ components.nvidia.label }}</span>
                 </div>
                 <div class="component-status" id="component-nvidia-status">
@@ -419,7 +465,7 @@ async function setDefaultIP() {
         showToast('Connection error', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span class="btn-icon">🔧</span><span class="btn-text"><strong>Default IP</strong><small>5.5.5.55 / 5.5.5.1</small></span>';
+        btn.innerHTML = '<span class="btn-icon"><svg class="icon icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span><span class="btn-text"><strong>Default IP</strong><small>5.5.5.55 / 5.5.5.1</small></span>';
     }
 }
 
@@ -448,7 +494,7 @@ async function setPublicIP() {
         showToast('Connection error', 'error');
     } finally {
         btn.disabled = false;
-        btn.innerHTML = '<span class="btn-icon">🌍</span><span class="btn-text"><strong>Public IP</strong><small>DHCP (Automatic)</small></span>';
+        btn.innerHTML = '<span class="btn-icon"><svg class="icon icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span><span class="btn-text"><strong>Public IP</strong><small>DHCP (Automatic)</small></span>';
     }
 }
 

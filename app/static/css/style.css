@@ -330,8 +330,16 @@ body {
 }
 
 .connection-icon {
-    font-size: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
     opacity: 0.9;
+}
+
+.connection-icon .icon {
+    width: 28px;
+    height: 28px;
 }
 
 .connection-info {
@@ -1251,7 +1259,10 @@ body {
 }
 
 .btn-ip-config .btn-icon {
-    font-size: 2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
 }
 
 .btn-ip-config .btn-text {
@@ -1464,7 +1475,15 @@ body {
 }
 
 .component-icon {
-    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+}
+
+.component-icon .icon {
+    width: 24px;
+    height: 24px;
 }
 
 .component-name {
@@ -1515,39 +1534,51 @@ body {
 }
 
 /* =============================================================================
-   Section Title Icons
+   SVG Icon Styling
    ============================================================================= */
 
+.icon {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+    flex-shrink: 0;
+}
+
+.icon-sm {
+    width: 16px;
+    height: 16px;
+}
+
+.icon-lg {
+    width: 28px;
+    height: 28px;
+}
+
+.icon-xl {
+    width: 32px;
+    height: 32px;
+}
+
+.icon-spin {
+    animation: icon-spin 1s linear infinite;
+}
+
+@keyframes icon-spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* Section title uses green bar, no icon needed */
 .section-title[data-icon]::before {
-    content: none;
-}
-
-.section-title[data-icon="connection"]::before {
-    content: "🌐";
-    width: auto;
-    height: auto;
-    background: none;
-}
-
-.section-title[data-icon="system"]::before {
-    content: "⚙";
-    width: auto;
-    height: auto;
-    background: none;
-}
-
-.section-title[data-icon="config"]::before {
-    content: "🏷";
-    width: auto;
-    height: auto;
-    background: none;
-}
-
-.section-title[data-icon="network"]::before {
-    content: "🔌";
-    width: auto;
-    height: auto;
-    background: none;
+    content: '';
+    width: 4px;
+    height: 20px;
+    background: var(--color-primary);
+    border-radius: 2px;
 }
 
 /* =============================================================================

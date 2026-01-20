@@ -9,14 +9,25 @@
 {% block content %}
 <div class="services-page">
     <div class="services-header">
-        <h2><span class="icon">🔧</span> Services</h2>
+        <h2>
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+            </svg>
+            Services
+        </h2>
         <p>Access installed web services from here.</p>
     </div>
 
     <div class="services-content">
         {% if not nginx_installed %}
         <div class="nginx-warning">
-            <span class="warning-icon">⚠️</span>
+            <span class="warning-icon">
+                <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+                    <line x1="12" y1="9" x2="12" y2="13"/>
+                    <line x1="12" y1="17" x2="12.01" y2="17"/>
+                </svg>
+            </span>
             <div class="warning-content">
                 <h3>Nginx Not Installed</h3>
                 <p>Nginx is required to access services via iframe.</p>
@@ -55,17 +66,27 @@
                     <button
                         class="btn-open-service active"
                         onclick="openService('{{ service.path or '/' + name + '/' }}', '{{ service.display_name or name }}')">
-                        <span class="icon">🚀</span>
+                        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                            <polyline points="15 3 21 3 21 9"/>
+                            <line x1="10" y1="14" x2="21" y2="3"/>
+                        </svg>
                         Open
                     </button>
                     {% elif not nginx_installed %}
                     <button class="btn-open-service disabled" disabled>
-                        <span class="icon">🔒</span>
+                        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+                            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                        </svg>
                         Nginx Required
                     </button>
                     {% else %}
                     <button class="btn-open-service disabled" disabled>
-                        <span class="icon">⏸️</span>
+                        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="6" y="4" width="4" height="16"/>
+                            <rect x="14" y="4" width="4" height="16"/>
+                        </svg>
                         Service Stopped
                     </button>
                     {% endif %}
@@ -75,7 +96,12 @@
         </div>
         {% else %}
         <div class="no-services">
-            <div class="no-services-icon">🔌</div>
+            <div class="no-services-icon">
+                <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 2v10"/>
+                    <path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>
+                </svg>
+            </div>
             <h3>No Services Yet</h3>
             <p>Services will appear here after Cockpit or other services are installed.</p>
         </div>
@@ -91,7 +117,11 @@
             <span class="frame-subtitle">Press ESC to close</span>
         </div>
         <button class="btn-close-frame" onclick="closeFrame()">
-            ✕ Close
+            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+            </svg>
+            Close
         </button>
     </div>
     <div class="frame-loading" id="frame-loading">

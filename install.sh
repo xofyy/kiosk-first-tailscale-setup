@@ -620,9 +620,6 @@ if [[ ! -f "$KIOSK_HOME/.config/openbox/rc.xml" ]]; then
     <keybind key="C-S-n"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="C-S-j"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="C-S-i"><action name="Execute"><command>/bin/true</command></action></keybind>
-
-    <!-- Block Alt+F4 -->
-    <keybind key="A-F4"><action name="Execute"><command>/bin/true</command></action></keybind>
   </keyboard>
 
   <applications>

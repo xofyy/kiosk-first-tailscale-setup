@@ -25,6 +25,16 @@
     gap: 0.75rem;
 }
 
+.services-header h2 svg {
+    width: 24px;
+    height: 24px;
+    stroke: var(--color-primary);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
+}
+
 .services-header p {
     margin: 0.5rem 0 0 0;
     color: var(--text-secondary);
@@ -52,8 +62,13 @@
 }
 
 .nginx-warning .warning-icon {
-    font-size: 2rem;
     flex-shrink: 0;
+    color: var(--color-warning);
+}
+
+.nginx-warning .warning-icon svg {
+    width: 32px;
+    height: 32px;
 }
 
 .nginx-warning .warning-content h3 {
@@ -235,8 +250,14 @@
     box-shadow: none;
 }
 
-.btn-open-service .icon {
-    font-size: 1.2rem;
+.btn-open-service svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
 }
 
 /* Empty State */
@@ -253,9 +274,14 @@
 }
 
 .no-services-icon {
-    font-size: 4rem;
     margin-bottom: 1.5rem;
     opacity: 0.4;
+    color: var(--text-secondary);
+}
+
+.no-services-icon svg {
+    width: 64px;
+    height: 64px;
 }
 
 .no-services h3 {
@@ -335,6 +361,16 @@
     transition: all 0.2s ease;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+}
+
+.btn-close-frame svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    stroke-width: 2.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    fill: none;
 }
 
 .btn-close-frame:hover {
