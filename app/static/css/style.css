@@ -1065,13 +1065,26 @@ body {
 
 .rvm-id-form {
     display: flex;
+    flex-wrap: wrap;
     gap: var(--spacing-md);
-    align-items: flex-end;
+    align-items: flex-start;
     margin-top: var(--spacing-md);
 }
 
 .rvm-id-form .form-group {
     flex: 1;
+    min-width: 200px;
+}
+
+.rvm-id-form .form-group small {
+    display: block;
+    margin-top: var(--spacing-xs);
+}
+
+.rvm-id-form > button {
+    padding: var(--spacing-md) var(--spacing-lg);
+    font-size: var(--font-size-lg);
+    align-self: flex-start;
 }
 
 .rvm-id-form .form-control-lg {
@@ -1105,6 +1118,11 @@ body {
     text-transform: uppercase;
     letter-spacing: 1px;
     font-weight: 500;
+}
+
+.rvm-id-edit .rvm-id-form > button {
+    padding: var(--spacing-sm) var(--spacing-md);
+    align-self: flex-start;
 }
 
 /* =============================================================================
