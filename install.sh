@@ -576,14 +576,55 @@ if [[ ! -f "$KIOSK_HOME/.config/openbox/rc.xml" ]]; then
 <?xml version="1.0" encoding="UTF-8"?>
 <openbox_config xmlns="http://openbox.org/3.4/rc">
   <keyboard>
+    <!-- ========== Kiosk Shortcuts ========== -->
+
     <!-- Panel/Kiosk Toggle: F10 -->
     <keybind key="F10">
       <action name="Execute">
         <command>/usr/local/bin/toggle-panel-kiosk.sh</command>
       </action>
     </keybind>
+
+    <!-- ========== Block Browser Shortcuts ========== -->
+
+    <!-- Block F1-F9, F11-F12 (F10 is toggle) -->
+    <keybind key="F1"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F2"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F3"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F4"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F5"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F6"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F7"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F8"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F9"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F11"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F12"><action name="Execute"><command>/bin/true</command></action></keybind>
+
+    <!-- Block Ctrl combinations -->
+    <keybind key="C-t"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-n"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-w"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-h"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-j"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-p"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-s"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-u"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-o"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-g"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-f"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-d"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-r"><action name="Execute"><command>/bin/true</command></action></keybind>
+
+    <!-- Block Ctrl+Shift combinations -->
+    <keybind key="C-S-t"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-S-n"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-S-j"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="C-S-i"><action name="Execute"><command>/bin/true</command></action></keybind>
+
+    <!-- Block Alt+F4 -->
+    <keybind key="A-F4"><action name="Execute"><command>/bin/true</command></action></keybind>
   </keyboard>
-  
+
   <applications>
     <application class="*">
       <decor>no</decor>

@@ -166,13 +166,14 @@ def get_kiosk_id():
 
 @api_bp.route('/kiosk-id', methods=['POST'])
 def set_kiosk_id():
-    """Set Kiosk ID (first entry only)"""
+    """Set or update Kiosk ID (blocked after Tailscale installation)"""
     config.reload()  # Multi-worker sync
-    # Block if already set
-    if config.get_kiosk_id():
+
+    # Block if Tailscale is already installed (hostname is locked)
+    if config.get_module_status('tailscale') == 'completed':
         return jsonify({
-            'success': False, 
-            'error': 'Kiosk ID already set'
+            'success': False,
+            'error': 'Cannot change Kiosk ID after Tailscale installation'
         }), 400
     
     data = request.get_json()

@@ -478,6 +478,12 @@ body {
     padding: var(--spacing-sm);
 }
 
+.btn-sm {
+    padding: var(--spacing-xs) var(--spacing-md);
+    font-size: var(--font-size-sm);
+    min-height: auto;
+}
+
 /* =============================================================================
    Forms
    ============================================================================= */
@@ -1073,6 +1079,32 @@ body {
     padding: var(--spacing-md);
     text-transform: uppercase;
     letter-spacing: 2px;
+}
+
+.kiosk-id-display .btn-icon {
+    margin-left: auto;
+    opacity: 0.6;
+    transition: var(--transition);
+}
+
+.kiosk-id-display .btn-icon:hover {
+    opacity: 1;
+    color: var(--color-primary);
+}
+
+.kiosk-id-edit {
+    background: var(--color-bg-secondary);
+    border-radius: var(--border-radius);
+}
+
+.kiosk-id-edit .kiosk-id-form {
+    margin-top: 0;
+}
+
+.kiosk-id-edit .kiosk-id-form .form-control {
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 500;
 }
 
 /* =============================================================================

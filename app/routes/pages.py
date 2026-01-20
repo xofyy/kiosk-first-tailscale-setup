@@ -22,9 +22,13 @@ def home():
     system = SystemService()
     system_info = system.get_system_info_fast()
 
+    # Check if Tailscale is installed (for kiosk_id edit permission)
+    tailscale_completed = config.get_module_status('tailscale') == 'completed'
+
     return render_template(
         'home.html',
-        system_info=system_info
+        system_info=system_info,
+        tailscale_completed=tailscale_completed
     )
 
 
