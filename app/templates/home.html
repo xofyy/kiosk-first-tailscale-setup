@@ -108,7 +108,7 @@
             <div class="connection-card">
                 <div class="connection-icon">🔗</div>
                 <div class="connection-info">
-                    <span class="connection-label">Tailscale IP</span>
+                    <span class="connection-label">Remote Connection IP</span>
                     <span class="connection-value" id="conn-tailscale">{{ system_info.tailscale_ip or 'Not connected' }}</span>
                 </div>
             </div>
@@ -163,6 +163,105 @@
                 <span class="mode-indicator" id="mode-dhcp" style="display: none;">
                     <span class="indicator-dot"></span> DHCP Active
                 </span>
+            </div>
+        </div>
+    </section>
+
+    <!-- Component Status -->
+    <section class="section component-status-section">
+        <h2 class="section-title">System Components</h2>
+
+        <div class="component-grid">
+            <!-- Docker -->
+            <div class="component-card {% if components.docker.ok %}component-ok{% else %}component-error{% endif %}">
+                <div class="component-header">
+                    <span class="component-icon">🐳</span>
+                    <span class="component-name">{{ components.docker.label }}</span>
+                </div>
+                <div class="component-status">
+                    {% if components.docker.ok %}
+                    <span class="status-indicator ok"></span>
+                    <span>Running</span>
+                    {% else %}
+                    <span class="status-indicator error"></span>
+                    <span>Stopped</span>
+                    {% endif %}
+                </div>
+                {% if components.docker.version %}
+                <div class="component-detail">v{{ components.docker.version }}</div>
+                {% endif %}
+            </div>
+
+            <!-- MongoDB -->
+            <div class="component-card {% if components.mongodb.ok %}component-ok{% else %}component-error{% endif %}">
+                <div class="component-header">
+                    <span class="component-icon">🍃</span>
+                    <span class="component-name">{{ components.mongodb.label }}</span>
+                </div>
+                <div class="component-status">
+                    {% if components.mongodb.ok %}
+                    <span class="status-indicator ok"></span>
+                    <span>Running</span>
+                    {% else %}
+                    <span class="status-indicator error"></span>
+                    <span>Stopped</span>
+                    {% endif %}
+                </div>
+                {% if components.mongodb.info %}
+                <div class="component-detail">{{ components.mongodb.info }}</div>
+                {% endif %}
+            </div>
+
+            <!-- Remote Connection (Tailscale) -->
+            <div class="component-card {% if components.tailscale.ok %}component-ok{% elif components.tailscale.status == 'not_enrolled' %}component-pending{% else %}component-error{% endif %}">
+                <div class="component-header">
+                    <span class="component-icon">🔗</span>
+                    <span class="component-name">{{ components.tailscale.label }}</span>
+                </div>
+                <div class="component-status">
+                    {% if components.tailscale.ok %}
+                    <span class="status-indicator ok"></span>
+                    <span>Connected</span>
+                    {% elif components.tailscale.status == 'disconnected' %}
+                    <span class="status-indicator error"></span>
+                    <span>Disconnected</span>
+                    {% else %}
+                    <span class="status-indicator pending"></span>
+                    <span>Not Enrolled</span>
+                    {% endif %}
+                </div>
+                {% if components.tailscale.ip %}
+                <div class="component-detail">{{ components.tailscale.ip }}</div>
+                {% endif %}
+            </div>
+
+            <!-- NVIDIA -->
+            <div class="component-card {% if components.nvidia.ok %}component-ok{% elif components.nvidia.status in ['mok_pending', 'reboot_required'] %}component-warning{% elif components.nvidia.status == 'not_installed' %}component-pending{% else %}component-error{% endif %}">
+                <div class="component-header">
+                    <span class="component-icon">🎮</span>
+                    <span class="component-name">{{ components.nvidia.label }}</span>
+                </div>
+                <div class="component-status">
+                    {% if components.nvidia.ok %}
+                    <span class="status-indicator ok"></span>
+                    <span>Working</span>
+                    {% elif components.nvidia.status == 'mok_pending' %}
+                    <span class="status-indicator warning"></span>
+                    <span>MOK Pending</span>
+                    {% elif components.nvidia.status == 'reboot_required' %}
+                    <span class="status-indicator warning"></span>
+                    <span>Reboot Required</span>
+                    {% elif components.nvidia.status == 'not_working' %}
+                    <span class="status-indicator error"></span>
+                    <span>Not Working</span>
+                    {% else %}
+                    <span class="status-indicator pending"></span>
+                    <span>Not Installed</span>
+                    {% endif %}
+                </div>
+                {% if components.nvidia.version %}
+                <div class="component-detail">Driver {{ components.nvidia.version }}</div>
+                {% endif %}
             </div>
         </div>
     </section>

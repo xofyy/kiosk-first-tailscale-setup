@@ -40,6 +40,30 @@ sudo bash install.sh
 curl -sSL https://raw.githubusercontent.com/xofyy/kiosk-first-tailscale-setup/main/install.sh | sudo bash
 ```
 
+## Upgrade
+
+To upgrade an existing installation to the latest version:
+
+```bash
+# Check for updates
+sudo bash upgrade.sh --check
+
+# Interactive upgrade
+sudo bash upgrade.sh
+
+# Force upgrade without confirmation
+sudo bash upgrade.sh --force
+
+# Rollback to previous version
+sudo bash upgrade.sh --rollback
+```
+
+The upgrade script:
+- Creates automatic backups before upgrading
+- Updates only app files, scripts, and dependencies
+- Preserves MongoDB data, UFW rules, and system configuration
+- Keeps the last 5 backups for rollback
+
 ## Components Installed Automatically via install.sh
 
 | Component | Description |
@@ -113,6 +137,8 @@ kiosk-first-tailscale-setup/
 │   ├── switch-to-*.sh          # Switch scripts
 │   └── display-init.sh         # Display settings
 ├── install.sh                  # Main installation script
+├── upgrade.sh                  # Upgrade script
+├── VERSION                     # Version file
 ├── requirements.txt            # Python dependencies
 └── README.md
 ```

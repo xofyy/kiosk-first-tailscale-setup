@@ -50,8 +50,49 @@
                     <span class="status-badge">Pending</span>
                     {% endif %}
 
-                    {% if module.name == 'nvidia' %}
-                    <div id="nvidia-mok-info"></div>
+                    {% if module.name == 'nvidia' and mok_info %}
+                    {% if mok_info.status == 'skipped' %}
+                    <div class="mok-info-box mok-error">
+                        <div class="mok-header">MOK Skipped - Driver Not Working</div>
+                        <div class="mok-content">
+                            <p>NVIDIA driver is not signed. You need to re-import MOK.</p>
+                            <div class="mok-password">
+                                <span>MOK Password:</span>
+                                <code>{{ mok_info.password or '--------' }}</code>
+                            </div>
+                            <div class="mok-steps">
+                                <strong>After re-import:</strong>
+                                <ol>
+                                    <li>System will reboot</li>
+                                    <li>Select "Enroll MOK" on blue screen</li>
+                                    <li>Enter the password above</li>
+                                </ol>
+                            </div>
+                            <button class="btn btn-warning btn-sm" onclick="reimportMok()">
+                                Re-import MOK
+                            </button>
+                        </div>
+                    </div>
+                    {% elif mok_info.status == 'pending' %}
+                    <div class="mok-info-box mok-pending">
+                        <div class="mok-header">MOK Enrollment Required</div>
+                        <div class="mok-content">
+                            <div class="mok-password">
+                                <span>MOK Password:</span>
+                                <code>{{ mok_info.password or '--------' }}</code>
+                            </div>
+                            <div class="mok-steps">
+                                <strong>After reboot:</strong>
+                                <ol>
+                                    <li>Select "Enroll MOK" on blue screen</li>
+                                    <li>Select "Continue" then "Yes"</li>
+                                    <li>Enter the password above</li>
+                                    <li>Select "Reboot"</li>
+                                </ol>
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
                     {% endif %}
                 </div>
 
@@ -67,12 +108,31 @@
                         Reboot
                     </button>
                     {% else %}
-                    <button class="btn btn-primary btn-install"
-                            data-module="{{ module.name }}"
-                            onclick="installModule('{{ module.name }}')"
-                            {% if not rvm_id and module.name == 'tailscale' %}disabled title="RVM ID required first"{% endif %}>
+                    {# Check if dependencies are met #}
+                    {% set deps_met = true %}
+                    {% set missing_deps = [] %}
+                    {% for dep in module.dependencies %}
+                        {% if module_statuses.get(dep) != 'completed' %}
+                            {% set deps_met = false %}
+                            {% set _ = missing_deps.append(dep) %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% if not deps_met %}
+                    <button class="btn btn-secondary" disabled title="Requires: {{ module.dependencies | join(', ') }}">
                         Install
                     </button>
+                    {% elif not rvm_id and module.name == 'remote-coonnection' %}
+                    <button class="btn btn-secondary" disabled title="RVM ID required first">
+                        Install
+                    </button>
+                    {% else %}
+                    <button class="btn btn-primary btn-install"
+                            data-module="{{ module.name }}"
+                            onclick="installModule('{{ module.name }}')">
+                        Install
+                    </button>
+                    {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -104,77 +164,6 @@
 <script>
     // Update progress on page load
     updateProgress();
-
-    // Check MOK status
-    checkMokStatus();
-
-    async function checkMokStatus() {
-        try {
-            const response = await fetch('/api/nvidia/mok-info');
-            if (!response.ok) return;
-
-            const data = await response.json();
-            const container = document.getElementById('nvidia-mok-info');
-            if (!container) return;
-
-            // MOK skipped - driver not working
-            if (data.status === 'skipped') {
-                container.innerHTML = `
-                    <div class="mok-info-box mok-error">
-                        <div class="mok-header">⚠️ MOK Skipped - Driver Not Working</div>
-                        <div class="mok-content">
-                            <p>NVIDIA driver is not signed. You need to re-import MOK.</p>
-                            <div class="mok-password">
-                                <span>MOK Password:</span>
-                                <code>${data.password || '--------'}</code>
-                            </div>
-                            <div class="mok-steps">
-                                <strong>After re-import:</strong>
-                                <ol>
-                                    <li>System will reboot</li>
-                                    <li>Select "Enroll MOK" on blue screen</li>
-                                    <li>Enter the password above</li>
-                                </ol>
-                            </div>
-                            <button class="btn btn-warning btn-sm" onclick="reimportMok()">
-                                Re-import MOK
-                            </button>
-                        </div>
-                    </div>
-                `;
-            }
-            // MOK pending - waiting for enrollment
-            else if (data.status === 'pending') {
-                container.innerHTML = `
-                    <div class="mok-info-box mok-pending">
-                        <div class="mok-header">🔐 MOK Enrollment Required</div>
-                        <div class="mok-content">
-                            <div class="mok-password">
-                                <span>MOK Password:</span>
-                                <code>${data.password || '--------'}</code>
-                            </div>
-                            <div class="mok-steps">
-                                <strong>After reboot:</strong>
-                                <ol>
-                                    <li>Select "Enroll MOK" on blue screen</li>
-                                    <li>Select "Continue" → "Yes"</li>
-                                    <li>Enter the password above</li>
-                                    <li>Select "Reboot"</li>
-                                </ol>
-                            </div>
-                        </div>
-                    </div>
-                `;
-            }
-            // MOK enrolled and NVIDIA working
-            else if (data.status === 'enrolled' && data.nvidia_working) {
-                container.innerHTML = '';
-            }
-
-        } catch (error) {
-            console.log('MOK check error:', error);
-        }
-    }
 
     async function reimportMok() {
         if (!confirm('MOK will be re-imported and system will reboot. Continue?')) {

@@ -418,3 +418,196 @@ class SystemService:
         """Find dhclient binary"""
         paths = ['/sbin/dhclient', '/usr/sbin/dhclient']
         return next((p for p in paths if os.path.exists(p)), None)
+
+    def get_component_statuses(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Get status of all system components for dashboard.
+        Returns dict with status info for each component.
+        """
+        return {
+            'docker': self._check_docker_status(),
+            'mongodb': self._check_mongodb_status(),
+            'nvidia': self._check_nvidia_status(),
+            'tailscale': self._check_tailscale_status(),
+        }
+
+    def _check_docker_status(self) -> Dict[str, Any]:
+        """Check Docker service status"""
+        try:
+            # Check if Docker service is running
+            result = subprocess.run(
+                ['systemctl', 'is-active', 'docker'],
+                capture_output=True, text=True, timeout=5
+            )
+            is_running = result.stdout.strip() == 'active'
+
+            # Get Docker version if running
+            version = None
+            if is_running:
+                ver_result = subprocess.run(
+                    ['docker', '--version'],
+                    capture_output=True, text=True, timeout=5
+                )
+                if ver_result.returncode == 0:
+                    # "Docker version 24.0.5, build ..."
+                    parts = ver_result.stdout.strip().split()
+                    if len(parts) >= 3:
+                        version = parts[2].rstrip(',')
+
+            return {
+                'status': 'running' if is_running else 'stopped',
+                'ok': is_running,
+                'version': version,
+                'label': 'Docker'
+            }
+        except Exception as e:
+            logger.debug(f"Docker check error: {e}")
+            return {'status': 'error', 'ok': False, 'version': None, 'label': 'Docker'}
+
+    def _check_mongodb_status(self) -> Dict[str, Any]:
+        """Check MongoDB container status"""
+        try:
+            # Check if MongoDB container is running (try multiple container names)
+            is_running = False
+            container_names = ['local_database', 'mongodb', 'mongo']
+
+            for name in container_names:
+                result = subprocess.run(
+                    ['docker', 'ps', '--filter', f'name={name}', '--format', '{{.Status}}'],
+                    capture_output=True, text=True, timeout=10
+                )
+                status_output = result.stdout.strip()
+                if status_output and 'Up' in status_output:
+                    is_running = True
+                    break
+
+            # If not found by name, try by image
+            if not is_running:
+                result = subprocess.run(
+                    ['docker', 'ps', '--filter', 'ancestor=mongo', '--format', '{{.Status}}'],
+                    capture_output=True, text=True, timeout=10
+                )
+                status_output = result.stdout.strip()
+                is_running = 'Up' in status_output if status_output else False
+
+            return {
+                'status': 'running' if is_running else 'stopped',
+                'ok': is_running,
+                'info': 'Container' if is_running else None,
+                'label': 'MongoDB'
+            }
+        except Exception as e:
+            logger.debug(f"MongoDB check error: {e}")
+            return {'status': 'error', 'ok': False, 'info': None, 'label': 'MongoDB'}
+
+    def _check_nvidia_status(self) -> Dict[str, Any]:
+        """Check NVIDIA driver status"""
+        from app.modules.base import mongo_config as config
+
+        try:
+            # Get module status from MongoDB
+            module_status = config.get_module_status('nvidia')
+
+            # Check if nvidia-smi works
+            nvidia_working = False
+            driver_version = None
+            gpu_name = None
+
+            result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=driver_version,name', '--format=csv,noheader,nounits'],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                nvidia_working = True
+                parts = result.stdout.strip().split(', ')
+                if len(parts) >= 1:
+                    driver_version = parts[0]
+                if len(parts) >= 2:
+                    gpu_name = parts[1]
+
+            # Determine display status
+            if module_status == 'completed' and nvidia_working:
+                status = 'working'
+                ok = True
+            elif module_status == 'mok_pending':
+                status = 'mok_pending'
+                ok = False
+            elif module_status == 'reboot_required':
+                status = 'reboot_required'
+                ok = False
+            elif module_status == 'completed' and not nvidia_working:
+                status = 'not_working'
+                ok = False
+            else:
+                status = 'not_installed'
+                ok = False
+
+            return {
+                'status': status,
+                'ok': ok,
+                'version': driver_version,
+                'gpu': gpu_name,
+                'module_status': module_status,
+                'label': 'NVIDIA'
+            }
+        except Exception as e:
+            logger.debug(f"NVIDIA check error: {e}")
+            return {'status': 'not_installed', 'ok': False, 'version': None, 'gpu': None, 'label': 'NVIDIA'}
+
+    def _check_tailscale_status(self) -> Dict[str, Any]:
+        """Check Tailscale connection status"""
+        from app.modules.base import mongo_config as config
+
+        try:
+            # Get module status from MongoDB
+            module_status = config.get_module_status('remote-coonnection')
+
+            # Check if Tailscale is connected
+            is_connected = False
+            tailscale_ip = None
+
+            result = subprocess.run(
+                ['tailscale', 'status', '--json'],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                try:
+                    status_json = json.loads(result.stdout)
+                    backend_state = status_json.get('BackendState', '')
+                    is_connected = backend_state == 'Running'
+
+                    # Get Tailscale IP
+                    if is_connected:
+                        tailscale_ips = status_json.get('TailscaleIPs', [])
+                        if tailscale_ips:
+                            # Prefer IPv4
+                            for ip in tailscale_ips:
+                                if '.' in ip:
+                                    tailscale_ip = ip
+                                    break
+                            if not tailscale_ip:
+                                tailscale_ip = tailscale_ips[0]
+                except json.JSONDecodeError:
+                    pass
+
+            # Determine display status
+            if module_status == 'completed' and is_connected:
+                status = 'connected'
+                ok = True
+            elif module_status == 'completed' and not is_connected:
+                status = 'disconnected'
+                ok = False
+            else:
+                status = 'not_enrolled'
+                ok = False
+
+            return {
+                'status': status,
+                'ok': ok,
+                'ip': tailscale_ip,
+                'module_status': module_status,
+                'label': 'Remote Connection'
+            }
+        except Exception as e:
+            logger.debug(f"Tailscale check error: {e}")
+            return {'status': 'not_installed', 'ok': False, 'ip': None, 'label': 'Remote Connection'}

@@ -147,5 +147,78 @@
     if (autoRefresh.checked) {
         startAutoRefresh();
     }
+
+    // =============================================================================
+    // Module Status Polling (redirect when installation completes)
+    // =============================================================================
+
+    let statusInterval = null;
+
+    async function checkModuleStatus() {
+        // Only check if viewing a specific module
+        if (!currentModule) return;
+
+        try {
+            const response = await fetch(`/api/modules/${currentModule}/status`);
+            const data = await response.json();
+
+            // If status is not 'installing', redirect to install page
+            if (data.status && data.status !== 'installing') {
+                // Stop polling
+                stopStatusPolling();
+                stopAutoRefresh();
+
+                // Show toast if available
+                if (typeof showToast === 'function') {
+                    const messages = {
+                        'completed': `${currentModule} installation completed`,
+                        'failed': `${currentModule} installation failed`,
+                        'reboot_required': 'Reboot required',
+                        'mok_pending': 'MOK enrollment required'
+                    };
+                    showToast(messages[data.status] || 'Installation finished',
+                              data.status === 'completed' ? 'success' : 'warning');
+                }
+
+                // Redirect to install page after a short delay
+                setTimeout(() => {
+                    window.location.href = '/install';
+                }, 1500);
+            }
+        } catch (error) {
+            console.warn('Status check error:', error);
+        }
+    }
+
+    function startStatusPolling() {
+        if (statusInterval || !currentModule) return;
+        statusInterval = setInterval(() => {
+            if (document.hidden) return;
+            checkModuleStatus();
+        }, 3000);
+        // Check immediately
+        checkModuleStatus();
+    }
+
+    function stopStatusPolling() {
+        if (statusInterval) {
+            clearInterval(statusInterval);
+            statusInterval = null;
+        }
+    }
+
+    // Start status polling if viewing a module
+    if (currentModule) {
+        startStatusPolling();
+    }
+
+    // Handle visibility changes for status polling
+    document.addEventListener('visibilitychange', () => {
+        if (document.hidden) {
+            stopStatusPolling();
+        } else if (currentModule) {
+            startStatusPolling();
+        }
+    });
 </script>
 {% endblock %}

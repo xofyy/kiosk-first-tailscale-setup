@@ -1310,3 +1310,121 @@ body {
     background: var(--color-primary);
     border-radius: 50%;
 }
+
+/* =============================================================================
+   Component Status Cards
+   ============================================================================= */
+
+.component-status-section {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-lg);
+}
+
+.component-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
+}
+
+@media (max-width: 900px) {
+    .component-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 500px) {
+    .component-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.component-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    text-align: center;
+    transition: all 0.2s ease;
+}
+
+.component-card.component-ok {
+    border-color: var(--color-primary);
+    background: rgba(34, 165, 95, 0.08);
+}
+
+.component-card.component-warning {
+    border-color: var(--color-warning);
+    background: rgba(234, 179, 8, 0.08);
+}
+
+.component-card.component-error {
+    border-color: var(--color-error);
+    background: rgba(239, 68, 68, 0.08);
+}
+
+.component-card.component-pending {
+    border-color: var(--color-border);
+    background: var(--color-bg-secondary);
+}
+
+.component-header {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-sm);
+}
+
+.component-icon {
+    font-size: 1.5rem;
+}
+
+.component-name {
+    font-weight: 600;
+    font-size: var(--font-size-base);
+    color: var(--color-text-primary);
+}
+
+.component-status {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+    color: var(--color-text-secondary);
+    margin-bottom: var(--spacing-xs);
+}
+
+.status-indicator {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+}
+
+.status-indicator.ok {
+    background: var(--color-primary);
+    box-shadow: 0 0 6px var(--color-primary);
+}
+
+.status-indicator.warning {
+    background: var(--color-warning);
+    box-shadow: 0 0 6px var(--color-warning);
+}
+
+.status-indicator.error {
+    background: var(--color-error);
+    box-shadow: 0 0 6px var(--color-error);
+}
+
+.status-indicator.pending {
+    background: var(--color-text-muted);
+}
+
+.component-detail {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-top: var(--spacing-xs);
+}

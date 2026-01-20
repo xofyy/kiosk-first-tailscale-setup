@@ -22,11 +22,11 @@ APPROVAL_TIMEOUT = 300  # 5 minutes
 
 @register_module
 class TailscaleModule(BaseModule):
-    name = "tailscale"
-    display_name = "Tailscale"
-    description = "Tailscale VPN setup and Enrollment registration"
-    order = 2
-    dependencies = []  # Can be installed independently from NVIDIA
+    name = "remote-coonnection"
+    display_name = "Remote Connection"
+    description = "Remote connection setup and Enrollment registration"
+    order = 1
+    dependencies = []  # First module - VPN connection required before other modules
 
     def _check_prerequisites(self) -> Tuple[bool, str]:
         """Check internet and enrollment requirements"""
@@ -51,8 +51,16 @@ class TailscaleModule(BaseModule):
         return result.returncode == 0
 
     def install(self) -> Tuple[bool, str]:
-        """Tailscale installation"""
+        """
+        Tailscale installation.
+        Idempotent - skips if already connected to Headscale.
+        """
         try:
+            # 0. Already connected check (idempotent)
+            if self._is_tailscale_connected():
+                self.logger.info("Tailscale already connected, skipping installation")
+                return True, "Tailscale already connected"
+
             # 1. Generate Hardware ID
             hardware = HardwareService()
             hardware_id = hardware.get_hardware_id()
@@ -184,6 +192,7 @@ class TailscaleModule(BaseModule):
         """
         Security configuration after Tailscale connection.
         UFW rules, SSH config and fail2ban settings.
+        Idempotent - skips if already configured.
         Returns (success, error_message)
         """
         self.logger.info("Starting security configuration...")
@@ -195,7 +204,13 @@ class TailscaleModule(BaseModule):
                 self.logger.error("UFW is not installed!")
                 return False, "UFW is not installed. Run install.sh first."
 
-            # 2. UFW configuration (from scratch)
+            # 2. Check if already configured (idempotent)
+            ufw_status = self.run_shell('/usr/sbin/ufw status', check=False)
+            if 'tailscale0' in ufw_status.stdout and 'Status: active' in ufw_status.stdout:
+                self.logger.info("UFW already configured with tailscale0 rules, skipping")
+                return True, ""
+
+            # 3. UFW configuration (from scratch)
             self.logger.info("Configuring UFW...")
 
             # Reset first

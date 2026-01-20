@@ -22,27 +22,43 @@ def home():
     system = SystemService()
     system_info = system.get_system_info_fast()
 
-    # Check if Tailscale is installed (for rvm_id edit permission)
-    tailscale_completed = config.get_module_status('tailscale') == 'completed'
+    # Check if Tailscale/Remote Connection is completed (for rvm_id edit permission)
+    tailscale_completed = config.get_module_status('remote-coonnection') == 'completed'
+
+    # Get component statuses for dashboard
+    component_statuses = system.get_component_statuses()
 
     return render_template(
         'home.html',
         system_info=system_info,
-        tailscale_completed=tailscale_completed
+        tailscale_completed=tailscale_completed,
+        components=component_statuses
     )
 
 
 @pages_bp.route('/install')
 def install():
     """Installation page - Module installations"""
+    from app.modules import get_module
+
     # Get module list
     modules = get_all_modules()
     module_statuses = config.get_all_module_statuses()
 
+    # Get MOK info for NVIDIA module (server-side render for faster display)
+    mok_info = None
+    nvidia_module = get_module('nvidia')
+    if nvidia_module:
+        try:
+            mok_info = nvidia_module.get_mok_info()
+        except Exception:
+            pass
+
     return render_template(
         'install.html',
         modules=modules,
-        module_statuses=module_statuses
+        module_statuses=module_statuses,
+        mok_info=mok_info
     )
 
 

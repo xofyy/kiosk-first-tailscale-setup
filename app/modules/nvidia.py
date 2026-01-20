@@ -26,8 +26,8 @@ class NvidiaModule(BaseModule):
     name = "nvidia"
     display_name = "NVIDIA Driver"
     description = "NVIDIA GPU driver installation, MOK key and GRUB configuration"
-    order = 1
-    dependencies = []  # First module, no dependencies
+    order = 2
+    dependencies = ['remote-coonnection']  # Requires Tailscale/Remote Connection first
 
     def _check_prerequisites(self) -> Tuple[bool, str]:
         """Check internet connection"""
@@ -93,7 +93,19 @@ class NvidiaModule(BaseModule):
         NVIDIA Container Toolkit installation.
         Required for GPU usage with Docker.
         Should be called after NVIDIA driver installation.
+        Idempotent - skips if already installed and configured.
         """
+        # Check if already installed and configured
+        ctk_exists = self.run_shell('which nvidia-ctk', check=False).returncode == 0
+        docker_configured = self.run_shell(
+            'docker info 2>/dev/null | grep -q "Runtimes.*nvidia"',
+            check=False
+        ).returncode == 0
+
+        if ctk_exists and docker_configured:
+            self.logger.info("Container Toolkit already installed and configured, skipping")
+            return True
+
         self.logger.info("Installing NVIDIA Container Toolkit...")
 
         try:
