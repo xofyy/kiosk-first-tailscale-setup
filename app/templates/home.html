@@ -180,10 +180,10 @@
                 </div>
                 <div class="component-status">
                     {% if components.docker.ok %}
-                    <span class="status-indicator ok"></span>
+                    <span class="component-status-dot ok"></span>
                     <span>Running</span>
                     {% else %}
-                    <span class="status-indicator error"></span>
+                    <span class="component-status-dot error"></span>
                     <span>Stopped</span>
                     {% endif %}
                 </div>
@@ -200,10 +200,10 @@
                 </div>
                 <div class="component-status">
                     {% if components.mongodb.ok %}
-                    <span class="status-indicator ok"></span>
+                    <span class="component-status-dot ok"></span>
                     <span>Running</span>
                     {% else %}
-                    <span class="status-indicator error"></span>
+                    <span class="component-status-dot error"></span>
                     <span>Stopped</span>
                     {% endif %}
                 </div>
@@ -220,13 +220,13 @@
                 </div>
                 <div class="component-status">
                     {% if components.tailscale.ok %}
-                    <span class="status-indicator ok"></span>
+                    <span class="component-status-dot ok"></span>
                     <span>Connected</span>
                     {% elif components.tailscale.status == 'disconnected' %}
-                    <span class="status-indicator error"></span>
+                    <span class="component-status-dot error"></span>
                     <span>Disconnected</span>
                     {% else %}
-                    <span class="status-indicator pending"></span>
+                    <span class="component-status-dot pending"></span>
                     <span>Not Enrolled</span>
                     {% endif %}
                 </div>
@@ -243,19 +243,19 @@
                 </div>
                 <div class="component-status">
                     {% if components.nvidia.ok %}
-                    <span class="status-indicator ok"></span>
+                    <span class="component-status-dot ok"></span>
                     <span>Working</span>
                     {% elif components.nvidia.status == 'mok_pending' %}
-                    <span class="status-indicator warning"></span>
+                    <span class="component-status-dot warning"></span>
                     <span>MOK Pending</span>
                     {% elif components.nvidia.status == 'reboot_required' %}
-                    <span class="status-indicator warning"></span>
+                    <span class="component-status-dot warning"></span>
                     <span>Reboot Required</span>
                     {% elif components.nvidia.status == 'not_working' %}
-                    <span class="status-indicator error"></span>
+                    <span class="component-status-dot error"></span>
                     <span>Not Working</span>
                     {% else %}
-                    <span class="status-indicator pending"></span>
+                    <span class="component-status-dot pending"></span>
                     <span>Not Installed</span>
                     {% endif %}
                 </div>
