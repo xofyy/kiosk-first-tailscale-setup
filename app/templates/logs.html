@@ -50,6 +50,10 @@
     // Current module
     let currentModule = '{{ current_module }}';
 
+    // Check if redirected from install page (for auto-redirect behavior)
+    const urlParams = new URLSearchParams(window.location.search);
+    const fromInstall = urlParams.get('from') === 'install';
+
     // Scroll on page load
     if (autoScroll.checked) {
         container.scrollTop = container.scrollHeight;
@@ -155,8 +159,8 @@
     let statusInterval = null;
 
     async function checkModuleStatus() {
-        // Only check if viewing a specific module
-        if (!currentModule) return;
+        // Only check if viewing a specific module AND came from install page
+        if (!currentModule || !fromInstall) return;
 
         try {
             const response = await fetch(`/api/modules/${currentModule}/status`);
@@ -191,7 +195,8 @@
     }
 
     function startStatusPolling() {
-        if (statusInterval || !currentModule) return;
+        // Only poll if came from install page
+        if (statusInterval || !currentModule || !fromInstall) return;
         statusInterval = setInterval(() => {
             if (document.hidden) return;
             checkModuleStatus();
@@ -207,8 +212,9 @@
         }
     }
 
-    // Start status polling if viewing a module
-    if (currentModule) {
+    // Start status polling ONLY if redirected from install page
+    // (not when manually navigating to logs and selecting a module)
+    if (currentModule && fromInstall) {
         startStatusPolling();
     }
 
@@ -216,7 +222,7 @@
     document.addEventListener('visibilitychange', () => {
         if (document.hidden) {
             stopStatusPolling();
-        } else if (currentModule) {
+        } else if (currentModule && fromInstall) {
             startStatusPolling();
         }
     });

@@ -36,8 +36,8 @@ async function installModule(moduleName) {
         if (result.success) {
             showToast(result.message || 'Installation started', 'success');
 
-            // Open log page in new tab (with module filter)
-            window.open(`/logs?module=${moduleName}`, '_blank');
+            // Open log page in new tab (with module filter and install source flag)
+            window.open(`/logs?module=${moduleName}&from=install`, '_blank');
 
             // Start polling
             startModulePolling(moduleName);
