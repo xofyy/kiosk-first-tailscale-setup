@@ -543,11 +543,14 @@ def set_network_ip():
                 ['nmcli', 'connection', 'up', connection_name]
             ]
 
-        for cmd in cmds:
-            result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
-            if result.returncode != 0:
-                logger.error(f"nmcli error: {result.stderr}")
-                return jsonify({'success': False, 'error': result.stderr or 'nmcli error'}), 500
+        # Run modify command (blocking - need to verify success)
+        result = subprocess.run(cmds[0], capture_output=True, text=True, timeout=10)
+        if result.returncode != 0:
+            logger.error(f"nmcli modify error: {result.stderr}")
+            return jsonify({'success': False, 'error': result.stderr or 'nmcli error'}), 500
+
+        # Run connection up (non-blocking - don't wait for IP change)
+        subprocess.Popen(cmds[1])
 
         msg = 'Default IP (5.5.5.55) set' if mode == 'default' else 'DHCP enabled'
         logger.info(msg)
