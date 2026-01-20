@@ -238,17 +238,17 @@ download_and_extract() {
     local temp_dir=$(mktemp -d)
     local archive_url="https://github.com/$GITHUB_REPO/archive/refs/heads/main.tar.gz"
 
-    log_info "Downloading latest version..."
+    log_info "Downloading latest version..." >&2
 
     if ! curl -sL "$archive_url" -o "$temp_dir/latest.tar.gz"; then
-        log_error "Failed to download from GitHub"
+        log_error "Failed to download from GitHub" >&2
         rm -rf "$temp_dir"
         return 1
     fi
 
-    log_info "Extracting..."
+    log_info "Extracting..." >&2
     if ! tar -xzf "$temp_dir/latest.tar.gz" -C "$temp_dir"; then
-        log_error "Failed to extract archive"
+        log_error "Failed to extract archive" >&2
         rm -rf "$temp_dir"
         return 1
     fi
@@ -257,7 +257,7 @@ download_and_extract() {
     local extracted_dir=$(find "$temp_dir" -maxdepth 1 -type d -name "kiosk-*" | head -1)
 
     if [[ -z "$extracted_dir" ]]; then
-        log_error "Could not find extracted directory"
+        log_error "Could not find extracted directory" >&2
         rm -rf "$temp_dir"
         return 1
     fi
