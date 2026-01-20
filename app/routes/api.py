@@ -136,6 +136,14 @@ def shutdown_system():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@api_bp.route('/system/components')
+def system_components():
+    """Return system component statuses (Docker, MongoDB, Tailscale, NVIDIA)"""
+    system = SystemService()
+    components = system.get_component_statuses()
+    return jsonify(components)
+
+
 # =============================================================================
 # HARDWARE API
 # =============================================================================

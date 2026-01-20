@@ -83,6 +83,28 @@ function showToast(message, type = 'info') {
 
 let isCheckingInternet = false; // Prevent overlap
 
+// Cached DOM elements (populated on first use)
+const domCache = {
+    statusDot: null,
+    statusText: null,
+    connInternet: null,
+    connDns: null,
+    connIp: null,
+    connTailscale: null,
+    _initialized: false
+};
+
+function initDomCache() {
+    if (domCache._initialized) return;
+    domCache.statusDot = document.querySelector('.status-dot');
+    domCache.statusText = document.querySelector('.status-text');
+    domCache.connInternet = document.getElementById('conn-internet');
+    domCache.connDns = document.getElementById('conn-dns');
+    domCache.connIp = document.getElementById('conn-ip');
+    domCache.connTailscale = document.getElementById('conn-tailscale');
+    domCache._initialized = true;
+}
+
 async function checkInternetStatus() {
     // Skip if already checking or browser is offline
     if (isCheckingInternet || !navigator.onLine) {
@@ -91,60 +113,55 @@ async function checkInternetStatus() {
     }
 
     isCheckingInternet = true;
+    initDomCache();
 
     try {
         const data = await api.get('/system/internet', 3000); // 3 second timeout
 
         // Update header status dot
-        const statusDot = document.querySelector('.status-dot');
-        const statusText = document.querySelector('.status-text');
-
-        if (statusDot && statusText) {
+        if (domCache.statusDot && domCache.statusText) {
             if (data.connected === null) {
                 // Cache not yet populated - updating in background
-                statusDot.classList.remove('online', 'offline');
-                statusText.textContent = 'Checking...';
+                domCache.statusDot.classList.remove('online', 'offline');
+                domCache.statusText.textContent = 'Checking...';
             } else if (data.connected) {
-                statusDot.classList.add('online');
-                statusDot.classList.remove('offline');
-                statusText.textContent = data.ip || 'Connected';
+                domCache.statusDot.classList.add('online');
+                domCache.statusDot.classList.remove('offline');
+                domCache.statusText.textContent = data.ip || 'Connected';
             } else {
-                statusDot.classList.add('offline');
-                statusDot.classList.remove('online');
-                statusText.textContent = 'No Connection';
+                domCache.statusDot.classList.add('offline');
+                domCache.statusDot.classList.remove('online');
+                domCache.statusText.textContent = 'No Connection';
             }
         }
 
         // Update connection grid badges
-        const connInternet = document.getElementById('conn-internet');
-        if (connInternet) {
+        if (domCache.connInternet) {
             if (data.connected === null) {
-                connInternet.innerHTML = '<span class="status-badge">Checking...</span>';
+                domCache.connInternet.innerHTML = '<span class="status-badge skeleton">Checking...</span>';
             } else {
-                connInternet.innerHTML = data.connected
+                domCache.connInternet.innerHTML = data.connected
                     ? '<span class="status-badge success">Connected</span>'
                     : '<span class="status-badge error">Not Connected</span>';
             }
         }
 
-        const connDns = document.getElementById('conn-dns');
-        if (connDns) {
+        if (domCache.connDns) {
             if (data.dns_working === null) {
-                connDns.innerHTML = '<span class="status-badge">Checking...</span>';
+                domCache.connDns.innerHTML = '<span class="status-badge skeleton">Checking...</span>';
             } else {
-                connDns.innerHTML = data.dns_working
+                domCache.connDns.innerHTML = data.dns_working
                     ? '<span class="status-badge success">Working</span>'
                     : '<span class="status-badge error">Error</span>';
             }
         }
 
         // Update IP address
-        const connIp = document.getElementById('conn-ip');
-        if (connIp) {
+        if (domCache.connIp) {
             if (data.ip === null) {
-                connIp.textContent = 'Checking...';
+                domCache.connIp.textContent = 'Checking...';
             } else {
-                connIp.textContent = data.ip || 'N/A';
+                domCache.connIp.textContent = data.ip || 'N/A';
             }
             // Update IP mode indicator if function exists (defined in home.html)
             if (typeof updateIpModeIndicator === 'function') {
@@ -153,12 +170,11 @@ async function checkInternetStatus() {
         }
 
         // Update Tailscale IP
-        const connTailscale = document.getElementById('conn-tailscale');
-        if (connTailscale) {
+        if (domCache.connTailscale) {
             if (data.tailscale_ip === null) {
-                connTailscale.textContent = 'Checking...';
+                domCache.connTailscale.textContent = 'Checking...';
             } else {
-                connTailscale.textContent = data.tailscale_ip || 'Not Connected';
+                domCache.connTailscale.textContent = data.tailscale_ip || 'Not Connected';
             }
         }
 
@@ -171,18 +187,16 @@ async function checkInternetStatus() {
 }
 
 function updateOfflineUI() {
-    const statusDot = document.querySelector('.status-dot');
-    const statusText = document.querySelector('.status-text');
+    initDomCache();
 
-    if (statusDot && statusText) {
-        statusDot.classList.add('offline');
-        statusDot.classList.remove('online');
-        statusText.textContent = 'Offline';
+    if (domCache.statusDot && domCache.statusText) {
+        domCache.statusDot.classList.add('offline');
+        domCache.statusDot.classList.remove('online');
+        domCache.statusText.textContent = 'Offline';
     }
 
-    const connInternet = document.getElementById('conn-internet');
-    if (connInternet) {
-        connInternet.innerHTML = '<span class="status-badge error">Offline</span>';
+    if (domCache.connInternet) {
+        domCache.connInternet.innerHTML = '<span class="status-badge error">Offline</span>';
     }
 }
 

@@ -28,7 +28,7 @@
 
     <!-- RVM ID Section -->
     <section class="section rvm-section">
-        <h2 class="section-title">RVM Identity</h2>
+        <h2 class="section-title" data-icon="config">RVM Identity</h2>
 
         {% if rvm_id %}
         <!-- Display Mode -->
@@ -78,7 +78,7 @@
 
     <!-- System Info -->
     <section class="section system-info-section">
-        <h2 class="section-title">System Information</h2>
+        <h2 class="section-title" data-icon="system">System Information</h2>
         <div class="system-info-grid">
             <div class="system-info-item">
                 <span class="system-info-label">Hostname</span>
@@ -101,7 +101,7 @@
 
     <!-- Connection Status -->
     <section class="section connection-section">
-        <h2 class="section-title">Connection Status</h2>
+        <h2 class="section-title" data-icon="connection">Connection Status</h2>
 
         <div class="connection-grid">
             <div class="connection-card">
@@ -110,7 +110,7 @@
                     <span class="connection-label">Internet</span>
                     <span class="connection-value" id="conn-internet">
                         {% if system_info.internet is none %}
-                        <span class="status-badge">Checking...</span>
+                        <span class="status-badge skeleton">Checking...</span>
                         {% elif system_info.internet %}
                         <span class="status-badge success">Connected</span>
                         {% else %}
@@ -134,7 +134,7 @@
                     <span class="connection-label">DNS</span>
                     <span class="connection-value" id="conn-dns">
                         {% if system_info.dns_working is none %}
-                        <span class="status-badge">Checking...</span>
+                        <span class="status-badge skeleton">Checking...</span>
                         {% elif system_info.dns_working %}
                         <span class="status-badge success">Working</span>
                         {% else %}
@@ -148,7 +148,7 @@
 
     <!-- IP Configuration -->
     <section class="section ip-section">
-        <h2 class="section-title">IP Configuration</h2>
+        <h2 class="section-title" data-icon="network">IP Configuration</h2>
 
         <div class="ip-config-buttons">
             <p class="text-muted">Quickly change network configuration:</p>
@@ -184,16 +184,16 @@
 
     <!-- Component Status -->
     <section class="section component-status-section">
-        <h2 class="section-title">System Components</h2>
+        <h2 class="section-title" data-icon="system">System Components</h2>
 
         <div class="component-grid">
             <!-- Docker -->
-            <div class="component-card {% if components.docker.ok %}component-ok{% else %}component-error{% endif %}">
+            <div class="component-card {% if components.docker.ok %}component-ok{% else %}component-error{% endif %}" id="component-docker">
                 <div class="component-header">
                     <span class="component-icon">🐳</span>
                     <span class="component-name">{{ components.docker.label }}</span>
                 </div>
-                <div class="component-status">
+                <div class="component-status" id="component-docker-status">
                     {% if components.docker.ok %}
                     <span class="component-status-dot ok"></span>
                     <span>Running</span>
@@ -202,18 +202,16 @@
                     <span>Stopped</span>
                     {% endif %}
                 </div>
-                {% if components.docker.version %}
-                <div class="component-detail">v{{ components.docker.version }}</div>
-                {% endif %}
+                <div class="component-detail" id="component-docker-detail">{% if components.docker.version %}v{{ components.docker.version }}{% endif %}</div>
             </div>
 
             <!-- MongoDB -->
-            <div class="component-card {% if components.mongodb.ok %}component-ok{% else %}component-error{% endif %}">
+            <div class="component-card {% if components.mongodb.ok %}component-ok{% else %}component-error{% endif %}" id="component-mongodb">
                 <div class="component-header">
                     <span class="component-icon">🍃</span>
                     <span class="component-name">{{ components.mongodb.label }}</span>
                 </div>
-                <div class="component-status">
+                <div class="component-status" id="component-mongodb-status">
                     {% if components.mongodb.ok %}
                     <span class="component-status-dot ok"></span>
                     <span>Running</span>
@@ -222,18 +220,16 @@
                     <span>Stopped</span>
                     {% endif %}
                 </div>
-                {% if components.mongodb.info %}
-                <div class="component-detail">{{ components.mongodb.info }}</div>
-                {% endif %}
+                <div class="component-detail" id="component-mongodb-detail">{{ components.mongodb.info or '' }}</div>
             </div>
 
             <!-- Remote Connection (Tailscale) -->
-            <div class="component-card {% if components.tailscale.ok %}component-ok{% elif components.tailscale.status == 'not_enrolled' %}component-pending{% else %}component-error{% endif %}">
+            <div class="component-card {% if components.tailscale.ok %}component-ok{% elif components.tailscale.status == 'not_enrolled' %}component-pending{% else %}component-error{% endif %}" id="component-tailscale">
                 <div class="component-header">
                     <span class="component-icon">🔗</span>
                     <span class="component-name">{{ components.tailscale.label }}</span>
                 </div>
-                <div class="component-status">
+                <div class="component-status" id="component-tailscale-status">
                     {% if components.tailscale.ok %}
                     <span class="component-status-dot ok"></span>
                     <span>Connected</span>
@@ -245,18 +241,16 @@
                     <span>Not Enrolled</span>
                     {% endif %}
                 </div>
-                {% if components.tailscale.ip %}
-                <div class="component-detail">{{ components.tailscale.ip }}</div>
-                {% endif %}
+                <div class="component-detail" id="component-tailscale-detail">{{ components.tailscale.ip or '' }}</div>
             </div>
 
             <!-- NVIDIA -->
-            <div class="component-card {% if components.nvidia.ok %}component-ok{% elif components.nvidia.status in ['mok_pending', 'reboot_required'] %}component-warning{% elif components.nvidia.status == 'not_installed' %}component-pending{% else %}component-error{% endif %}">
+            <div class="component-card {% if components.nvidia.ok %}component-ok{% elif components.nvidia.status in ['mok_pending', 'reboot_required'] %}component-warning{% elif components.nvidia.status == 'not_installed' %}component-pending{% else %}component-error{% endif %}" id="component-nvidia">
                 <div class="component-header">
                     <span class="component-icon">🖥️</span>
                     <span class="component-name">{{ components.nvidia.label }}</span>
                 </div>
-                <div class="component-status">
+                <div class="component-status" id="component-nvidia-status">
                     {% if components.nvidia.ok %}
                     <span class="component-status-dot ok"></span>
                     <span>Working</span>
@@ -274,9 +268,7 @@
                     <span>Not Installed</span>
                     {% endif %}
                 </div>
-                {% if components.nvidia.version %}
-                <div class="component-detail">Driver {{ components.nvidia.version }}</div>
-                {% endif %}
+                <div class="component-detail" id="component-nvidia-detail">{% if components.nvidia.version %}Driver {{ components.nvidia.version }}{% endif %}</div>
             </div>
         </div>
     </section>
@@ -499,5 +491,128 @@ async function systemShutdown() {
         showToast('Connection error', 'error');
     }
 }
+
+// =============================================================================
+// System Components Auto-Update (with DOM caching)
+// =============================================================================
+
+let componentPollingInterval = null;
+
+// Cached component DOM elements
+const componentCache = {
+    docker: { card: null, status: null, detail: null },
+    mongodb: { card: null, status: null, detail: null },
+    tailscale: { card: null, status: null, detail: null },
+    nvidia: { card: null, status: null, detail: null },
+    _initialized: false
+};
+
+function initComponentCache() {
+    if (componentCache._initialized) return;
+    ['docker', 'mongodb', 'tailscale', 'nvidia'].forEach(name => {
+        componentCache[name].card = document.getElementById(`component-${name}`);
+        componentCache[name].status = document.getElementById(`component-${name}-status`);
+        componentCache[name].detail = document.getElementById(`component-${name}-detail`);
+    });
+    componentCache._initialized = true;
+}
+
+// State definitions (constant - defined once)
+const COMPONENT_STATES = {
+    tailscale: {
+        'connected': { dot: 'ok', text: 'Connected', cardClass: 'component-ok' },
+        'disconnected': { dot: 'error', text: 'Disconnected', cardClass: 'component-error' },
+        'not_enrolled': { dot: 'pending', text: 'Not Enrolled', cardClass: 'component-pending' },
+        'not_installed': { dot: 'pending', text: 'Not Installed', cardClass: 'component-pending' }
+    },
+    nvidia: {
+        'working': { dot: 'ok', text: 'Working', cardClass: 'component-ok' },
+        'not_working': { dot: 'error', text: 'Not Working', cardClass: 'component-error' },
+        'mok_pending': { dot: 'warning', text: 'MOK Pending', cardClass: 'component-warning' },
+        'reboot_required': { dot: 'warning', text: 'Reboot Required', cardClass: 'component-warning' },
+        'not_installed': { dot: 'pending', text: 'Not Installed', cardClass: 'component-pending' }
+    }
+};
+
+async function updateComponentStatuses() {
+    if (!navigator.onLine) return;
+    initComponentCache();
+
+    try {
+        const response = await fetch('/api/system/components', { signal: AbortSignal.timeout(5000) });
+        const data = await response.json();
+
+        // Update Docker & MongoDB (simple ok/error states)
+        updateSimpleComponent('docker', data.docker, data.docker.version ? `v${data.docker.version}` : '');
+        updateSimpleComponent('mongodb', data.mongodb, data.mongodb.info || '');
+
+        // Update Tailscale (multiple states)
+        const tsState = COMPONENT_STATES.tailscale[data.tailscale.status] || COMPONENT_STATES.tailscale['not_enrolled'];
+        updateComplexComponent('tailscale', tsState, data.tailscale.ip || '');
+
+        // Update NVIDIA (multiple states)
+        const nvState = COMPONENT_STATES.nvidia[data.nvidia.status] || COMPONENT_STATES.nvidia['not_installed'];
+        updateComplexComponent('nvidia', nvState, data.nvidia.version ? `Driver ${data.nvidia.version}` : '');
+
+    } catch (error) {
+        console.warn('Component status update failed:', error.message || error);
+    }
+}
+
+function updateSimpleComponent(name, data, detail) {
+    const { card, status, detail: detailEl } = componentCache[name];
+    if (!card || !status) return;
+
+    const isOk = data.ok;
+    const newCardClass = isOk ? 'component-ok' : 'component-error';
+
+    // Use classList for minimal reflow
+    card.classList.remove('component-ok', 'component-error', 'component-warning', 'component-pending');
+    card.classList.add(newCardClass);
+
+    status.innerHTML = `<span class="component-status-dot ${isOk ? 'ok' : 'error'}"></span><span>${isOk ? 'Running' : 'Stopped'}</span>`;
+    if (detailEl) detailEl.textContent = detail;
+}
+
+function updateComplexComponent(name, state, detail) {
+    const { card, status, detail: detailEl } = componentCache[name];
+    if (!card || !status) return;
+
+    // Use classList for minimal reflow
+    card.classList.remove('component-ok', 'component-error', 'component-warning', 'component-pending');
+    card.classList.add(state.cardClass);
+
+    status.innerHTML = `<span class="component-status-dot ${state.dot}"></span><span>${state.text}</span>`;
+    if (detailEl) detailEl.textContent = detail;
+}
+
+function startComponentPolling() {
+    if (componentPollingInterval) return;
+    componentPollingInterval = setInterval(() => {
+        if (!document.hidden) updateComponentStatuses();
+    }, 10000); // Her 10 saniyede bir güncelle
+}
+
+function stopComponentPolling() {
+    if (componentPollingInterval) {
+        clearInterval(componentPollingInterval);
+        componentPollingInterval = null;
+    }
+}
+
+// Start polling on page load
+document.addEventListener('DOMContentLoaded', () => {
+    startComponentPolling();
+});
+
+// Handle visibility changes
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopComponentPolling();
+    } else {
+        startComponentPolling();
+        updateComponentStatuses(); // Hemen güncelle
+    }
+});
 </script>
 {% endblock %}

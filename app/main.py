@@ -58,6 +58,16 @@ def check_pending_modules():
                     logger.warning(f"NVIDIA check error: {e}")
 
 
+def get_version() -> str:
+    """Read version from VERSION file"""
+    version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'VERSION')
+    try:
+        with open(version_file, 'r') as f:
+            return f.read().strip()
+    except Exception:
+        return '1.0.0'
+
+
 def create_app() -> Flask:
     """Create and configure Flask application"""
 
@@ -86,6 +96,7 @@ def create_app() -> Flask:
             'config': config,
             'is_setup_complete': config.is_setup_complete(),
             'rvm_id': config.get_rvm_id(),
+            'app_version': get_version(),
         }
 
     logger.info("ACO Maintenance Panel started")
