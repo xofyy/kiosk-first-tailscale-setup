@@ -600,15 +600,22 @@ def complete_setup():
 def setup_status():
     """Return setup status"""
     config.reload()  # Multi-worker sync
+
+    # Get defined modules (actual module count, not MongoDB entries)
+    defined_modules = get_all_modules()
+    module_names = [m.name for m in defined_modules]
+    total = len(module_names)
+
+    # Get statuses from MongoDB
     statuses = config.get_all_module_statuses()
-    
-    total = len(statuses)
-    completed = sum(1 for s in statuses.values() if s == 'completed')
-    
+
+    # Count completed modules (only from defined modules)
+    completed = sum(1 for name in module_names if statuses.get(name) == 'completed')
+
     return jsonify({
         'complete': config.is_setup_complete(),
         'total_modules': total,
         'completed_modules': completed,
         'progress': int((completed / total) * 100) if total > 0 else 0,
-        'module_statuses': statuses
+        'module_statuses': {name: statuses.get(name, 'pending') for name in module_names}
     })
