@@ -16,8 +16,7 @@ from app.services.hardware import HardwareService
 from app.services.enrollment import EnrollmentService
 
 # Constants
-HEADSCALE_URL = "https://headscale.xofyy.com"
-APPROVAL_TIMEOUT = 300  # 5 minutes
+APPROVAL_TIMEOUT = None  # Wait indefinitely for admin approval
 
 
 @register_module
@@ -81,9 +80,10 @@ class TailscaleModule(BaseModule):
             self.logger.info(f"RVM ID: {rvm_id}")
 
             # 3. Register with Enrollment API
-            enrollment = EnrollmentService()
+            enrollment_url = self._config.get_enrollment_url()
+            enrollment = EnrollmentService(api_url=enrollment_url)
 
-            self.logger.info("Registering with Enrollment API...")
+            self.logger.info(f"Registering with Enrollment API: {enrollment_url}")
 
             # Get additional info
             motherboard_uuid = hardware.get_motherboard_uuid()
@@ -138,11 +138,12 @@ class TailscaleModule(BaseModule):
                 return False, "Tailscaled service is not running"
 
             # 8. Connect to Headscale (with full parameters!)
-            self.logger.info(f"Connecting to Headscale: {HEADSCALE_URL}")
+            headscale_url = self._config.get_headscale_url()
+            self.logger.info(f"Connecting to Headscale: {headscale_url}")
 
             result = self.run_command([
                 'tailscale', 'up',
-                '--login-server', HEADSCALE_URL,
+                '--login-server', headscale_url,
                 '--authkey', auth_key,
                 '--hostname', rvm_id.lower(),
                 '--advertise-tags=tag:kiosk',

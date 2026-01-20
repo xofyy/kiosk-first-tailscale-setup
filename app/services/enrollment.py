@@ -9,16 +9,19 @@ import warnings
 import requests
 from typing import Dict, Any, Optional
 
+from app.modules.base import mongo_config
+
 logger = logging.getLogger(__name__)
 
-ENROLLMENT_API_URL = "https://enrollment.xofyy.com"
 ENROLLMENT_TIMEOUT = 30
 
 
 class EnrollmentService:
     """Enrollment API client"""
-    
-    def __init__(self, api_url: str = ENROLLMENT_API_URL):
+
+    def __init__(self, api_url: str = None):
+        if api_url is None:
+            api_url = mongo_config.get_enrollment_url()
         self.api_url = api_url.rstrip('/')
         self.session = requests.Session()
         self.session.headers.update({
@@ -185,7 +188,7 @@ class EnrollmentService:
     def wait_for_approval(
         self,
         hardware_id: str,
-        timeout: int = 300,
+        timeout: int = None,
         poll_interval: int = 30
     ) -> Optional[str]:
         """
@@ -193,17 +196,25 @@ class EnrollmentService:
 
         Args:
             hardware_id: Hardware ID (query with HARDWARE_ID!)
-            timeout: Maximum wait time (seconds)
+            timeout: Maximum wait time (seconds). None = wait indefinitely
             poll_interval: Check interval (seconds) - default 30s
 
         Returns:
-            Tailscale auth key or None (timeout/rejected)
+            Tailscale auth key or None (rejected)
         """
         start_time = time.time()
 
-        logger.info(f"Waiting for admin approval... (max {timeout}s, checking every {poll_interval}s)")
+        if timeout:
+            logger.info(f"Waiting for admin approval... (max {timeout}s, checking every {poll_interval}s)")
+        else:
+            logger.info(f"Waiting for admin approval... (no timeout, checking every {poll_interval}s)")
 
-        while time.time() - start_time < timeout:
+        while True:
+            # Check timeout if set
+            if timeout and (time.time() - start_time) >= timeout:
+                logger.error("Timeout - approval not received")
+                return None
+
             # Status check with HARDWARE_ID
             status_result = self.check_status(hardware_id)
 
@@ -233,13 +244,13 @@ class EnrollmentService:
 
             # pending - continue waiting
             elapsed = int(time.time() - start_time)
-            remaining = timeout - elapsed
-            logger.info(f"Waiting... ({remaining}s remaining)")
+            if timeout:
+                remaining = timeout - elapsed
+                logger.info(f"Waiting... ({remaining}s remaining)")
+            else:
+                logger.info(f"Waiting for approval... ({elapsed}s elapsed)")
 
             time.sleep(poll_interval)
-
-        logger.error("Timeout - approval not received")
-        return None
     
     def cancel_enrollment(self, rvm_id: str) -> bool:
         """

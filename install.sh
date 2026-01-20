@@ -1268,7 +1268,11 @@ if [[ "$MONGO_READY" == "true" ]]; then
                         "remote-connection": "pending",
                         nvidia: "pending"
                     },
-                    setup_complete: false
+                    setup_complete: false,
+                    system: {
+                        headscale_url: "https://headscale.xofyy.com",
+                        enrollment_url: "https://enrollment.xofyy.com"
+                    }
                 }
             },
             {upsert: true}

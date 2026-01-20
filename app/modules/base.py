@@ -192,6 +192,18 @@ class MongoConfig:
         """Is setup complete?"""
         return self.get('setup_complete', False)
 
+    # =========================================================================
+    # System Configuration Getters (with defaults)
+    # =========================================================================
+
+    def get_headscale_url(self) -> str:
+        """Get Headscale URL"""
+        return self.get('system.headscale_url', 'https://headscale.xofyy.com')
+
+    def get_enrollment_url(self) -> str:
+        """Get Enrollment API URL"""
+        return self.get('system.enrollment_url', 'https://enrollment.xofyy.com')
+
 
 # Global config instance
 mongo_config = MongoConfig()
