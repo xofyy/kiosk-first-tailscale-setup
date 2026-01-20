@@ -852,7 +852,7 @@ After=display-manager.service network.target
 Type=simple
 User=$KIOSK_USER
 Environment=DISPLAY=:0
-ExecStart=/usr/bin/x11vnc -display :0 -forever -shared -localhost -rfbport 5900 -rfbauth $VNC_DIR/passwd -noxdamage
+ExecStart=/usr/bin/x11vnc -display :0 -forever -shared -rfbport 5900 -rfbauth $VNC_DIR/passwd -noxdamage
 Restart=on-failure
 RestartSec=5
 
