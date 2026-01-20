@@ -484,6 +484,14 @@ class NvidiaModule(BaseModule):
             return False, "Failed to enable nvidia-persistenced service"
 
         # =====================================================================
+        # 7.5. Install Container Toolkit (before reboot/MOK)
+        # Container Toolkit can be installed while nvidia-smi is not working yet
+        # It will work after driver becomes active (post MOK enrollment/reboot)
+        # =====================================================================
+        if not self._install_container_toolkit():
+            return False, "Container Toolkit installation failed"
+
+        # =====================================================================
         # 8. Secure Boot and MOK Status
         # =====================================================================
         if self._is_secure_boot_enabled():
