@@ -1,5 +1,5 @@
 /* =============================================================================
-   Kiosk Setup Panel - Styles
+   ACO Maintenance Panel - Styles
    Modern, touch-friendly UI optimized for kiosk displays
    ============================================================================= */
 
@@ -219,7 +219,7 @@ body {
     color: var(--color-text-muted);
 }
 
-.kiosk-id {
+.rvm-id {
     color: var(--color-primary);
     font-weight: 500;
 }
@@ -568,11 +568,11 @@ body {
    Kiosk ID Section
    ============================================================================= */
 
-.kiosk-id-section {
+.rvm-id-section {
     margin-bottom: var(--spacing-xl);
 }
 
-.kiosk-id-panel {
+.rvm-id-panel {
     background: linear-gradient(135deg, var(--color-surface), var(--color-bg-secondary));
     border: 2px solid var(--color-primary);
     border-radius: var(--border-radius-lg);
@@ -580,7 +580,7 @@ body {
     text-align: center;
 }
 
-.kiosk-id-form {
+.rvm-id-form {
     max-width: 400px;
     margin: var(--spacing-lg) auto 0;
 }
@@ -1030,7 +1030,7 @@ body {
    Home Page - Kiosk ID Display
    ============================================================================= */
 
-.kiosk-section {
+.rvm-section {
     background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius-lg);
@@ -1038,7 +1038,7 @@ body {
     margin-bottom: var(--spacing-lg);
 }
 
-.kiosk-id-display {
+.rvm-id-display {
     display: flex;
     align-items: center;
     gap: var(--spacing-md);
@@ -1047,61 +1047,61 @@ body {
     border-radius: var(--border-radius);
 }
 
-.kiosk-id-label {
+.rvm-id-label {
     color: var(--color-text-secondary);
     font-size: var(--font-size-base);
 }
 
-.kiosk-id-value {
+.rvm-id-value {
     font-size: var(--font-size-xl);
     font-weight: bold;
     color: var(--color-primary);
     letter-spacing: 2px;
 }
 
-.kiosk-id-panel {
+.rvm-id-panel {
     padding: var(--spacing-md);
 }
 
-.kiosk-id-form {
+.rvm-id-form {
     display: flex;
     gap: var(--spacing-md);
     align-items: flex-end;
     margin-top: var(--spacing-md);
 }
 
-.kiosk-id-form .form-group {
+.rvm-id-form .form-group {
     flex: 1;
 }
 
-.kiosk-id-form .form-control-lg {
+.rvm-id-form .form-control-lg {
     font-size: var(--font-size-lg);
     padding: var(--spacing-md);
     text-transform: uppercase;
     letter-spacing: 2px;
 }
 
-.kiosk-id-display .btn-icon {
+.rvm-id-display .btn-icon {
     margin-left: auto;
     opacity: 0.6;
     transition: var(--transition);
 }
 
-.kiosk-id-display .btn-icon:hover {
+.rvm-id-display .btn-icon:hover {
     opacity: 1;
     color: var(--color-primary);
 }
 
-.kiosk-id-edit {
+.rvm-id-edit {
     background: var(--color-bg-secondary);
     border-radius: var(--border-radius);
 }
 
-.kiosk-id-edit .kiosk-id-form {
+.rvm-id-edit .rvm-id-form {
     margin-top: 0;
 }
 
-.kiosk-id-edit .kiosk-id-form .form-control {
+.rvm-id-edit .rvm-id-form .form-control {
     text-transform: uppercase;
     letter-spacing: 1px;
     font-weight: 500;

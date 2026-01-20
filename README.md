@@ -1,4 +1,4 @@
-# Kiosk Setup Panel
+# ACO Maintenance Panel
 
 A graphical kiosk installation panel to be installed on Ubuntu Server.
 
@@ -69,7 +69,7 @@ Modules to be installed via panel:
 
 | Tab | Content |
 |-----|---------|
-| Home | Kiosk ID, connection status, IP configuration, system control |
+| Home | RVM ID, connection status, IP configuration, system control |
 | Install | NVIDIA and Tailscale module installations |
 | Logs | Installation and system logs |
 | Services | Cockpit, Mechatronic Controller access |
@@ -80,7 +80,7 @@ Services accessible via Nginx:
 
 | Service | Port | Path | Description |
 |---------|------|------|-------------|
-| Panel | 5000 | / | Kiosk Setup Panel |
+| Panel | 5000 | / | ACO Maintenance Panel |
 | Cockpit | 9090 | /cockpit/ | System management |
 | Mechatronic | 1234 | /mechatronic_controller/ | Mechatronic Controller |
 
@@ -119,11 +119,11 @@ kiosk-first-tailscale-setup/
 
 ## Configuration (MongoDB)
 
-All settings are stored in the `kiosk.settings` collection in MongoDB:
+All settings are stored in the `aco.settings` collection in MongoDB:
 
 ```json
 {
-  "kiosk_id": "KIOSK-001",
+  "rvm_id": "RVM-001",
   "hardware_id": "auto-generated",
   "mok_password": "12345678",
   "nvidia_driver": "535",
@@ -138,15 +138,15 @@ All settings are stored in the `kiosk.settings` collection in MongoDB:
 ## Post-Installation Directories
 
 ```
-/opt/kiosk-setup-panel/        # Application files
+/opt/aco-panel/                # Application files
   ├── app/
   └── venv/                    # Python virtual environment
 /srv/docker/                   # Docker Compose
   └── docker-compose.yml       # MongoDB container
 /etc/nginx/
-  ├── kiosk-services.json      # Service registry
-  └── sites-available/kiosk-panel
-/var/log/kiosk-setup/          # Log files
+  ├── aco-services.json        # Service registry
+  └── sites-available/aco-panel
+/var/log/aco-panel/            # Log files
 ```
 
 ## Keyboard Shortcut

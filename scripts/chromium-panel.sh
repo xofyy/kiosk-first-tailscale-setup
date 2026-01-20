@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Kiosk Setup Panel - Chromium Panel Mode
+# ACO Maintenance Panel - Chromium Panel Mode
 # Chromium launch script for panel interface (with Watchdog)
 # =============================================================================
 

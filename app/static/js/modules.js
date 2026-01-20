@@ -1,5 +1,5 @@
 /**
- * Kiosk Setup Panel - Module Installation JavaScript
+ * ACO Maintenance Panel - Module Installation JavaScript
  * Async install and polling system
  */
 

@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - NVIDIA Module
+ACO Maintenance Panel - NVIDIA Module
 NVIDIA GPU driver installation
 
 Features:

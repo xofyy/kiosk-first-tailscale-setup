@@ -1,1 +1,1 @@
-# Kiosk Setup Panel - Flask Application
+# ACO Maintenance Panel - Flask Application

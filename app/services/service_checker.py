@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Service Checker
+ACO Maintenance Panel - Service Checker
 Service status check (systemd, port)
 """
 

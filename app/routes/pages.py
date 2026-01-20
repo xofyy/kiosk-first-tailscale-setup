@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Page Routes
+ACO Maintenance Panel - Page Routes
 HTML page endpoints
 
 MongoDB-based config system.
@@ -22,7 +22,7 @@ def home():
     system = SystemService()
     system_info = system.get_system_info_fast()
 
-    # Check if Tailscale is installed (for kiosk_id edit permission)
+    # Check if Tailscale is installed (for rvm_id edit permission)
     tailscale_completed = config.get_module_status('tailscale') == 'completed'
 
     return render_template(
@@ -60,7 +60,7 @@ def services():
     services_config = config.get('services', {})
 
     # Also check nginx services.json if exists
-    nginx_services_file = '/etc/nginx/kiosk-services.json'
+    nginx_services_file = '/etc/nginx/aco-services.json'
     if os.path.exists(nginx_services_file):
         try:
             with open(nginx_services_file, 'r') as f:
@@ -103,7 +103,7 @@ def logs():
     module = request.args.get('module', '')
 
     # Log directory
-    log_dir = '/var/log/kiosk-setup'
+    log_dir = '/var/log/aco-panel'
 
     # List available module log files
     available_modules = []

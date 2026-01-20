@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Base Module Class
+ACO Maintenance Panel - Base Module Class
 Base class for all installation modules
 
 MongoDB-based config system.
@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 # MongoDB connection settings
 MONGO_URI = "mongodb://localhost:27017/"
-MONGO_DB = "kiosk"
+MONGO_DB = "aco"
 MONGO_COLLECTION = "settings"
 
 
@@ -68,7 +68,7 @@ class MongoConfig:
     def get(self, key: str, default: Any = None) -> Any:
         """
         Get config value (dot notation supported).
-        Example: get('modules.nvidia') or get('kiosk_id')
+        Example: get('modules.nvidia') or get('rvm_id')
         """
         settings = self._get_settings()
 
@@ -118,13 +118,13 @@ class MongoConfig:
         """Is module completed?"""
         return self.get_module_status(module_name) == 'completed'
 
-    def get_kiosk_id(self) -> Optional[str]:
-        """Get Kiosk ID"""
-        return self.get('kiosk_id')
+    def get_rvm_id(self) -> Optional[str]:
+        """Get RVM ID"""
+        return self.get('rvm_id')
 
-    def set_kiosk_id(self, kiosk_id: str) -> bool:
-        """Set Kiosk ID"""
-        return self.set('kiosk_id', kiosk_id)
+    def set_rvm_id(self, rvm_id: str) -> bool:
+        """Set RVM ID"""
+        return self.set('rvm_id', rvm_id)
 
     def get_hardware_id(self) -> Optional[str]:
         """Get Hardware ID"""
@@ -170,7 +170,7 @@ class MongoConfig:
         result = self.set('setup_complete', complete)
 
         # Sync marker file (for openbox autostart)
-        marker_file = '/etc/kiosk-setup/.setup-complete'
+        marker_file = '/etc/aco-panel/.setup-complete'
         try:
             if complete:
                 # Create file
@@ -197,7 +197,7 @@ class MongoConfig:
 mongo_config = MongoConfig()
 
 # Log directory
-LOG_DIR = '/var/log/kiosk-setup'
+LOG_DIR = '/var/log/aco-panel'
 
 
 def setup_module_logger(module_name: str) -> logging.Logger:
@@ -504,7 +504,7 @@ class BaseModule(ABC):
         from jinja2 import Environment, FileSystemLoader
         
         template_dirs = [
-            '/opt/kiosk-setup-panel/templates',
+            '/opt/aco-panel/templates',
             'templates'
         ]
         

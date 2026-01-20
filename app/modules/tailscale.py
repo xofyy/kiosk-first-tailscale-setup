@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Tailscale Module
+ACO Maintenance Panel - Tailscale Module
 Tailscale Enrollment and Headscale connection
 
 Note: Tailscale package is installed in install.sh.
@@ -34,9 +34,9 @@ class TailscaleModule(BaseModule):
         if not system.check_internet():
             return False, "Internet connection required"
 
-        # Kiosk ID required
-        if not self._config.get_kiosk_id():
-            return False, "Kiosk ID must be set first"
+        # RVM ID required
+        if not self._config.get_rvm_id():
+            return False, "RVM ID must be set first"
 
         return True, ""
 
@@ -64,13 +64,13 @@ class TailscaleModule(BaseModule):
             self._config.set_hardware_id(hardware_id)
             self.logger.info(f"Hardware ID: {hardware_id}")
 
-            # 2. Get Kiosk ID (should be set beforehand)
-            kiosk_id = self._config.get_kiosk_id()
+            # 2. Get RVM ID (should be set beforehand)
+            rvm_id = self._config.get_rvm_id()
 
-            if not kiosk_id:
-                return False, "Kiosk ID not found"
+            if not rvm_id:
+                return False, "RVM ID not found"
 
-            self.logger.info(f"Kiosk ID: {kiosk_id}")
+            self.logger.info(f"RVM ID: {rvm_id}")
 
             # 3. Register with Enrollment API
             enrollment = EnrollmentService()
@@ -85,7 +85,7 @@ class TailscaleModule(BaseModule):
             self.logger.info(f"MAC Addresses: {mac_addresses}")
 
             enroll_result = enrollment.enroll(
-                kiosk_id,
+                rvm_id,
                 hardware_id,
                 motherboard_uuid=motherboard_uuid,
                 mac_addresses=mac_addresses
@@ -132,7 +132,7 @@ class TailscaleModule(BaseModule):
                 'tailscale', 'up',
                 '--login-server', HEADSCALE_URL,
                 '--authkey', auth_key,
-                '--hostname', kiosk_id.lower(),
+                '--hostname', rvm_id.lower(),
                 '--advertise-tags=tag:kiosk',
                 '--ssh',
                 '--accept-dns=true',
@@ -157,8 +157,8 @@ class TailscaleModule(BaseModule):
             else:
                 self.logger.warning("Tailscale connection not verified (but continuing)")
 
-            # 10. Save Kiosk ID to MongoDB (for other services)
-            self._save_kiosk_id_to_mongodb(kiosk_id, hardware_id)
+            # 10. Save RVM ID to MongoDB (for other services)
+            self._save_rvm_id_to_mongodb(rvm_id, hardware_id)
 
             # 11. Security configuration (UFW rules, SSH, fail2ban)
             # tailscale0 interface is now available, rules can be added
@@ -295,20 +295,20 @@ findtime = 600
             self.logger.error(f"Security configuration error: {e}")
             return False
 
-    def _save_kiosk_id_to_mongodb(self, kiosk_id: str, hardware_id: str) -> None:
-        """Save Kiosk ID to MongoDB"""
+    def _save_rvm_id_to_mongodb(self, rvm_id: str, hardware_id: str) -> None:
+        """Save RVM ID to MongoDB"""
         try:
             import socket
             from datetime import datetime
             from pymongo import MongoClient
 
             client = MongoClient('mongodb://localhost:27017/', serverSelectionTimeoutMS=5000)
-            db = client['kiosk']
+            db = client['aco']
             collection = db['settings']
 
             # Create/update record
             document = {
-                'kiosk_id': kiosk_id,
+                'rvm_id': rvm_id,
                 'hardware_id': hardware_id,
                 'hostname': socket.gethostname(),
                 'registered_at': datetime.utcnow(),
@@ -322,7 +322,7 @@ findtime = 600
             )
 
             client.close()
-            self.logger.info(f"Kiosk ID saved to MongoDB: {kiosk_id}")
+            self.logger.info(f"RVM ID saved to MongoDB: {rvm_id}")
 
         except Exception as e:
             self.logger.warning(f"MongoDB save error: {e}")

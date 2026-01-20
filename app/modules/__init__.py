@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Installation Modules
+ACO Maintenance Panel - Installation Modules
 Module registry and helper functions
 """
 
@@ -40,7 +40,7 @@ from app.modules.tailscale import TailscaleModule
 # Inactive modules (files exist but not imported):
 # - network.py
 # - cockpit.py
-# - kiosk.py
+# - display.py
 # - vnc.py
 # - netmon.py
 # - collector.py

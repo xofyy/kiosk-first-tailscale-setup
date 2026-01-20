@@ -1,5 +1,5 @@
 /**
- * Kiosk Setup Panel - Main JavaScript
+ * ACO Maintenance Panel - Main JavaScript
  */
 
 // =============================================================================
@@ -212,31 +212,31 @@ function getFormData(form) {
 }
 
 // =============================================================================
-// Kiosk ID Form
+// RVM ID Form
 // =============================================================================
 
 document.addEventListener('DOMContentLoaded', () => {
-    const kioskIdForm = document.getElementById('kiosk-id-form');
+    const rvmIdForm = document.getElementById('rvm-id-form');
 
-    if (kioskIdForm) {
-        kioskIdForm.addEventListener('submit', async (e) => {
+    if (rvmIdForm) {
+        rvmIdForm.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            const input = kioskIdForm.querySelector('input[name="kiosk_id"]');
-            const kioskId = input.value.toUpperCase().trim();
+            const input = rvmIdForm.querySelector('input[name="rvm_id"]');
+            const rvmId = input.value.toUpperCase().trim();
 
-            if (!kioskId) {
-                showToast('Kiosk ID required', 'error');
+            if (!rvmId) {
+                showToast('RVM ID required', 'error');
                 return;
             }
 
             try {
-                const result = await api.post('/kiosk-id', {
-                    'kiosk_id': kioskId
+                const result = await api.post('/rvm-id', {
+                    'rvm_id': rvmId
                 });
 
                 if (result.success) {
-                    showToast('Kiosk ID saved: ' + result.kiosk_id, 'success');
+                    showToast('RVM ID saved: ' + result.rvm_id, 'success');
                     setTimeout(() => location.reload(), 1000);
                 } else {
                     showToast(result.error || 'Error occurred', 'error');

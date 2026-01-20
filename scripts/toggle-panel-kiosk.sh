@@ -1,10 +1,10 @@
 #!/bin/bash
 # =============================================================================
-# Kiosk Setup Panel - Toggle Panel/Kiosk
+# ACO Maintenance Panel - Toggle Panel/Kiosk
 # Toggle between Panel <-> Kiosk with F10
 # =============================================================================
 
-SETUP_COMPLETE="/etc/kiosk-setup/.setup-complete"
+SETUP_COMPLETE="/etc/aco-panel/.setup-complete"
 CURRENT_MODE_FILE="/tmp/kiosk-current-mode"
 
 # Don't toggle if setup is not complete

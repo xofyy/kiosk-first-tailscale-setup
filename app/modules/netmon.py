@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - netmon Module
+ACO Maintenance Panel - netmon Module
 Network monitoring service
 """
 

@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - VNC Module
+ACO Maintenance Panel - VNC Module
 x11vnc remote desktop installation
 """
 
@@ -17,7 +17,7 @@ class VNCModule(BaseModule):
     display_name = "VNC"
     description = "x11vnc remote desktop access (localhost-only, via SSH tunnel)"
     order = 7
-    dependencies = ["kiosk"]
+    dependencies = ["display"]
     
     def install(self) -> Tuple[bool, str]:
         """VNC installation"""

@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - System Service
+ACO Maintenance Panel - System Service
 System information and helper functions
 """
 

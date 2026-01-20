@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Kiosk Setup Panel - Chromium Kiosk Mode
+# ACO Maintenance Panel - Chromium Kiosk Mode
 # Chromium launch script for main kiosk application (with Watchdog)
 # =============================================================================
 
@@ -13,7 +13,7 @@ if ! flock -n 200; then
 fi
 
 # Get URL from config or use default
-CONFIG_FILE="/etc/kiosk-setup/config.yaml"
+CONFIG_FILE="/etc/aco-panel/config.yaml"
 URL="http://localhost:3000"
 
 if [ -f "$CONFIG_FILE" ]; then

@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Network Module
+ACO Maintenance Panel - Network Module
 NetworkManager and DNS configuration
 
 Features:

@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Hardware Service
+ACO Maintenance Panel - Hardware Service
 Hardware ID generation
 """
 

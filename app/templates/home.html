@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Home - Kiosk Setup Panel{% endblock %}
+{% block title %}Home - ACO Maintenance Panel{% endblock %}
 
 {% block content %}
 <div class="dashboard">
@@ -26,17 +26,17 @@
         </button>
     </div>
 
-    <!-- Kiosk ID Section -->
-    <section class="section kiosk-section">
-        <h2 class="section-title">Kiosk Identity</h2>
+    <!-- RVM ID Section -->
+    <section class="section rvm-section">
+        <h2 class="section-title">RVM Identity</h2>
 
-        {% if kiosk_id %}
+        {% if rvm_id %}
         <!-- Display Mode -->
-        <div class="kiosk-id-display" id="kiosk-id-display">
-            <span class="kiosk-id-label">Kiosk ID:</span>
-            <span class="kiosk-id-value" id="kiosk-id-value">{{ kiosk_id }}</span>
+        <div class="rvm-id-display" id="rvm-id-display">
+            <span class="rvm-id-label">RVM ID:</span>
+            <span class="rvm-id-value" id="rvm-id-value">{{ rvm_id }}</span>
             {% if not tailscale_completed %}
-            <button class="btn btn-icon btn-sm" onclick="toggleKioskIdEdit(true)" title="Edit Kiosk ID">
+            <button class="btn btn-icon btn-sm" onclick="toggleRvmIdEdit(true)" title="Edit RVM ID">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
                     <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
@@ -47,28 +47,28 @@
 
         {% if not tailscale_completed %}
         <!-- Edit Mode (hidden by default) -->
-        <div class="kiosk-id-panel kiosk-id-edit" id="kiosk-id-edit" style="display: none;">
-            <form id="kiosk-id-edit-form" class="kiosk-id-form">
+        <div class="rvm-id-panel rvm-id-edit" id="rvm-id-edit" style="display: none;">
+            <form id="rvm-id-edit-form" class="rvm-id-form">
                 <div class="form-group">
-                    <input type="text" name="kiosk_id" class="form-control"
-                           value="{{ kiosk_id }}" pattern="[A-Z0-9_-]+"
+                    <input type="text" name="rvm_id" class="form-control"
+                           value="{{ rvm_id }}" pattern="[A-Z0-9_-]+"
                            title="Only uppercase letters, numbers, hyphens and underscores">
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm">Save</button>
-                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleKioskIdEdit(false)">Cancel</button>
+                <button type="button" class="btn btn-secondary btn-sm" onclick="toggleRvmIdEdit(false)">Cancel</button>
             </form>
         </div>
         {% endif %}
         {% else %}
-        <div class="kiosk-id-panel">
-            <p class="text-muted">You must set Kiosk ID before starting installation.</p>
+        <div class="rvm-id-panel">
+            <p class="text-muted">You must set RVM ID before starting installation.</p>
 
-            <form id="kiosk-id-form" class="kiosk-id-form">
+            <form id="rvm-id-form" class="rvm-id-form">
                 <div class="form-group">
-                    <input type="text" name="kiosk_id" class="form-control form-control-lg"
-                           placeholder="KIOSK-001" pattern="[A-Z0-9_-]+"
+                    <input type="text" name="rvm_id" class="form-control form-control-lg"
+                           placeholder="RVM-001" pattern="[A-Z0-9_-]+"
                            title="Only uppercase letters, numbers, hyphens and underscores">
-                    <small class="text-muted">Example: KIOSK-001, BRANCH-NYC-01</small>
+                    <small class="text-muted">Example: RVM-001, BRANCH-NYC-01</small>
                 </div>
                 <button type="submit" class="btn btn-primary">Save</button>
             </form>
@@ -195,30 +195,30 @@ function updateIpModeIndicator() {
 // Update on page load
 setTimeout(updateIpModeIndicator, 500);
 
-// Kiosk ID Form (new setup)
-const kioskIdForm = document.getElementById('kiosk-id-form');
-if (kioskIdForm) {
-    kioskIdForm.addEventListener('submit', async (e) => {
+// RVM ID Form (new setup)
+const rvmIdForm = document.getElementById('rvm-id-form');
+if (rvmIdForm) {
+    rvmIdForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const input = kioskIdForm.querySelector('input[name="kiosk_id"]');
-        const kiosk_id = input.value.toUpperCase().trim();
+        const input = rvmIdForm.querySelector('input[name="rvm_id"]');
+        const rvm_id = input.value.toUpperCase().trim();
 
-        if (!kiosk_id) {
-            showToast('Kiosk ID required', 'error');
+        if (!rvm_id) {
+            showToast('RVM ID required', 'error');
             return;
         }
 
         try {
-            const response = await fetch('/api/kiosk-id', {
+            const response = await fetch('/api/rvm-id', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kiosk_id })
+                body: JSON.stringify({ rvm_id })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                showToast('Kiosk ID saved', 'success');
+                showToast('RVM ID saved', 'success');
                 setTimeout(() => location.reload(), 1000);
             } else {
                 showToast(data.error || 'Error occurred', 'error');
@@ -229,10 +229,10 @@ if (kioskIdForm) {
     });
 }
 
-// Kiosk ID Edit Toggle
-function toggleKioskIdEdit(show) {
-    const displayEl = document.getElementById('kiosk-id-display');
-    const editEl = document.getElementById('kiosk-id-edit');
+// RVM ID Edit Toggle
+function toggleRvmIdEdit(show) {
+    const displayEl = document.getElementById('rvm-id-display');
+    const editEl = document.getElementById('rvm-id-edit');
     if (!displayEl || !editEl) return;
 
     if (show) {
@@ -245,36 +245,36 @@ function toggleKioskIdEdit(show) {
     }
 }
 
-// Kiosk ID Edit Form
-const kioskIdEditForm = document.getElementById('kiosk-id-edit-form');
-if (kioskIdEditForm) {
-    kioskIdEditForm.addEventListener('submit', async (e) => {
+// RVM ID Edit Form
+const rvmIdEditForm = document.getElementById('rvm-id-edit-form');
+if (rvmIdEditForm) {
+    rvmIdEditForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        const input = kioskIdEditForm.querySelector('input[name="kiosk_id"]');
-        const kiosk_id = input.value.toUpperCase().trim();
+        const input = rvmIdEditForm.querySelector('input[name="rvm_id"]');
+        const rvm_id = input.value.toUpperCase().trim();
 
-        if (!kiosk_id) {
-            showToast('Kiosk ID required', 'error');
+        if (!rvm_id) {
+            showToast('RVM ID required', 'error');
             return;
         }
 
-        const btn = kioskIdEditForm.querySelector('button[type="submit"]');
+        const btn = rvmIdEditForm.querySelector('button[type="submit"]');
         btn.disabled = true;
         btn.textContent = 'Saving...';
 
         try {
-            const response = await fetch('/api/kiosk-id', {
+            const response = await fetch('/api/rvm-id', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ kiosk_id })
+                body: JSON.stringify({ rvm_id })
             });
 
             const data = await response.json();
 
             if (data.success) {
-                showToast('Kiosk ID updated', 'success');
-                document.getElementById('kiosk-id-value').textContent = kiosk_id;
-                toggleKioskIdEdit(false);
+                showToast('RVM ID updated', 'success');
+                document.getElementById('rvm-id-value').textContent = rvm_id;
+                toggleRvmIdEdit(false);
             } else {
                 showToast(data.error || 'Error occurred', 'error');
             }

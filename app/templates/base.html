@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Kiosk Setup Panel{% endblock %}</title>
+    <title>{% block title %}ACO Maintenance Panel{% endblock %}</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
     {% block extra_css %}{% endblock %}
 </head>
@@ -13,7 +13,7 @@
         <header class="header">
             <div class="header-brand">
                 <span class="logo">⬡</span>
-                <h1>Kiosk Setup Panel</h1>
+                <h1>ACO Maintenance Panel</h1>
             </div>
             <nav class="header-nav">
                 <a href="{{ url_for('pages.home') }}" class="nav-link {% if request.endpoint == 'pages.home' %}active{% endif %}">
@@ -47,8 +47,8 @@
         <!-- Footer -->
         <footer class="footer">
             <div class="footer-info">
-                {% if kiosk_id %}
-                <span class="kiosk-id">Kiosk: {{ kiosk_id }}</span>
+                {% if rvm_id %}
+                <span class="rvm-id">RVM: {{ rvm_id }}</span>
                 {% endif %}
                 <span class="version">v1.0.0</span>
             </div>

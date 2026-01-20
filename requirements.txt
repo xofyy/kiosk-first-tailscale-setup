@@ -1,4 +1,4 @@
-# Kiosk Setup Panel - Python Dependencies
+# ACO Maintenance Panel - Python Dependencies
 
 # Web Framework
 Flask==3.0.0

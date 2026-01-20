@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Flask Application Entry Point
+ACO Maintenance Panel - Flask Application Entry Point
 
 MongoDB-based config system.
 """
@@ -14,12 +14,12 @@ from app.routes.pages import pages_bp
 from app.routes.api import api_bp
 
 # Logging configuration
-os.makedirs('/var/log/kiosk-setup', exist_ok=True)  # Create log directory
+os.makedirs('/var/log/aco-panel', exist_ok=True)  # Create log directory
 logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
     handlers=[
-        logging.FileHandler('/var/log/kiosk-setup/main.log'),
+        logging.FileHandler('/var/log/aco-panel/main.log'),
         logging.StreamHandler()
     ]
 )
@@ -85,10 +85,10 @@ def create_app() -> Flask:
         return {
             'config': config,
             'is_setup_complete': config.is_setup_complete(),
-            'kiosk_id': config.get_kiosk_id(),
+            'rvm_id': config.get_rvm_id(),
         }
 
-    logger.info("Kiosk Setup Panel started")
+    logger.info("ACO Maintenance Panel started")
 
     return app
 

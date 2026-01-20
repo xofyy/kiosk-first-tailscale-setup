@@ -1,6 +1,6 @@
 [Unit]
-Description=Kiosk Setup Panel Web Server
-Documentation=https://github.com/xofyy/kiosk-setup-panel
+Description=ACO Maintenance Panel Web Server
+Documentation=https://github.com/xofyy/aco-panel
 After=network.target network-online.target
 Wants=network-online.target
 
@@ -8,20 +8,20 @@ Wants=network-online.target
 Type=simple
 User=root
 Group=root
-WorkingDirectory=/opt/kiosk-setup-panel
+WorkingDirectory=/opt/aco-panel
 
 # Environment
-Environment="PATH=/opt/kiosk-setup-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
+Environment="PATH=/opt/aco-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
 Environment="PYTHONUNBUFFERED=1"
 
 # Start Flask with Gunicorn
-ExecStart=/opt/kiosk-setup-panel/venv/bin/python -m gunicorn \
+ExecStart=/opt/aco-panel/venv/bin/python -m gunicorn \
     --bind 0.0.0.0:4444 \
     --workers 2 \
     --threads 4 \
     --timeout 120 \
-    --access-logfile /var/log/kiosk-panel-access.log \
-    --error-logfile /var/log/kiosk-panel-error.log \
+    --access-logfile /var/log/aco-panel-access.log \
+    --error-logfile /var/log/aco-panel-error.log \
     --capture-output \
     app.main:app
 

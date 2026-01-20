@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Enrollment Service
+ACO Maintenance Panel - Enrollment Service
 Enrollment API client
 """
 
@@ -37,12 +37,12 @@ class EnrollmentService:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
     
-    def enroll(self, kiosk_id: str, hardware_id: str, motherboard_uuid: str = '', mac_addresses: str = '') -> Dict[str, Any]:
+    def enroll(self, rvm_id: str, hardware_id: str, motherboard_uuid: str = '', mac_addresses: str = '') -> Dict[str, Any]:
         """
         Send enrollment request to API.
 
         Args:
-            kiosk_id: Kiosk ID (sent as hostname)
+            rvm_id: RVM ID (sent as hostname)
             hardware_id: Hardware ID
             motherboard_uuid: Motherboard UUID
             mac_addresses: MAC addresses (comma-separated)
@@ -51,13 +51,13 @@ class EnrollmentService:
             API response (success, status, auth_key, data)
         """
         try:
-            logger.info(f"Sending enrollment request: hardware_id={hardware_id}, hostname={kiosk_id}")
-            
+            logger.info(f"Sending enrollment request: hardware_id={hardware_id}, hostname={rvm_id}")
+
             response = self.session.post(
                 f"{self.api_url}/api/enroll",
                 json={
                     'hardware_id': hardware_id,
-                    'hostname': kiosk_id,
+                    'hostname': rvm_id,
                     'motherboard_uuid': motherboard_uuid,
                     'mac_addresses': mac_addresses
                 },
@@ -241,19 +241,19 @@ class EnrollmentService:
         logger.error("Timeout - approval not received")
         return None
     
-    def cancel_enrollment(self, kiosk_id: str) -> bool:
+    def cancel_enrollment(self, rvm_id: str) -> bool:
         """
         Cancel enrollment request.
 
         Args:
-            kiosk_id: Kiosk ID
+            rvm_id: RVM ID
 
         Returns:
             Success status
         """
         try:
             response = self.session.delete(
-                f"{self.api_url}/api/enroll/{kiosk_id}",
+                f"{self.api_url}/api/enroll/{rvm_id}",
                 timeout=ENROLLMENT_TIMEOUT
             )
 

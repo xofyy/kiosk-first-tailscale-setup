@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Kiosk Setup Panel - Startup Script
+# ACO Maintenance Panel - Startup Script
 # Called by Openbox autostart
 # =============================================================================
 
@@ -13,7 +13,7 @@ xset -dpms
 xset s noblank
 
 # Check if setup is complete
-if [ -f /etc/kiosk-setup/.setup-complete ]; then
+if [ -f /etc/aco-panel/.setup-complete ]; then
     # Start in kiosk mode
     /usr/local/bin/chromium-kiosk.sh &
 else

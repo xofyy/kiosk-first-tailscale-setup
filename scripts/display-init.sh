@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# Kiosk Setup Panel - Display Initialization
+# ACO Maintenance Panel - Display Initialization
 # Screen settings initialization script
 # =============================================================================
 
@@ -9,7 +9,7 @@ ROTATION="right"
 
 # Try to get rotation value from MongoDB
 if command -v mongosh &>/dev/null; then
-    MONGO_ROTATION=$(mongosh --quiet --eval 'db.getSiblingDB("kiosk").settings.findOne({}, {kiosk_rotation: 1})?.kiosk_rotation' 2>/dev/null)
+    MONGO_ROTATION=$(mongosh --quiet --eval 'db.getSiblingDB("aco").settings.findOne({}, {display_rotation: 1})?.display_rotation' 2>/dev/null)
     if [[ -n "$MONGO_ROTATION" && "$MONGO_ROTATION" != "null" ]]; then
         ROTATION="$MONGO_ROTATION"
     fi

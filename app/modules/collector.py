@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - collector Module
+ACO Maintenance Panel - collector Module
 System metrics collection service
 """
 

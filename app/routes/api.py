@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - REST API Routes
+ACO Maintenance Panel - REST API Routes
 API endpoints
 
 MongoDB-based config system.
@@ -151,53 +151,53 @@ def hardware_id():
 
 
 # =============================================================================
-# KIOSK ID API
+# RVM ID API
 # =============================================================================
 
-@api_bp.route('/kiosk-id', methods=['GET'])
-def get_kiosk_id():
-    """Return Kiosk ID"""
+@api_bp.route('/rvm-id', methods=['GET'])
+def get_rvm_id():
+    """Return RVM ID"""
     config.reload()  # Multi-worker sync
     return jsonify({
-        'kiosk_id': config.get_kiosk_id(),
-        'is_set': bool(config.get_kiosk_id())
+        'rvm_id': config.get_rvm_id(),
+        'is_set': bool(config.get_rvm_id())
     })
 
 
-@api_bp.route('/kiosk-id', methods=['POST'])
-def set_kiosk_id():
-    """Set or update Kiosk ID (blocked after Tailscale installation)"""
+@api_bp.route('/rvm-id', methods=['POST'])
+def set_rvm_id():
+    """Set or update RVM ID (blocked after Tailscale installation)"""
     config.reload()  # Multi-worker sync
 
     # Block if Tailscale is already installed (hostname is locked)
     if config.get_module_status('tailscale') == 'completed':
         return jsonify({
             'success': False,
-            'error': 'Cannot change Kiosk ID after Tailscale installation'
+            'error': 'Cannot change RVM ID after Tailscale installation'
         }), 400
-    
+
     data = request.get_json()
-    kiosk_id = data.get('kiosk_id', '').upper().strip()
-    
-    if not kiosk_id:
+    rvm_id = data.get('rvm_id', '').upper().strip()
+
+    if not rvm_id:
         return jsonify({
-            'success': False, 
-            'error': 'Kiosk ID required'
+            'success': False,
+            'error': 'RVM ID required'
         }), 400
-    
+
     # ID format check
     import re
-    if not re.match(r'^[A-Z0-9_-]+$', kiosk_id):
+    if not re.match(r'^[A-Z0-9_-]+$', rvm_id):
         return jsonify({
             'success': False,
             'error': 'Invalid format. Use only uppercase letters, numbers, hyphens and underscores'
         }), 400
-    
-    config.set_kiosk_id(kiosk_id)
-    
+
+    config.set_rvm_id(rvm_id)
+
     return jsonify({
-        'success': True, 
-        'kiosk_id': kiosk_id
+        'success': True,
+        'rvm_id': rvm_id
     })
 
 
@@ -445,7 +445,7 @@ def module_logs(module_name: str):
     """Return module logs"""
     import os
 
-    log_dir = '/var/log/kiosk-setup'
+    log_dir = '/var/log/aco-panel'
     log_file = os.path.join(log_dir, f"{module_name}.log")
 
     # Get last N lines (configurable via query param)

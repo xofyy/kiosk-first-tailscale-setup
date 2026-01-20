@@ -1,6 +1,6 @@
 """
-Kiosk Setup Panel - Kiosk Module
-Kiosk screen configuration
+ACO Maintenance Panel - Display Module
+Display screen configuration
 
 Features:
 - Kiosk user password
@@ -20,13 +20,13 @@ from app.modules.base import BaseModule
 
 
 @register_module
-class KioskModule(BaseModule):
-    name = "kiosk"
-    display_name = "Kiosk"
+class DisplayModule(BaseModule):
+    name = "display"
+    display_name = "Display"
     description = "Screen rotation, touch configuration, user password"
     order = 6
     dependencies = ["cockpit"]
-    
+
     def _configure_touch(self, vendor_id: str, matrix: str) -> bool:
         """
         Update Xorg touch config file (idempotent)
@@ -46,7 +46,7 @@ class KioskModule(BaseModule):
 EndSection
 '''
         conf_path = '/etc/X11/xorg.conf.d/99-touch-rotation.conf'
-        
+
         # Idempotent: Only write if there's a change
         if os.path.exists(conf_path):
             try:
@@ -67,7 +67,7 @@ EndSection
 
         self.logger.info("Touch config updated")
         return True
-    
+
     def _set_kiosk_password(self, password: str) -> bool:
         """
         Set kiosk user password
@@ -116,10 +116,10 @@ EndSection
 
         self.logger.error(f"Could not set password! Last error: {result.stderr}")
         return False
-    
+
     def install(self) -> Tuple[bool, str]:
         """
-        Kiosk configuration
+        Display configuration
 
         Flow:
         1. Kiosk user password (from config)
@@ -141,7 +141,7 @@ EndSection
             # =================================================================
             # 2. GRUB Rotation (for console)
             # =================================================================
-            grub_rotation = self.get_config('kiosk.grub_rotation', 1)
+            grub_rotation = self.get_config('display.grub_rotation', 1)
             self.logger.info(f"Setting GRUB rotation: {grub_rotation}")
             if not self.configure_grub({'grub_rotation': grub_rotation}):
                 self.logger.warning("Could not set GRUB rotation")
@@ -149,8 +149,8 @@ EndSection
             # =================================================================
             # 3. Touch Matrix - Xorg Config
             # =================================================================
-            touch_vendor = self.get_config('kiosk.touch_vendor_id', '222a:0001')
-            touch_matrix = self.get_config('kiosk.touch_matrix', '0 1 0 -1 0 1 0 0 1')
+            touch_vendor = self.get_config('display.touch_vendor_id', '222a:0001')
+            touch_matrix = self.get_config('display.touch_matrix', '0 1 0 -1 0 1 0 0 1')
             self.logger.info(f"Setting touch config: {touch_vendor}")
             if not self._configure_touch(touch_vendor, touch_matrix):
                 self.logger.warning("Could not set touch config")
@@ -160,9 +160,9 @@ EndSection
             # =================================================================
             self.logger.info("Screen rotation and URL settings will be applied after X restart")
 
-            self.logger.info("Kiosk configuration completed")
-            return True, "Kiosk configured (X restart recommended for changes)"
+            self.logger.info("Display configuration completed")
+            return True, "Display configured (X restart recommended for changes)"
 
         except Exception as e:
-            self.logger.error(f"Kiosk configuration error: {e}")
+            self.logger.error(f"Display configuration error: {e}")
             return False, str(e)

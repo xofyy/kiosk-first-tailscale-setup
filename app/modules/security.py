@@ -1,5 +1,5 @@
 """
-Kiosk Setup Panel - Security Module
+ACO Maintenance Panel - Security Module
 UFW Firewall and SSH security configuration
 """
 

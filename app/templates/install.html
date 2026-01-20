@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
-{% block title %}Install - Kiosk Setup Panel{% endblock %}
+{% block title %}Install - ACO Maintenance Panel{% endblock %}
 
 {% block content %}
 <div class="dashboard">
-    <!-- Kiosk ID Warning (if not set) -->
-    {% if not kiosk_id %}
+    <!-- RVM ID Warning (if not set) -->
+    {% if not rvm_id %}
     <div class="alert alert-warning">
-        <strong>Warning:</strong> You must set Kiosk ID from
+        <strong>Warning:</strong> You must set RVM ID from
         <a href="{{ url_for('pages.home') }}">Home</a> before starting installation.
     </div>
     {% endif %}
@@ -70,7 +70,7 @@
                     <button class="btn btn-primary btn-install"
                             data-module="{{ module.name }}"
                             onclick="installModule('{{ module.name }}')"
-                            {% if not kiosk_id and module.name == 'tailscale' %}disabled title="Kiosk ID required first"{% endif %}>
+                            {% if not rvm_id and module.name == 'tailscale' %}disabled title="RVM ID required first"{% endif %}>
                         Install
                     </button>
                     {% endif %}
