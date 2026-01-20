@@ -12,9 +12,6 @@
     </div>
     {% endif %}
 
-    <!-- MOK Warning (loaded dynamically) -->
-    <div id="mok-alert-container"></div>
-
     <!-- Installation Modules -->
     <section class="section modules-section">
         <h2 class="section-title">Installation Modules</h2>
@@ -53,12 +50,8 @@
                     <span class="status-badge">Pending</span>
                     {% endif %}
 
-                    {% if module.name == 'nvidia' and status == 'mok_pending' %}
-                    <div class="mok-password-info">
-                        <strong>MOK Password:</strong>
-                        <code class="mok-password">{{ config.get('mok_password', '--------') }}</code>
-                        <small>After reboot, select "Enroll MOK" on blue screen and enter this password</small>
-                    </div>
+                    {% if module.name == 'nvidia' %}
+                    <div id="nvidia-mok-info"></div>
                     {% endif %}
                 </div>
 
@@ -121,41 +114,60 @@
             if (!response.ok) return;
 
             const data = await response.json();
-            const container = document.getElementById('mok-alert-container');
+            const container = document.getElementById('nvidia-mok-info');
+            if (!container) return;
 
-            // MOK skipped - show warning
+            // MOK skipped - driver not working
             if (data.status === 'skipped') {
                 container.innerHTML = `
-                    <div class="alert alert-error">
-                        <strong>MOK Skipped!</strong>
-                        <p>NVIDIA driver is not signed, so it's not working.</p>
-                        <p>MOK Password: <code>${data.password || '--------'}</code></p>
-                        <button class="btn btn-warning" onclick="reimportMok()">
-                            Re-import MOK
-                        </button>
-                        <small class="d-block mt-1">
-                            After import, system will reboot.
-                            Select "Enroll MOK" on blue screen and enter the password.
-                        </small>
+                    <div class="mok-info-box mok-error">
+                        <div class="mok-header">⚠️ MOK Skipped - Driver Not Working</div>
+                        <div class="mok-content">
+                            <p>NVIDIA driver is not signed. You need to re-import MOK.</p>
+                            <div class="mok-password">
+                                <span>MOK Password:</span>
+                                <code>${data.password || '--------'}</code>
+                            </div>
+                            <div class="mok-steps">
+                                <strong>After re-import:</strong>
+                                <ol>
+                                    <li>System will reboot</li>
+                                    <li>Select "Enroll MOK" on blue screen</li>
+                                    <li>Enter the password above</li>
+                                </ol>
+                            </div>
+                            <button class="btn btn-warning btn-sm" onclick="reimportMok()">
+                                Re-import MOK
+                            </button>
+                        </div>
                     </div>
                 `;
             }
-            // MOK pending - show info
+            // MOK pending - waiting for enrollment
             else if (data.status === 'pending') {
                 container.innerHTML = `
-                    <div class="alert alert-info">
-                        <strong>MOK Pending</strong>
-                        <p>When system reboots, select "Enroll MOK" on blue screen.</p>
-                        <p>MOK Password: <code>${data.password || '--------'}</code></p>
-                        <button class="btn btn-warning" onclick="rebootSystem()">
-                            Reboot Now
-                        </button>
+                    <div class="mok-info-box mok-pending">
+                        <div class="mok-header">🔐 MOK Enrollment Required</div>
+                        <div class="mok-content">
+                            <div class="mok-password">
+                                <span>MOK Password:</span>
+                                <code>${data.password || '--------'}</code>
+                            </div>
+                            <div class="mok-steps">
+                                <strong>After reboot:</strong>
+                                <ol>
+                                    <li>Select "Enroll MOK" on blue screen</li>
+                                    <li>Select "Continue" → "Yes"</li>
+                                    <li>Enter the password above</li>
+                                    <li>Select "Reboot"</li>
+                                </ol>
+                            </div>
+                        </div>
                     </div>
                 `;
             }
-            // MOK enrolled and NVIDIA working - success
+            // MOK enrolled and NVIDIA working
             else if (data.status === 'enrolled' && data.nvidia_working) {
-                // No warning needed, everything is fine
                 container.innerHTML = '';
             }
 
