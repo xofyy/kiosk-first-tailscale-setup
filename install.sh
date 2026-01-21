@@ -1435,16 +1435,16 @@ if [[ "$MONGO_READY" == "true" ]]; then
                     rvm_id: null,
                     hardware_id: null,
                     mok_password: null,
-                    nvidia_driver: "535",
+                    nvidia_driver: "580",
                     modules: {
                         "remote-connection": "pending",
                         nvidia: "pending"
                     },
-                    setup_complete: false,
                     system: {
                         headscale_url: "https://headscale.xofyy.com",
                         enrollment_url: "https://enrollment.xofyy.com"
-                    }
+                    },
+                    setup_complete: false
                 }
             },
             {upsert: true}
