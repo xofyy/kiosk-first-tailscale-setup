@@ -200,7 +200,7 @@ class DockerModule(BaseModule):
             self.logger.info("Creating docker-compose.yml...")
             
             mongodb_tag = self.get_config('mongodb.tag', 'latest')
-            mongodb_data_path = self.get_config('mongodb.data_path', '/home/aco/mongo-data')
+            mongodb_data_path = self.get_config('mongodb.data_path', '/data/mongo-data')
             
             # MongoDB data directory
             os.makedirs(mongodb_data_path, exist_ok=True)

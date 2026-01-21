@@ -53,6 +53,12 @@ KIOSK_USER="kiosk"
 INSTALL_DIR="/opt/aco-panel"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
+# Data paths (for LVM /data partition)
+DATA_BASE="/data"
+DATA_DOCKER="${DATA_BASE}/docker"
+DATA_NETMON="${DATA_BASE}/netmon"
+DATA_LOGS="${DATA_BASE}/logs"
+
 # For non-interactive apt installation
 export DEBIAN_FRONTEND=noninteractive
 export APT_LISTCHANGES_FRONTEND=none
@@ -89,6 +95,46 @@ info "Updating system..."
 apt-get update -qq
 apt-get upgrade -y -qq
 log "System updated"
+
+# =============================================================================
+# 1.5 DATA PARTITION SETUP (symlinks for /data)
+# =============================================================================
+
+info "Setting up data directories..."
+
+# Create /data directories (assumes /data partition is already mounted)
+if [[ -d "$DATA_BASE" ]]; then
+    mkdir -p "$DATA_DOCKER"
+    mkdir -p "$DATA_NETMON"
+    mkdir -p "$DATA_LOGS"
+
+    # netmon: /var/lib/netmon → /data/netmon
+    if [[ ! -L /var/lib/netmon ]]; then
+        # Move existing data if present
+        if [[ -d /var/lib/netmon ]]; then
+            mv /var/lib/netmon/* "$DATA_NETMON/" 2>/dev/null || true
+            rm -rf /var/lib/netmon
+        fi
+        mkdir -p /var/lib
+        ln -sf "$DATA_NETMON" /var/lib/netmon
+        log "netmon data symlink created: /var/lib/netmon → $DATA_NETMON"
+    fi
+
+    # collector-agent log: /var/log/collector-agent.log → /data/logs/collector-agent.log
+    if [[ ! -L /var/log/collector-agent.log ]]; then
+        # Move existing log if present
+        if [[ -f /var/log/collector-agent.log ]]; then
+            mv /var/log/collector-agent.log "$DATA_LOGS/" 2>/dev/null || true
+        fi
+        touch "$DATA_LOGS/collector-agent.log"
+        ln -sf "$DATA_LOGS/collector-agent.log" /var/log/collector-agent.log
+        log "collector-agent log symlink created"
+    fi
+
+    log "Data directories configured"
+else
+    warn "/data partition not found - using default paths"
+fi
 
 # =============================================================================
 # 2. BASE PACKAGES
@@ -1349,7 +1395,23 @@ apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-compose-plug
 
 # Docker daemon.json (NVIDIA runtime added in NVIDIA module)
 mkdir -p /etc/docker
-cat > /etc/docker/daemon.json << 'EOF'
+
+# Build daemon.json with optional data-root for /data partition
+if [[ -d "$DATA_DOCKER" ]]; then
+    cat > /etc/docker/daemon.json << EOF
+{
+    "data-root": "${DATA_DOCKER}",
+    "log-driver": "json-file",
+    "log-opts": {
+        "max-size": "10m",
+        "max-file": "3"
+    },
+    "storage-driver": "overlay2"
+}
+EOF
+    log "Docker data-root set to ${DATA_DOCKER}"
+else
+    cat > /etc/docker/daemon.json << 'EOF'
 {
     "log-driver": "json-file",
     "log-opts": {
@@ -1359,6 +1421,7 @@ cat > /etc/docker/daemon.json << 'EOF'
     "storage-driver": "overlay2"
 }
 EOF
+fi
 
 # Docker service
 systemctl enable docker 2>/dev/null || true
