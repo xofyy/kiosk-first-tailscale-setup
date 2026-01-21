@@ -700,7 +700,7 @@ systemctl stop systemd-networkd-wait-online.service 2>/dev/null || true
 systemctl disable systemd-networkd 2>/dev/null || true
 systemctl stop systemd-networkd 2>/dev/null || true
 
-# DNS configuration
+# DNS configuration - systemd-resolved
 cat > /etc/systemd/resolved.conf << 'EOF'
 [Resolve]
 DNS=8.8.8.8 8.8.4.4
@@ -711,9 +711,21 @@ EOF
 
 systemctl restart systemd-resolved 2>/dev/null || true
 
+# NetworkManager global DNS configuration
+mkdir -p /etc/NetworkManager/conf.d
+cat > /etc/NetworkManager/conf.d/dns.conf << 'EOF'
+[main]
+dns=systemd-resolved
+
+[global-dns-domain-*]
+servers=8.8.8.8,8.8.4.4
+EOF
+
 # NetworkManager services
 systemctl enable NetworkManager 2>/dev/null || true
 systemctl start NetworkManager 2>/dev/null || true
+# Reload config if NM was already running
+nmcli general reload conf 2>/dev/null || true
 systemctl enable NetworkManager-wait-online 2>/dev/null || true
 
 # DNS validation (required for Tailscale etc.)
