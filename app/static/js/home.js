@@ -54,6 +54,22 @@ function renderInterfaceCard(iface) {
     const typeConfig = defaultIpConfigs[iface.type] || defaultIpConfigs.pcie;
     const staticIp = typeConfig.ip;
 
+    // Mode badge configuration
+    const modeConfig = {
+        'network': { label: 'Network', class: 'mode-network', icon: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>' },
+        'direct': { label: 'Direct', class: 'mode-direct', icon: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>' },
+        'dhcp': { label: 'DHCP', class: 'mode-dhcp', icon: '<path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>' }
+    };
+    const mode = modeConfig[iface.mode];
+    const modeBadgeHtml = mode ? `
+        <div class="interface-mode-badge ${mode.class}">
+            <svg class="icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                ${mode.icon}
+            </svg>
+            <span>${mode.label}</span>
+        </div>
+    ` : '';
+
     // Build buttons based on interface type
     let buttonsHtml = '';
 
@@ -119,6 +135,7 @@ function renderInterfaceCard(iface) {
                     <span class="interface-name">${iface.name}</span>
                     <span class="interface-type">${typeLabel}</span>
                 </div>
+                ${modeBadgeHtml}
             </div>
 
             <div class="interface-status">

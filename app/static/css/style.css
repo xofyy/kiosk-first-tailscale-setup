@@ -44,6 +44,16 @@
     --transition: 0.2s ease;
 }
 
+/* Touch device optimizations */
+* {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
+}
+
+button, a, .clickable {
+    touch-action: manipulation;
+}
+
 /* Hide scrollbar - WebKit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
     width: 0;
@@ -1249,13 +1259,16 @@ body {
     min-width: 200px;
 }
 
-.btn-ip-config:hover {
-    border-color: var(--color-primary);
-    background: var(--color-surface-hover);
+@media (hover: hover) {
+    .btn-ip-config:hover {
+        border-color: var(--color-primary);
+        background: var(--color-surface-hover);
+    }
 }
 
 .btn-ip-config:active {
     transform: scale(0.98);
+    transition: transform 0.1s ease;
 }
 
 .btn-ip-config .btn-icon {
@@ -1419,8 +1432,10 @@ body {
     transition: border-color 0.2s ease, transform 0.2s ease;
 }
 
-.interface-card:hover {
-    transform: translateY(-2px);
+@media (hover: hover) {
+    .interface-card:hover {
+        transform: translateY(-2px);
+    }
 }
 
 .interface-card.type-onboard {
@@ -1489,6 +1504,44 @@ body {
 
 .type-pcie .interface-type {
     color: var(--color-info);
+}
+
+/* Mode badge - shows current IP configuration mode */
+.interface-mode-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.interface-mode-badge .icon-xs {
+    width: 12px;
+    height: 12px;
+}
+
+.interface-mode-badge.mode-network {
+    background: rgba(33, 150, 243, 0.15);
+    color: #2196F3;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.interface-mode-badge.mode-direct {
+    background: rgba(255, 152, 0, 0.15);
+    color: #FF9800;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
+.interface-mode-badge.mode-dhcp {
+    background: rgba(76, 175, 80, 0.15);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
 }
 
 .interface-status {
@@ -1565,11 +1618,13 @@ body {
     text-align: center;
 }
 
-.btn-ip-network:hover,
-.btn-ip-direct:hover,
-.btn-ip-dhcp:hover {
-    border-color: var(--color-primary);
-    background: var(--color-surface-hover);
+@media (hover: hover) {
+    .btn-ip-network:hover,
+    .btn-ip-direct:hover,
+    .btn-ip-dhcp:hover {
+        border-color: var(--color-primary);
+        background: var(--color-surface-hover);
+    }
 }
 
 .btn-ip-network:disabled,

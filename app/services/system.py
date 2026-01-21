@@ -296,13 +296,17 @@ class SystemService:
                 except Exception:
                     pass
 
+                # Get IP mode (network, direct, dhcp)
+                ip_mode = self._get_interface_ip_mode(iface_name)
+
                 interfaces.append({
                     "name": iface_name,
                     "type": iface_type,
                     "vendor": vendor_name,
                     "ip": ip_addr,
                     "state": state,
-                    "mac": mac
+                    "mac": mac,
+                    "mode": ip_mode
                 })
 
             # Sort: onboard first, then by name
@@ -329,6 +333,73 @@ class SystemService:
         except Exception:
             pass
         return None
+
+    def _get_interface_ip_mode(self, iface_name: str) -> Optional[str]:
+        """
+        Detect IP configuration mode for an interface using NetworkManager.
+
+        Returns:
+            - "network": Manual IP with gateway (for internet access)
+            - "direct": Manual IP without gateway (for direct device connection)
+            - "dhcp": Automatic IP via DHCP
+            - None: Unknown or no active connection
+        """
+        try:
+            # Get active connection name for the interface
+            result = subprocess.run(
+                ['nmcli', '-t', '-f', 'NAME,DEVICE', 'connection', 'show', '--active'],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            if result.returncode != 0:
+                return None
+
+            # Find connection for this interface
+            connection_name = None
+            for line in result.stdout.strip().split('\n'):
+                if ':' in line:
+                    parts = line.split(':')
+                    if len(parts) >= 2 and parts[1] == iface_name:
+                        connection_name = parts[0]
+                        break
+
+            if not connection_name:
+                return None
+
+            # Get connection details
+            result = subprocess.run(
+                ['nmcli', '-t', '-f', 'ipv4.method,ipv4.gateway', 'connection', 'show', connection_name],
+                capture_output=True,
+                text=True,
+                timeout=3
+            )
+            if result.returncode != 0:
+                return None
+
+            ipv4_method = None
+            ipv4_gateway = None
+
+            for line in result.stdout.strip().split('\n'):
+                if line.startswith('ipv4.method:'):
+                    ipv4_method = line.split(':', 1)[1].strip()
+                elif line.startswith('ipv4.gateway:'):
+                    ipv4_gateway = line.split(':', 1)[1].strip()
+
+            # Determine mode based on method and gateway
+            if ipv4_method == 'auto':
+                return 'dhcp'
+            elif ipv4_method == 'manual':
+                # Check if gateway is set (not empty, not '--')
+                if ipv4_gateway and ipv4_gateway != '--' and ipv4_gateway != '':
+                    return 'network'
+                else:
+                    return 'direct'
+
+            return None
+        except Exception as e:
+            logger.debug(f"Could not detect IP mode for {iface_name}: {e}")
+            return None
 
     def check_internet(self) -> bool:
         """Check internet connection"""
