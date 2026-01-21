@@ -54,6 +54,49 @@ button, a, .clickable {
     touch-action: manipulation;
 }
 
+/* Disable ALL hover/focus effects on touch devices (coarse pointer = finger) */
+@media (pointer: coarse) {
+    .connection-card,
+    .component-card,
+    .interface-card,
+    .module-card,
+    .btn-ip-network,
+    .btn-ip-direct,
+    .btn-ip-dhcp,
+    .btn-reboot,
+    .btn-shutdown {
+        transition: none !important;
+    }
+
+    .connection-card:hover,
+    .connection-card:focus,
+    .connection-card:active,
+    .component-card:hover,
+    .component-card:focus,
+    .component-card:active,
+    .interface-card:hover,
+    .interface-card:focus,
+    .interface-card:active,
+    .module-card:hover,
+    .module-card:focus,
+    .module-card:active {
+        transform: none !important;
+        background: inherit !important;
+        border-color: inherit !important;
+    }
+
+    /* Disable button hover/focus visual changes */
+    .btn-ip-network:hover,
+    .btn-ip-network:focus,
+    .btn-ip-direct:hover,
+    .btn-ip-direct:focus,
+    .btn-ip-dhcp:hover,
+    .btn-ip-dhcp:focus {
+        background: var(--color-bg-tertiary) !important;
+        border-color: var(--color-border) !important;
+    }
+}
+
 /* Hide scrollbar - WebKit (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
     width: 0;
