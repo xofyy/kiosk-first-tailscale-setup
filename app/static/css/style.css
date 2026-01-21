@@ -333,10 +333,12 @@ body {
     will-change: transform;
 }
 
-.connection-card:hover {
-    border-color: var(--color-primary);
-    background: var(--color-surface-hover);
-    transform: translateY(-2px) scale(1.01);
+@media (hover: hover) {
+    .connection-card:hover {
+        border-color: var(--color-primary);
+        background: var(--color-surface-hover);
+        transform: translateY(-2px) scale(1.01);
+    }
 }
 
 .connection-icon {
@@ -425,8 +427,10 @@ body {
     transition: var(--transition);
 }
 
-.module-card:hover {
-    border-color: var(--color-primary);
+@media (hover: hover) {
+    .module-card:hover {
+        border-color: var(--color-primary);
+    }
 }
 
 .module-card[data-status="completed"] {
@@ -1369,9 +1373,11 @@ body {
     border-color: rgba(245, 158, 11, 0.3);
 }
 
-.btn-reboot:hover {
-    background: rgba(245, 158, 11, 0.25);
-    border-color: var(--color-warning);
+@media (hover: hover) {
+    .btn-reboot:hover {
+        background: rgba(245, 158, 11, 0.25);
+        border-color: var(--color-warning);
+    }
 }
 
 .btn-shutdown {
@@ -1380,9 +1386,11 @@ body {
     border-color: rgba(239, 68, 68, 0.3);
 }
 
-.btn-shutdown:hover {
-    background: rgba(239, 68, 68, 0.25);
-    border-color: var(--color-error);
+@media (hover: hover) {
+    .btn-shutdown:hover {
+        background: rgba(239, 68, 68, 0.25);
+        border-color: var(--color-error);
+    }
 }
 
 /* =============================================================================
@@ -1716,8 +1724,10 @@ body {
     will-change: transform;
 }
 
-.component-card:hover {
-    transform: translateY(-2px) scale(1.01);
+@media (hover: hover) {
+    .component-card:hover {
+        transform: translateY(-2px) scale(1.01);
+    }
 }
 
 .component-card.component-ok {
@@ -1898,11 +1908,6 @@ body {
     .skeleton {
         animation: none;
         background: var(--color-bg-tertiary);
-    }
-
-    .component-card:hover,
-    .connection-card:hover {
-        transform: none;
     }
 
     .btn::after {
