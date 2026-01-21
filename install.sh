@@ -330,6 +330,30 @@ cat > /etc/nginx/aco-services.json << 'EOF'
     "check_type": "port",
     "check_value": 1234
   },
+  "scanners": {
+    "display_name": "Scanners Dashboard",
+    "port": 504,
+    "path": "/scanners/",
+    "websocket": true,
+    "check_type": "port",
+    "check_value": 504
+  },
+  "printer": {
+    "display_name": "Printer Panel",
+    "port": 5200,
+    "path": "/printer/",
+    "websocket": true,
+    "check_type": "port",
+    "check_value": 5200
+  },
+  "camera": {
+    "display_name": "Camera Controller",
+    "port": 5100,
+    "path": "/camera/",
+    "websocket": true,
+    "check_type": "port",
+    "check_value": 5100
+  },
   "cockpit": {
     "display_name": "Cockpit",
     "port": 9090,
@@ -426,6 +450,145 @@ server {
         # For iframe
         proxy_hide_header X-Frame-Options;
         proxy_hide_header Content-Security-Policy;
+    }
+
+    # Scanners Dashboard
+    location /scanners/ {
+        proxy_pass http://127.0.0.1:504/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+
+        # For iframe
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
+
+        # HTML/JS path rewrite
+        sub_filter 'src="/' 'src="/scanners/';
+        sub_filter 'href="/' 'href="/scanners/';
+        sub_filter "src='/" "src='/scanners/";
+        sub_filter "href='/" "href='/scanners/";
+        # API/fetch calls
+        sub_filter '"/api/' '"/scanners/api/';
+        sub_filter "'/api/" "'/scanners/api/";
+        sub_filter 'fetch("/' 'fetch("/scanners/';
+        sub_filter "fetch('/" "fetch('/scanners/";
+        # Hardcoded WebSocket/HTTP URLs
+        sub_filter 'localhost:504' "' + window.location.host + '/scanners";
+        sub_filter '127.0.0.1:504' "' + window.location.host + '/scanners";
+        sub_filter_once off;
+        sub_filter_types text/html text/css text/javascript application/javascript application/x-javascript;
+        proxy_set_header Accept-Encoding "";
+    }
+
+    # Scanners socket.io
+    location /scanners/socket.io/ {
+        proxy_pass http://127.0.0.1:504/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }
+
+    # Printer Panel
+    location /printer/ {
+        proxy_pass http://127.0.0.1:5200/printer/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # WebSocket support
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 86400;
+
+        # For iframe
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
+
+        # HTML/JS path rewrite
+        sub_filter 'src="/' 'src="/printer/';
+        sub_filter 'href="/' 'href="/printer/';
+        sub_filter "src='/" "src='/printer/";
+        sub_filter "href='/" "href='/printer/";
+        # API/fetch calls
+        sub_filter '"/api/' '"/printer/api/';
+        sub_filter "'/api/" "'/printer/api/";
+        sub_filter 'fetch("/' 'fetch("/printer/';
+        sub_filter "fetch('/" "fetch('/printer/";
+        # Hardcoded socket.io URLs
+        sub_filter 'http://0.0.0.0:5200/socket.io' '/printer/socket.io';
+        sub_filter '0.0.0.0:5200/socket.io' '/printer/socket.io';
+        sub_filter 'http://0.0.0.0:5200' '/printer';
+        sub_filter '0.0.0.0:5200' '/printer';
+        sub_filter_once off;
+        sub_filter_types text/html text/css text/javascript application/javascript application/x-javascript;
+        proxy_set_header Accept-Encoding "";
+    }
+
+    # Printer socket.io
+    location /printer/socket.io/ {
+        proxy_pass http://127.0.0.1:5200/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_read_timeout 86400;
+    }
+
+    # Camera Controller
+    location /camera/ {
+        proxy_pass http://127.0.0.1:5100/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+
+        # For iframe
+        proxy_hide_header X-Frame-Options;
+        proxy_hide_header Content-Security-Policy;
+
+        # HTML/JS path rewrite
+        sub_filter 'src="/' 'src="/camera/';
+        sub_filter 'href="/' 'href="/camera/';
+        sub_filter "src='/" "src='/camera/";
+        sub_filter "href='/" "href='/camera/";
+        # API/fetch calls
+        sub_filter '"/api/' '"/camera/api/';
+        sub_filter "'/api/" "'/camera/api/";
+        sub_filter '"/static/' '"/camera/static/';
+        sub_filter "'/static/" "'/camera/static/";
+        sub_filter 'fetch("/' 'fetch("/camera/';
+        sub_filter "fetch('/" "fetch('/camera/";
+        # Hardcoded URLs
+        sub_filter 'localhost:5100' "' + window.location.host + '/camera";
+        sub_filter '127.0.0.1:5100' "' + window.location.host + '/camera";
+        sub_filter_once off;
+        sub_filter_types text/html text/css text/javascript application/javascript application/x-javascript;
+        proxy_set_header Accept-Encoding "";
+    }
+
+    # Camera Controller - Socket.IO
+    location /camera/socket.io/ {
+        proxy_pass http://127.0.0.1:5100/socket.io/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 86400;
     }
 }
 NGINX_EOF
@@ -1217,7 +1380,7 @@ fi
 
 # MongoDB docker-compose
 COMPOSE_PATH="/srv/docker"
-MONGODB_DATA_PATH="/home/aco/mongo-data"
+MONGODB_DATA_PATH="/data/mongo-data"
 
 mkdir -p "$COMPOSE_PATH"
 mkdir -p "$MONGODB_DATA_PATH"

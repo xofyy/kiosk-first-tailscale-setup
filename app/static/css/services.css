@@ -260,6 +260,16 @@
     fill: none;
 }
 
+.btn-open-service.btn-direct.active {
+    background: #2196F3;
+    box-shadow: 0 4px 15px rgba(33, 150, 243, 0.4);
+}
+
+.btn-open-service.btn-direct.active:hover {
+    background: #1976D2;
+    box-shadow: 0 6px 20px rgba(33, 150, 243, 0.5);
+}
+
 /* Empty State */
 .no-services {
     display: flex;
