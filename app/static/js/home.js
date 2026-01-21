@@ -2,6 +2,7 @@
  * Home Page JavaScript
  * Network interfaces, RVM ID, system controls, component status polling
  */
+'use strict';
 
 // =============================================================================
 // Network Interfaces Management
@@ -16,8 +17,7 @@ async function loadNetworkInterfaces() {
     if (!container) return;
 
     try {
-        const response = await fetch('/api/network/interfaces');
-        const data = await response.json();
+        const data = await api.get('/network/interfaces');
 
         interfacesData = data.interfaces;
         defaultIpConfigs = data.default_ips;
@@ -166,17 +166,11 @@ async function setInterfaceIP(interfaceName, interfaceType, mode) {
     if (ipDisplay) ipDisplay.textContent = 'Setting...';
 
     try {
-        const response = await fetch('/api/network/set-ip', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                interface: interfaceName,
-                interface_type: interfaceType,
-                mode: mode
-            })
+        const data = await api.post('/network/set-ip', {
+            interface: interfaceName,
+            interface_type: interfaceType,
+            mode: mode
         });
-
-        const data = await response.json();
 
         if (data.success) {
             const modeTexts = {
@@ -209,11 +203,6 @@ async function setInterfaceIP(interfaceName, interfaceType, mode) {
     }
 }
 
-// Backward compatibility for updateIpModeIndicator (called from main.js)
-function updateIpModeIndicator() {
-    // No longer needed with new interface cards, but keep for compatibility
-}
-
 // =============================================================================
 // RVM ID Management
 // =============================================================================
@@ -232,13 +221,7 @@ function initRvmIdForm() {
             }
 
             try {
-                const response = await fetch('/api/rvm-id', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rvm_id })
-                });
-
-                const data = await response.json();
+                const data = await api.post('/rvm-id', { rvm_id });
 
                 if (data.success) {
                     showToast('RVM ID saved', 'success');
@@ -286,13 +269,7 @@ function initRvmIdEditForm() {
             btn.textContent = 'Saving...';
 
             try {
-                const response = await fetch('/api/rvm-id', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rvm_id })
-                });
-
-                const data = await response.json();
+                const data = await api.post('/rvm-id', { rvm_id });
 
                 if (data.success) {
                     showToast('RVM ID updated', 'success');
@@ -321,8 +298,7 @@ async function systemReboot() {
     }
 
     try {
-        const response = await fetch('/api/system/reboot', { method: 'POST' });
-        const data = await response.json();
+        const data = await api.post('/system/reboot');
 
         if (data.success) {
             showToast('System rebooting...', 'success');
@@ -340,8 +316,7 @@ async function systemShutdown() {
     }
 
     try {
-        const response = await fetch('/api/system/shutdown', { method: 'POST' });
-        const data = await response.json();
+        const data = await api.post('/system/shutdown');
 
         if (data.success) {
             showToast('System shutting down...', 'success');
@@ -400,8 +375,7 @@ async function updateComponentStatuses() {
     initComponentCache();
 
     try {
-        const response = await fetch('/api/system/components', { signal: AbortSignal.timeout(5000) });
-        const data = await response.json();
+        const data = await api.get('/system/components', 5000);
 
         // Update Docker & MongoDB (simple ok/error states)
         updateSimpleComponent('docker', data.docker, data.docker.version ? `v${data.docker.version}` : '');

@@ -2,6 +2,7 @@
  * ACO Maintenance Panel - Module Installation JavaScript
  * Async install and polling system
  */
+'use strict';
 
 // =============================================================================
 // Module Installation (Async)

@@ -5,6 +5,8 @@ API endpoints
 MongoDB-based config system.
 """
 
+import os
+import re
 import subprocess
 import threading
 import logging
@@ -85,23 +87,23 @@ def _update_internet_cache():
         
         try:
             connected = system.check_internet()
-        except Exception:
-            pass
-        
+        except Exception as e:
+            logger.debug(f"Internet check failed: {e}")
+
         try:
             ip = system.get_ip_address()
-        except Exception:
-            pass
-        
+        except Exception as e:
+            logger.debug(f"IP address check failed: {e}")
+
         try:
             dns_working = system.check_dns()
-        except Exception:
-            pass
-        
+        except Exception as e:
+            logger.debug(f"DNS check failed: {e}")
+
         try:
             tailscale_ip = system.get_tailscale_ip()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Tailscale IP check failed: {e}")
         
         with _cache_lock:
             _internet_cache['connected'] = connected
@@ -194,7 +196,6 @@ def set_rvm_id():
         }), 400
 
     # ID format check
-    import re
     if not re.match(r'^[A-Z0-9_-]+$', rvm_id):
         return jsonify({
             'success': False,
@@ -451,8 +452,6 @@ def nvidia_mok_reimport():
 @api_bp.route('/modules/<module_name>/logs')
 def module_logs(module_name: str):
     """Return module logs"""
-    import os
-
     log_dir = '/var/log/aco-panel'
     log_file = os.path.join(log_dir, f"{module_name}.log")
 

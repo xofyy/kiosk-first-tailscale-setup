@@ -12,13 +12,13 @@
 /* Header */
 .services-header {
     padding: 1.5rem 2rem;
-    background: linear-gradient(135deg, var(--card-bg) 0%, rgba(46, 204, 113, 0.1) 100%);
-    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, var(--color-surface) 0%, rgba(46, 204, 113, 0.1) 100%);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .services-header h2 {
     margin: 0;
-    color: var(--text-primary);
+    color: var(--color-text-primary);
     font-size: 1.5rem;
     display: flex;
     align-items: center;
@@ -37,7 +37,7 @@
 
 .services-header p {
     margin: 0.5rem 0 0 0;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
     font-size: 0.95rem;
 }
 
@@ -55,7 +55,7 @@
     gap: 1rem;
     background: rgba(245, 158, 11, 0.1);
     border: 1px solid rgba(245, 158, 11, 0.4);
-    color: var(--text-primary);
+    color: var(--color-text-primary);
     padding: 1.25rem 1.5rem;
     border-radius: 12px;
     margin-bottom: 2rem;
@@ -80,7 +80,7 @@
 .nginx-warning .warning-content p {
     margin: 0;
     font-size: 0.9rem;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
 }
 
 /* Service Cards Grid */
@@ -92,8 +92,8 @@
 
 /* Service Card */
 .service-card {
-    background: var(--card-bg);
-    border: 2px solid var(--border-color);
+    background: var(--color-surface);
+    border: 2px solid var(--color-border);
     border-radius: 16px;
     padding: 1.5rem;
     transition: all 0.3s ease;
@@ -108,7 +108,7 @@
     left: 0;
     right: 0;
     height: 4px;
-    background: var(--border-color);
+    background: var(--color-border);
     transition: background 0.3s ease;
 }
 
@@ -123,7 +123,7 @@
 .service-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-    border-color: var(--primary-color);
+    border-color: var(--color-primary);
 }
 
 .service-card-header {
@@ -136,7 +136,7 @@
 .service-card h3 {
     margin: 0;
     font-size: 1.3rem;
-    color: var(--text-primary);
+    color: var(--color-text-primary);
     font-weight: 700;
 }
 
@@ -190,13 +190,13 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
     font-size: 0.9rem;
     padding: 0.35rem 0;
 }
 
 .service-info-row:not(:last-child) {
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 1px solid var(--color-border);
 }
 
 .service-info-row .label {
@@ -204,7 +204,7 @@
 }
 
 .service-info-row .value {
-    color: var(--primary-color);
+    color: var(--color-primary);
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
     font-weight: 600;
 }
@@ -278,15 +278,15 @@
     justify-content: center;
     padding: 4rem 2rem;
     text-align: center;
-    background: var(--card-bg);
+    background: var(--color-surface);
     border-radius: 16px;
-    border: 2px dashed var(--border-color);
+    border: 2px dashed var(--color-border);
 }
 
 .no-services-icon {
     margin-bottom: 1.5rem;
     opacity: 0.4;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
 }
 
 .no-services-icon svg {
@@ -296,13 +296,13 @@
 
 .no-services h3 {
     margin: 0 0 0.5rem 0;
-    color: var(--text-primary);
+    color: var(--color-text-primary);
     font-size: 1.25rem;
 }
 
 .no-services p {
     margin: 0;
-    color: var(--text-secondary);
+    color: var(--color-text-secondary);
     max-width: 400px;
 }
 

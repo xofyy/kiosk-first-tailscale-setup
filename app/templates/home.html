@@ -52,7 +52,8 @@
                 <div class="form-group">
                     <input type="text" name="rvm_id" class="form-control"
                            value="{{ rvm_id }}" pattern="[A-Z0-9_-]+"
-                           title="Only uppercase letters, numbers, hyphens and underscores">
+                           title="Only uppercase letters, numbers, hyphens and underscores"
+                           aria-label="RVM ID">
                 </div>
                 <button type="submit" class="btn btn-primary btn-sm">Save</button>
                 <button type="button" class="btn btn-secondary btn-sm" onclick="toggleRvmIdEdit(false)">Cancel</button>
@@ -67,7 +68,8 @@
                 <div class="form-group">
                     <input type="text" name="rvm_id" class="form-control form-control-lg"
                            placeholder="RVM-001" pattern="[A-Z0-9_-]+"
-                           title="Only uppercase letters, numbers, hyphens and underscores">
+                           title="Only uppercase letters, numbers, hyphens and underscores"
+                           aria-label="RVM ID">
                     <small class="text-muted">Example: RVM-001, BRANCH-NYC-01</small>
                 </div>
                 <button type="submit" class="btn btn-primary">Save</button>

@@ -68,7 +68,8 @@
                         data-path="{{ service.path or ('/' ~ name ~ '/') }}"
                         data-title="{{ service.display_name or name }}"
                         onclick="openService(this.dataset.path, this.dataset.title)"
-                        title="Open via nginx proxy">
+                        title="Open via nginx proxy"
+                        aria-label="Open {{ service.display_name or name }} via proxy">
                         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                             <polyline points="15 3 21 3 21 9"/>
@@ -82,7 +83,8 @@
                         data-path="{{ service.path or '/' }}"
                         data-title="{{ service.display_name or name }}"
                         onclick="openServiceDirect(this.dataset.port, this.dataset.path, this.dataset.title)"
-                        title="Open direct port (recommended for remote access)">
+                        title="Open direct port (recommended for remote access)"
+                        aria-label="Open {{ service.display_name or name }} direct">
                         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
                             <line x1="2" y1="12" x2="22" y2="12"/>

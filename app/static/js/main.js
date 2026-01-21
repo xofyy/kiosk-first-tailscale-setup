@@ -1,6 +1,7 @@
 /**
  * ACO Maintenance Panel - Main JavaScript
  */
+'use strict';
 
 // =============================================================================
 // API Helper
@@ -318,6 +319,25 @@ document.addEventListener('DOMContentLoaded', () => {
 // Page Initialization
 // =============================================================================
 
+// Internet check interval management
+let internetCheckInterval = null;
+
+function startInternetCheck() {
+    if (internetCheckInterval) return;
+    internetCheckInterval = setInterval(() => {
+        if (navigator.onLine) {
+            checkInternetStatus();
+        }
+    }, 3000);
+}
+
+function stopInternetCheck() {
+    if (internetCheckInterval) {
+        clearInterval(internetCheckInterval);
+        internetCheckInterval = null;
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     // Only check if online
     if (navigator.onLine) {
@@ -326,12 +346,20 @@ document.addEventListener('DOMContentLoaded', () => {
         updateOfflineUI();
     }
 
-    // Periodic check - only runs when online (every 3 seconds)
-    setInterval(() => {
+    // Start periodic check
+    startInternetCheck();
+});
+
+// Stop/resume polling based on page visibility
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        stopInternetCheck();
+    } else {
+        startInternetCheck();
         if (navigator.onLine) {
             checkInternetStatus();
         }
-    }, 3000);
+    }
 });
 
 // Online/offline event listeners - anında tepki

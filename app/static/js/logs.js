@@ -2,6 +2,7 @@
  * Logs Page JavaScript
  * Log viewing, auto-refresh, and module status polling
  */
+'use strict';
 
 // =============================================================================
 // DOM Elements & Configuration
@@ -43,8 +44,7 @@ async function refreshLogs() {
 
         if (currentModule) {
             // Get from API (JSON)
-            const response = await fetch(url);
-            const data = await response.json();
+            const data = await api.get(`/modules/${currentModule}/logs?lines=200`);
 
             if (data.logs) {
                 logsContent.textContent = data.logs.join('\n');
@@ -59,7 +59,7 @@ async function refreshLogs() {
             const newContent = doc.querySelector('.logs-content');
 
             if (newContent) {
-                logsContent.innerHTML = newContent.innerHTML;
+                logsContent.textContent = newContent.textContent;
             }
         }
 
@@ -121,8 +121,7 @@ async function checkModuleStatus() {
     if (!currentModule || !fromInstall) return;
 
     try {
-        const response = await fetch(`/api/modules/${currentModule}/status`);
-        const data = await response.json();
+        const data = await api.get(`/modules/${currentModule}/status`);
 
         // If status is not 'installing', redirect to install page
         if (data.status && data.status !== 'installing') {

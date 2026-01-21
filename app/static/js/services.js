@@ -2,63 +2,77 @@
  * Services Page JavaScript
  * Service iframe management
  */
+'use strict';
+
+// =============================================================================
+// DOM Elements (cached for performance)
+// =============================================================================
+
+let frameContainer = null;
+let serviceFrame = null;
+let frameTitle = null;
+let frameLoading = null;
+
+function getFrameElements() {
+    if (!frameContainer) {
+        frameContainer = document.getElementById('frame-container');
+        serviceFrame = document.getElementById('service-frame');
+        frameTitle = document.getElementById('frame-title');
+        frameLoading = document.getElementById('frame-loading');
+    }
+    return { frameContainer, serviceFrame, frameTitle, frameLoading };
+}
 
 // =============================================================================
 // Service Frame Management
 // =============================================================================
 
 function openService(path, title) {
-    const container = document.getElementById('frame-container');
-    const frame = document.getElementById('service-frame');
-    const titleEl = document.getElementById('frame-title');
-    const loading = document.getElementById('frame-loading');
+    const { frameContainer, serviceFrame, frameTitle, frameLoading } = getFrameElements();
+    if (!frameContainer || !serviceFrame) return;
 
-    titleEl.textContent = title;
-    loading.classList.add('visible');
-    frame.style.opacity = '0';
+    if (frameTitle) frameTitle.textContent = title;
+    if (frameLoading) frameLoading.classList.add('visible');
+    serviceFrame.style.opacity = '0';
 
-    frame.onload = function() {
-        loading.classList.remove('visible');
-        frame.style.opacity = '1';
+    serviceFrame.onload = function() {
+        if (frameLoading) frameLoading.classList.remove('visible');
+        serviceFrame.style.opacity = '1';
     };
 
-    frame.src = path;
-    container.classList.add('visible');
+    serviceFrame.src = path;
+    frameContainer.classList.add('visible');
     document.body.style.overflow = 'hidden';
 }
 
 function openServiceDirect(port, path, title) {
-    const container = document.getElementById('frame-container');
-    const frame = document.getElementById('service-frame');
-    const titleEl = document.getElementById('frame-title');
-    const loading = document.getElementById('frame-loading');
+    const { frameContainer, serviceFrame, frameTitle, frameLoading } = getFrameElements();
+    if (!frameContainer || !serviceFrame) return;
 
-    titleEl.textContent = title + ' (Direct)';
-    loading.classList.add('visible');
-    frame.style.opacity = '0';
+    if (frameTitle) frameTitle.textContent = title + ' (Direct)';
+    if (frameLoading) frameLoading.classList.add('visible');
+    serviceFrame.style.opacity = '0';
 
-    frame.onload = function() {
-        loading.classList.remove('visible');
-        frame.style.opacity = '1';
+    serviceFrame.onload = function() {
+        if (frameLoading) frameLoading.classList.remove('visible');
+        serviceFrame.style.opacity = '1';
     };
 
     // Build direct URL using current hostname and service port
-    // port comes from dataset as string, parseInt not needed for template literal
     const directUrl = `http://${window.location.hostname}:${port}${path}`;
     console.log('Opening direct URL:', directUrl);
-    frame.src = directUrl;
-    container.classList.add('visible');
+    serviceFrame.src = directUrl;
+    frameContainer.classList.add('visible');
     document.body.style.overflow = 'hidden';
 }
 
 function closeFrame() {
-    const container = document.getElementById('frame-container');
-    const frame = document.getElementById('service-frame');
-    const loading = document.getElementById('frame-loading');
+    const { frameContainer, serviceFrame, frameLoading } = getFrameElements();
+    if (!frameContainer) return;
 
-    container.classList.remove('visible');
-    loading.classList.remove('visible');
-    frame.src = '';
+    frameContainer.classList.remove('visible');
+    if (frameLoading) frameLoading.classList.remove('visible');
+    if (serviceFrame) serviceFrame.src = '';
     document.body.style.overflow = '';
 }
 
@@ -66,8 +80,10 @@ function closeFrame() {
 // Keyboard Shortcuts
 // =============================================================================
 
-document.addEventListener('keydown', function(e) {
+function handleKeydown(e) {
     if (e.key === 'Escape') {
         closeFrame();
     }
-});
+}
+
+document.addEventListener('keydown', handleKeydown);

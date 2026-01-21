@@ -2,6 +2,7 @@
  * Install Page JavaScript
  * MOK re-import and initialization
  */
+'use strict';
 
 // =============================================================================
 // MOK Re-import
@@ -13,17 +14,13 @@ async function reimportMok() {
     }
 
     try {
-        const response = await fetch('/api/nvidia/mok-reimport', {
-            method: 'POST'
-        });
-        const data = await response.json();
+        const data = await api.post('/nvidia/mok-reimport');
 
         if (data.success) {
             alert(data.message + '\n\nSystem rebooting...');
-            // Reboot
-            await fetch('/api/system/reboot', { method: 'POST' });
+            await api.post('/system/reboot');
         } else {
-            alert('Error: ' + data.message);
+            alert('Error: ' + (data.message || data.error || 'Unknown error'));
         }
     } catch (error) {
         alert('MOK import error: ' + error);

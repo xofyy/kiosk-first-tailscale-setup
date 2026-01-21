@@ -211,19 +211,6 @@ class NvidiaModule(BaseModule):
         """Generate 8-digit random password using digits 1-8"""
         return ''.join([str(random.randint(1, 8)) for _ in range(8)])
 
-    def _is_mok_enrolled(self) -> bool:
-        """
-        Check if MOK key is enrolled in UEFI.
-
-        NOTE: This function is kept for reference only.
-        Actual check is done in _detect_mok_status() using nvidia-smi.
-        """
-        try:
-            result = self.run_shell('mokutil --list-enrolled 2>/dev/null | grep -q "Kiosk\\|DKMS"', check=False)
-            return result.returncode == 0
-        except Exception:
-            return False
-
     def _is_mok_pending(self) -> bool:
         """
         Check if MOK import is pending.

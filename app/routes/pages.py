@@ -5,13 +5,15 @@ HTML page endpoints
 MongoDB-based config system.
 """
 
+import json
 import os
 
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request
 
 from app.modules.base import mongo_config as config
 from app.services.system import SystemService
-from app.modules import get_all_modules
+from app.modules import get_all_modules, get_module
+from app.services.service_checker import get_all_services_status
 
 pages_bp = Blueprint('pages', __name__)
 
@@ -39,8 +41,6 @@ def home():
 @pages_bp.route('/install')
 def install():
     """Installation page - Module installations"""
-    from app.modules import get_module
-
     # Get module list
     modules = get_all_modules()
     module_statuses = config.get_all_module_statuses()
@@ -65,12 +65,7 @@ def install():
 @pages_bp.route('/services')
 def services():
     """Services page - Service access via iframe"""
-    import json
-    import os
-
     config.reload()  # Read current config
-
-    from app.services.service_checker import get_all_services_status
 
     # Get services from config
     services_config = config.get('services', {})
@@ -87,7 +82,7 @@ def services():
                         services_config[name] = svc
         except Exception:
             pass
-    
+
     # Check status of each service
     services_status = get_all_services_status(services_config)
 
@@ -96,10 +91,10 @@ def services():
         name: status for name, status in services_status.items()
         if not status.get('internal', False)
     }
-    
+
     # Is nginx installed? (package-based or module-based)
     nginx_installed = os.path.exists('/usr/sbin/nginx') or config.is_module_completed('nginx')
-    
+
     return render_template(
         'services.html',
         services=visible_services,
@@ -110,9 +105,6 @@ def services():
 @pages_bp.route('/logs')
 def logs():
     """Log viewing page (module filtered)"""
-    import os
-    from flask import request
-
     config.reload()  # Read current config
 
     # Module parameter
@@ -145,10 +137,10 @@ def logs():
             logs = ['Log file not yet created']
     except Exception as e:
         logs = [f'Error: {str(e)}']
-    
+
     return render_template(
-        'logs.html', 
-        logs=logs, 
+        'logs.html',
+        logs=logs,
         current_module=module,
         available_modules=sorted(available_modules)
     )
