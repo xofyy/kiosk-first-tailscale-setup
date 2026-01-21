@@ -164,43 +164,12 @@
     <section class="section ip-section">
         <h2 class="section-title" data-icon="network">IP Configuration</h2>
 
-        <div class="ip-config-buttons">
-            <p class="text-muted">Quickly change network configuration:</p>
-
-            <div class="ip-buttons-row">
-                <button class="btn btn-lg btn-ip-config" id="btn-default-ip" onclick="setDefaultIP()">
-                    <span class="btn-icon">
-                        <svg class="icon icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-                        </svg>
-                    </span>
-                    <span class="btn-text">
-                        <strong>Default IP</strong>
-                        <small>5.5.5.55 / 5.5.5.1</small>
-                    </span>
-                </button>
-
-                <button class="btn btn-lg btn-ip-config" id="btn-public-ip" onclick="setPublicIP()">
-                    <span class="btn-icon">
-                        <svg class="icon icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                        </svg>
-                    </span>
-                    <span class="btn-text">
-                        <strong>Public IP</strong>
-                        <small>DHCP (Automatic)</small>
-                    </span>
-                </button>
-            </div>
-
-            <div class="ip-mode-info" id="ip-mode-info">
-                <span class="mode-indicator" id="mode-static" style="display: none;">
-                    <span class="indicator-dot"></span> Static IP Active
-                </span>
-                <span class="mode-indicator" id="mode-dhcp" style="display: none;">
-                    <span class="indicator-dot"></span> DHCP Active
-                </span>
+        <div class="interface-cards" id="interface-cards">
+            <!-- Interfaces will be loaded dynamically -->
+            <div class="interface-card skeleton-card">
+                <div class="interface-header">
+                    <span class="interface-name">Loading...</span>
+                </div>
             </div>
         </div>
     </section>
@@ -323,29 +292,145 @@
 
 {% block extra_js %}
 <script>
-// IP Mode Indicator
-function updateIpModeIndicator() {
-    const ipElement = document.getElementById('conn-ip');
-    const ip = ipElement?.textContent?.trim();
-    const staticIndicator = document.getElementById('mode-static');
-    const dhcpIndicator = document.getElementById('mode-dhcp');
+// =============================================================================
+// Network Interfaces Management
+// =============================================================================
 
-    if (!staticIndicator || !dhcpIndicator) return;
+let interfacesData = null;
+let defaultIpConfigs = null;
 
-    if (ip && ip.startsWith('5.5.5.')) {
-        staticIndicator.style.display = 'inline-flex';
-        dhcpIndicator.style.display = 'none';
-    } else if (ip && ip !== 'Checking...' && ip !== 'N/A' && ip !== '...') {
-        staticIndicator.style.display = 'none';
-        dhcpIndicator.style.display = 'inline-flex';
-    } else {
-        staticIndicator.style.display = 'none';
-        dhcpIndicator.style.display = 'none';
+async function loadNetworkInterfaces() {
+    const container = document.getElementById('interface-cards');
+    if (!container) return;
+
+    try {
+        const response = await fetch('/api/network/interfaces');
+        const data = await response.json();
+
+        interfacesData = data.interfaces;
+        defaultIpConfigs = data.default_ips;
+
+        if (!interfacesData || interfacesData.length === 0) {
+            container.innerHTML = '<p class="text-muted">No network interfaces found.</p>';
+            return;
+        }
+
+        container.innerHTML = interfacesData.map(iface => renderInterfaceCard(iface)).join('');
+    } catch (error) {
+        console.error('Failed to load interfaces:', error);
+        container.innerHTML = '<p class="text-muted">Failed to load network interfaces.</p>';
     }
 }
 
-// Update on page load
-setTimeout(updateIpModeIndicator, 500);
+function renderInterfaceCard(iface) {
+    const typeLabel = iface.type === 'onboard' ? 'Onboard' : 'PCIe Add-on';
+    const typeClass = iface.type === 'onboard' ? 'type-onboard' : 'type-pcie';
+    const defaultConfig = defaultIpConfigs[iface.type] || defaultIpConfigs.onboard;
+    const defaultIpText = `${defaultConfig.ip} / ${defaultConfig.gateway}`;
+
+    return `
+        <div class="interface-card ${typeClass}" data-interface="${iface.name}" data-type="${iface.type}">
+            <div class="interface-header">
+                <span class="interface-icon">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                        <line x1="1" y1="10" x2="23" y2="10"/>
+                    </svg>
+                </span>
+                <div class="interface-info">
+                    <span class="interface-name">${iface.name}</span>
+                    <span class="interface-type">${typeLabel}</span>
+                </div>
+            </div>
+
+            <div class="interface-status">
+                <div class="interface-ip">
+                    <span class="ip-label">Current IP:</span>
+                    <span class="ip-value" id="ip-${iface.name}">${iface.ip || 'No IP'}</span>
+                </div>
+                <div class="interface-state ${iface.state === 'up' ? 'state-up' : 'state-down'}">
+                    <span class="state-dot"></span>
+                    <span>${iface.state === 'up' ? 'Connected' : 'Disconnected'}</span>
+                </div>
+            </div>
+
+            <div class="interface-buttons">
+                <button class="btn btn-sm btn-ip-default" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'default')">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    </svg>
+                    <span>Default IP</span>
+                    <small>${defaultIpText}</small>
+                </button>
+                <button class="btn btn-sm btn-ip-dhcp" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'dhcp')">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"/>
+                        <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                    </svg>
+                    <span>DHCP</span>
+                    <small>Automatic</small>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+async function setInterfaceIP(interfaceName, interfaceType, mode) {
+    const card = document.querySelector(`[data-interface="${interfaceName}"]`);
+    const buttons = card?.querySelectorAll('button');
+    const ipDisplay = document.getElementById(`ip-${interfaceName}`);
+
+    // Disable buttons
+    buttons?.forEach(btn => btn.disabled = true);
+    if (ipDisplay) ipDisplay.textContent = 'Setting...';
+
+    try {
+        const response = await fetch('/api/network/set-ip', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                interface: interfaceName,
+                interface_type: interfaceType,
+                mode: mode
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            const modeText = mode === 'default' ? 'Default IP set' : 'DHCP enabled';
+            showToast(`${interfaceName}: ${modeText}`, 'success');
+
+            // Update IP display
+            if (ipDisplay) {
+                if (mode === 'default' && defaultIpConfigs) {
+                    ipDisplay.textContent = defaultIpConfigs[interfaceType]?.ip || 'Set';
+                } else {
+                    ipDisplay.textContent = 'DHCP...';
+                }
+            }
+
+            // Refresh interface status after a delay
+            setTimeout(loadNetworkInterfaces, 2000);
+        } else {
+            showToast(data.error || 'Failed to set IP', 'error');
+            if (ipDisplay) ipDisplay.textContent = 'Error';
+        }
+    } catch (error) {
+        showToast('Connection error', 'error');
+        if (ipDisplay) ipDisplay.textContent = 'Error';
+    } finally {
+        buttons?.forEach(btn => btn.disabled = false);
+    }
+}
+
+// Load interfaces on page load
+document.addEventListener('DOMContentLoaded', loadNetworkInterfaces);
+
+// Backward compatibility for updateIpModeIndicator (called from main.js)
+function updateIpModeIndicator() {
+    // No longer needed with new interface cards, but keep for compatibility
+}
 
 // RVM ID Form (new setup)
 const rvmIdForm = document.getElementById('rvm-id-form');
@@ -439,64 +524,6 @@ if (rvmIdEditForm) {
     });
 }
 
-// Default IP (5.5.5.55)
-async function setDefaultIP() {
-    const btn = document.getElementById('btn-default-ip');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Setting...';
-
-    try {
-        const response = await fetch('/api/network/set-ip', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: 'default' })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            showToast('Default IP set: 5.5.5.55', 'success');
-            document.getElementById('conn-ip').textContent = '5.5.5.55';
-            updateIpModeIndicator();
-        } else {
-            showToast(data.error || 'Could not set IP', 'error');
-        }
-    } catch (error) {
-        showToast('Connection error', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="btn-icon"><svg class="icon icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg></span><span class="btn-text"><strong>Default IP</strong><small>5.5.5.55 / 5.5.5.1</small></span>';
-    }
-}
-
-// Public IP (DHCP)
-async function setPublicIP() {
-    const btn = document.getElementById('btn-public-ip');
-    btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Setting...';
-
-    try {
-        const response = await fetch('/api/network/set-ip', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ mode: 'dhcp' })
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            showToast('DHCP enabled', 'success');
-            setTimeout(updateIpModeIndicator, 1000);
-        } else {
-            showToast(data.error || 'Could not set DHCP', 'error');
-        }
-    } catch (error) {
-        showToast('Connection error', 'error');
-    } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<span class="btn-icon"><svg class="icon icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span><span class="btn-text"><strong>Public IP</strong><small>DHCP (Automatic)</small></span>';
-    }
-}
 
 // System Reboot
 async function systemReboot() {

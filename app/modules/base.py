@@ -223,6 +223,7 @@ def setup_module_logger(module_name: str) -> logging.Logger:
     # Create logger
     module_logger = logging.getLogger(f"module.{module_name}")
     module_logger.setLevel(logging.DEBUG)
+    module_logger.propagate = False  # Don't propagate to root logger (prevents duplicate logs)
 
     # Clear existing handlers (prevent duplicate logs)
     module_logger.handlers.clear()

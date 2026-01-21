@@ -9,9 +9,50 @@ import subprocess
 import socket
 import os
 import ipaddress
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# NETWORK INTERFACE DETECTION CONSTANTS
+# =============================================================================
+
+# Known motherboard manufacturers - subsystem_vendor IDs
+# If a NIC's subsystem_vendor matches one of these, it's likely onboard
+MOTHERBOARD_VENDORS = {
+    "0x1462": "MSI",
+    "0x1043": "ASUS",
+    "0x1458": "Gigabyte",
+    "0x1849": "ASRock",
+    "0x1028": "Dell",
+    "0x103c": "HP",
+    "0x17aa": "Lenovo",
+    "0x8086": "Intel",
+    "0x15d9": "Supermicro",
+    "0x1025": "Acer",
+    "0x104d": "Sony",
+    "0x1179": "Toshiba",
+    "0x1022": "AMD",
+    "0x1297": "Shuttle",
+    "0x1565": "Biostar",
+    "0x1b4b": "Marvell",
+}
+
+# Default IP configurations for each interface type
+DEFAULT_IP_CONFIGS = {
+    "onboard": {
+        "ip": "5.5.5.55",
+        "prefix": 24,
+        "gateway": "5.5.5.1",
+        "dns": "8.8.8.8"
+    },
+    "pcie": {
+        "ip": "192.168.1.200",
+        "prefix": 24,
+        "gateway": "192.168.1.1",
+        "dns": "8.8.8.8"
+    },
+}
 
 
 class SystemService:
@@ -130,6 +171,147 @@ class SystemService:
             logger.debug(f"Could not get network interfaces: {e}")
 
         return interfaces
+
+    def get_ethernet_interfaces(self) -> List[Dict[str, Any]]:
+        """
+        Detect physical ethernet interfaces with onboard/pcie classification.
+        Uses subsystem_vendor to distinguish onboard NICs from PCIe add-on cards.
+
+        Returns:
+            List of interface dicts:
+            [
+                {
+                    "name": "enp4s0",
+                    "type": "onboard",      # or "pcie"
+                    "vendor": "MSI",        # motherboard vendor or chip vendor
+                    "ip": "192.168.1.50",   # or None
+                    "state": "UP",          # or "DOWN"
+                    "mac": "d8:bb:c1:4e:a9:6e"
+                },
+                ...
+            ]
+        """
+        interfaces = []
+
+        try:
+            # Get all network interfaces from /sys/class/net
+            net_path = '/sys/class/net'
+
+            if not os.path.exists(net_path):
+                return interfaces
+
+            for iface_name in os.listdir(net_path):
+                iface_path = os.path.join(net_path, iface_name)
+
+                # Skip virtual interfaces
+                if iface_name in ['lo']:
+                    continue
+                if iface_name.startswith(('docker', 'veth', 'br-', 'tailscale', 'virbr')):
+                    continue
+
+                # Check if it's a physical device (has 'device' symlink)
+                device_path = os.path.join(iface_path, 'device')
+                if not os.path.exists(device_path):
+                    continue
+
+                # Skip wireless interfaces
+                wireless_path = os.path.join(iface_path, 'wireless')
+                if os.path.exists(wireless_path):
+                    continue
+
+                # Get subsystem_vendor to determine onboard vs pcie
+                subsystem_vendor_path = os.path.join(device_path, 'subsystem_vendor')
+                iface_type = "pcie"  # Default to PCIe
+                vendor_name = "Unknown"
+
+                if os.path.exists(subsystem_vendor_path):
+                    try:
+                        with open(subsystem_vendor_path, 'r') as f:
+                            vendor_id = f.read().strip()
+
+                        if vendor_id in MOTHERBOARD_VENDORS:
+                            iface_type = "onboard"
+                            vendor_name = MOTHERBOARD_VENDORS[vendor_id]
+                        else:
+                            # Try to get vendor name from udevadm or keep as vendor_id
+                            vendor_name = self._get_vendor_name(iface_name) or vendor_id
+                    except Exception:
+                        pass
+
+                # Get IP address and state
+                ip_addr = None
+                state = "DOWN"
+                mac = "N/A"
+
+                # Get operstate
+                operstate_path = os.path.join(iface_path, 'operstate')
+                if os.path.exists(operstate_path):
+                    try:
+                        with open(operstate_path, 'r') as f:
+                            state = f.read().strip().upper()
+                    except Exception:
+                        pass
+
+                # Get MAC address
+                address_path = os.path.join(iface_path, 'address')
+                if os.path.exists(address_path):
+                    try:
+                        with open(address_path, 'r') as f:
+                            mac = f.read().strip()
+                    except Exception:
+                        pass
+
+                # Get IP address via ip command
+                try:
+                    result = subprocess.run(
+                        ['ip', '-4', '-o', 'addr', 'show', iface_name],
+                        capture_output=True,
+                        text=True,
+                        timeout=2
+                    )
+                    if result.returncode == 0 and result.stdout.strip():
+                        # Parse: "2: enp4s0    inet 192.168.1.50/24 ..."
+                        parts = result.stdout.split()
+                        for i, part in enumerate(parts):
+                            if part == 'inet' and i + 1 < len(parts):
+                                ip_addr = parts[i + 1].split('/')[0]
+                                break
+                except Exception:
+                    pass
+
+                interfaces.append({
+                    "name": iface_name,
+                    "type": iface_type,
+                    "vendor": vendor_name,
+                    "ip": ip_addr,
+                    "state": state,
+                    "mac": mac
+                })
+
+            # Sort: onboard first, then by name
+            interfaces.sort(key=lambda x: (0 if x['type'] == 'onboard' else 1, x['name']))
+
+        except Exception as e:
+            logger.error(f"Could not get ethernet interfaces: {e}")
+
+        return interfaces
+
+    def _get_vendor_name(self, iface_name: str) -> Optional[str]:
+        """Get vendor name from udevadm for a network interface"""
+        try:
+            result = subprocess.run(
+                ['udevadm', 'info', '-p', f'/sys/class/net/{iface_name}'],
+                capture_output=True,
+                text=True,
+                timeout=2
+            )
+            if result.returncode == 0:
+                for line in result.stdout.split('\n'):
+                    if 'ID_VENDOR_FROM_DATABASE=' in line:
+                        return line.split('=', 1)[1].strip()
+        except Exception:
+            pass
+        return None
 
     def check_internet(self) -> bool:
         """Check internet connection"""

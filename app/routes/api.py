@@ -12,7 +12,7 @@ import time
 from flask import Blueprint, jsonify, request
 
 from app.modules.base import mongo_config as config
-from app.services.system import SystemService
+from app.services.system import SystemService, DEFAULT_IP_CONFIGS
 from app.services.hardware import HardwareService
 from app.modules import get_module, get_all_modules
 
@@ -478,30 +478,82 @@ def module_logs(module_name: str):
 
 
 # =============================================================================
+# NETWORK INTERFACE API
+# =============================================================================
+
+@api_bp.route('/network/interfaces')
+def get_network_interfaces():
+    """
+    List all physical ethernet interfaces with onboard/pcie classification.
+
+    Response:
+    {
+        "interfaces": [
+            {"name": "enp4s0", "type": "onboard", "vendor": "MSI", "ip": "...", "state": "UP", "mac": "..."},
+            {"name": "enp5s0", "type": "pcie", "vendor": "Realtek", "ip": "...", "state": "UP", "mac": "..."}
+        ],
+        "default_ips": {
+            "onboard": {"ip": "5.5.5.55", "prefix": 24, "gateway": "5.5.5.1", "dns": "8.8.8.8"},
+            "pcie": {"ip": "192.168.1.200", "prefix": 24, "gateway": "192.168.1.1", "dns": "8.8.8.8"}
+        }
+    }
+    """
+    system = SystemService()
+    interfaces = system.get_ethernet_interfaces()
+
+    return jsonify({
+        'interfaces': interfaces,
+        'default_ips': DEFAULT_IP_CONFIGS
+    })
+
+
+# =============================================================================
 # IP CONFIGURATION API (NetworkManager)
 # =============================================================================
 
 @api_bp.route('/network/set-ip', methods=['POST'])
 def set_network_ip():
     """
-    IP configuration with NetworkManager
-    mode: 'default' → 5.5.5.55/24, gateway 5.5.5.1
-    mode: 'dhcp' → DHCP (automatic)
+    IP configuration with NetworkManager for a specific interface.
+
+    Request body:
+    {
+        "interface": "enp4s0",  # Required: interface name
+        "mode": "default"       # Required: "default" or "dhcp"
+    }
+
+    Default IPs:
+    - onboard interface: 5.5.5.55/24, gateway 5.5.5.1
+    - pcie interface: 192.168.1.200/24, gateway 192.168.1.1
     """
     data = request.get_json()
 
     if not data:
         return jsonify({'success': False, 'error': 'No data found'}), 400
 
+    interface_name = data.get('interface')
     mode = data.get('mode')
+
+    if not interface_name:
+        return jsonify({'success': False, 'error': 'Interface name required'}), 400
 
     if mode not in ['default', 'dhcp']:
         return jsonify({'success': False, 'error': 'Invalid mode: use default or dhcp'}), 400
 
     try:
-        # Find active ethernet connection
+        # Get interface type (onboard/pcie) to determine default IP
+        system = SystemService()
+        interfaces = system.get_ethernet_interfaces()
+        interface_info = next((i for i in interfaces if i['name'] == interface_name), None)
+
+        if not interface_info:
+            return jsonify({'success': False, 'error': f'Interface not found: {interface_name}'}), 400
+
+        interface_type = interface_info.get('type', 'pcie')
+
+        # Find NetworkManager connection for this interface
         result = subprocess.run(
-            ['nmcli', '-t', '-f', 'NAME,TYPE,DEVICE', 'connection', 'show', '--active'],
+            ['nmcli', '-t', '-f', 'NAME,TYPE,DEVICE', 'connection', 'show'],
             capture_output=True, text=True, timeout=10
         )
 
@@ -509,38 +561,32 @@ def set_network_ip():
         for line in result.stdout.strip().split('\n'):
             if line:
                 parts = line.split(':')
-                if len(parts) >= 2 and parts[1] == '802-3-ethernet':
+                # parts: [NAME, TYPE, DEVICE]
+                if len(parts) >= 3 and parts[1] == '802-3-ethernet' and parts[2] == interface_name:
                     connection_name = parts[0]
                     break
 
+        # If no connection for this device, try to find by device name or create one
         if not connection_name:
-            # If no active connection, find any ethernet connection
-            result = subprocess.run(
-                ['nmcli', '-t', '-f', 'NAME,TYPE', 'connection', 'show'],
-                capture_output=True, text=True, timeout=10
-            )
-            for line in result.stdout.strip().split('\n'):
-                if line:
-                    parts = line.split(':')
-                    if len(parts) >= 2 and parts[1] == '802-3-ethernet':
-                        connection_name = parts[0]
-                        break
+            # Try with just the interface name as connection
+            connection_name = interface_name
 
-        if not connection_name:
-            return jsonify({'success': False, 'error': 'Ethernet connection not found'}), 400
-
-        logger.info(f"Changing IP: connection={connection_name}, mode={mode}")
+        logger.info(f"Changing IP: interface={interface_name}, connection={connection_name}, mode={mode}, type={interface_type}")
 
         if mode == 'default':
-            # Statik IP: 5.5.5.55/24, gateway 5.5.5.1
+            # Get default IP config based on interface type
+            ip_config = DEFAULT_IP_CONFIGS.get(interface_type, DEFAULT_IP_CONFIGS['pcie'])
+            ip_with_prefix = f"{ip_config['ip']}/{ip_config['prefix']}"
+
             cmds = [
                 ['nmcli', 'connection', 'modify', connection_name,
-                 'ipv4.addresses', '5.5.5.55/24',
-                 'ipv4.gateway', '5.5.5.1',
-                 'ipv4.dns', '8.8.8.8',
+                 'ipv4.addresses', ip_with_prefix,
+                 'ipv4.gateway', ip_config['gateway'],
+                 'ipv4.dns', ip_config['dns'],
                  'ipv4.method', 'manual'],
                 ['nmcli', 'connection', 'up', connection_name]
             ]
+            msg = f"Default IP ({ip_config['ip']}) set on {interface_name}"
         else:
             # DHCP
             cmds = [
@@ -551,6 +597,7 @@ def set_network_ip():
                  'ipv4.method', 'auto'],
                 ['nmcli', 'connection', 'up', connection_name]
             ]
+            msg = f'DHCP enabled on {interface_name}'
 
         # Run modify command (blocking - need to verify success)
         result = subprocess.run(cmds[0], capture_output=True, text=True, timeout=10)
@@ -561,7 +608,6 @@ def set_network_ip():
         # Run connection up (non-blocking - don't wait for IP change)
         subprocess.Popen(cmds[1])
 
-        msg = 'Default IP (5.5.5.55) set' if mode == 'default' else 'DHCP enabled'
         logger.info(msg)
         return jsonify({'success': True, 'message': msg})
 
