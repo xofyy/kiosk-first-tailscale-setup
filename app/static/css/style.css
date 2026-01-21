@@ -1544,17 +1544,18 @@ body {
 
 .interface-buttons {
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
     gap: var(--spacing-sm);
 }
 
-.btn-ip-default,
+.btn-ip-network,
+.btn-ip-direct,
 .btn-ip-dhcp {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: var(--spacing-xs);
-    padding: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-xs);
     background: var(--color-bg-tertiary);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
@@ -1564,34 +1565,39 @@ body {
     text-align: center;
 }
 
-.btn-ip-default:hover,
+.btn-ip-network:hover,
+.btn-ip-direct:hover,
 .btn-ip-dhcp:hover {
     border-color: var(--color-primary);
     background: var(--color-surface-hover);
 }
 
-.btn-ip-default:disabled,
+.btn-ip-network:disabled,
+.btn-ip-direct:disabled,
 .btn-ip-dhcp:disabled {
     opacity: 0.5;
     cursor: not-allowed;
 }
 
-.btn-ip-default .icon,
+.btn-ip-network .icon,
+.btn-ip-direct .icon,
 .btn-ip-dhcp .icon {
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     color: var(--color-primary);
 }
 
-.btn-ip-default span,
+.btn-ip-network span,
+.btn-ip-direct span,
 .btn-ip-dhcp span {
     font-weight: 600;
-    font-size: var(--font-size-sm);
+    font-size: var(--font-size-xs);
 }
 
-.btn-ip-default small,
+.btn-ip-network small,
+.btn-ip-direct small,
 .btn-ip-dhcp small {
-    font-size: var(--font-size-xs);
+    font-size: 10px;
     color: var(--color-text-muted);
     display: block;
 }

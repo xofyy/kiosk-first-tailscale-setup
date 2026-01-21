@@ -39,18 +39,35 @@ MOTHERBOARD_VENDORS = {
 }
 
 # Default IP configurations for each interface type
+# Onboard: supports both "network" (with gateway) and "direct" (no gateway) modes
+# PCIe: only "direct" mode (typically used for direct device connections)
 DEFAULT_IP_CONFIGS = {
     "onboard": {
         "ip": "5.5.5.55",
         "prefix": 24,
-        "gateway": "5.5.5.1",
-        "dns": "8.8.8.8"
+        "modes": {
+            "network": {
+                "gateway": "5.5.5.1",
+                "dns": "8.8.8.8",
+                "ipv6": "auto"
+            },
+            "direct": {
+                "gateway": None,
+                "dns": None,
+                "ipv6": "disabled"
+            }
+        }
     },
     "pcie": {
         "ip": "192.168.1.200",
         "prefix": 24,
-        "gateway": "192.168.1.1",
-        "dns": "8.8.8.8"
+        "modes": {
+            "direct": {
+                "gateway": None,
+                "dns": None,
+                "ipv6": "disabled"
+            }
+        }
     },
 }
 

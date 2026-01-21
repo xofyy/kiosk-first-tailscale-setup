@@ -519,12 +519,17 @@ def set_network_ip():
     Request body:
     {
         "interface": "enp4s0",  # Required: interface name
-        "mode": "default"       # Required: "default" or "dhcp"
+        "mode": "network|direct|dhcp"  # Required
     }
 
+    Modes:
+    - network: Static IP with gateway (for network with internet)
+    - direct: Static IP without gateway (for direct device connection)
+    - dhcp: Automatic configuration
+
     Default IPs:
-    - onboard interface: 5.5.5.55/24, gateway 5.5.5.1
-    - pcie interface: 192.168.1.200/24, gateway 192.168.1.1
+    - onboard: 5.5.5.55/24 (network mode has gateway, direct mode doesn't)
+    - pcie: 192.168.1.200/24 (direct mode only - no gateway)
     """
     data = request.get_json()
 
@@ -537,8 +542,8 @@ def set_network_ip():
     if not interface_name:
         return jsonify({'success': False, 'error': 'Interface name required'}), 400
 
-    if mode not in ['default', 'dhcp']:
-        return jsonify({'success': False, 'error': 'Invalid mode: use default or dhcp'}), 400
+    if mode not in ['network', 'direct', 'dhcp']:
+        return jsonify({'success': False, 'error': 'Invalid mode: use network, direct or dhcp'}), 400
 
     try:
         # Get interface type (onboard/pcie) to determine default IP
@@ -550,6 +555,11 @@ def set_network_ip():
             return jsonify({'success': False, 'error': f'Interface not found: {interface_name}'}), 400
 
         interface_type = interface_info.get('type', 'pcie')
+
+        # Validate mode is available for this interface type
+        type_config = DEFAULT_IP_CONFIGS.get(interface_type, DEFAULT_IP_CONFIGS['pcie'])
+        if mode != 'dhcp' and mode not in type_config.get('modes', {}):
+            return jsonify({'success': False, 'error': f'Mode {mode} not available for {interface_type} interface'}), 400
 
         # Find NetworkManager connection for this interface
         result = subprocess.run(
@@ -573,20 +583,38 @@ def set_network_ip():
 
         logger.info(f"Changing IP: interface={interface_name}, connection={connection_name}, mode={mode}, type={interface_type}")
 
-        if mode == 'default':
-            # Get default IP config based on interface type
-            ip_config = DEFAULT_IP_CONFIGS.get(interface_type, DEFAULT_IP_CONFIGS['pcie'])
-            ip_with_prefix = f"{ip_config['ip']}/{ip_config['prefix']}"
+        if mode in ['network', 'direct']:
+            # Get IP config based on interface type
+            ip_with_prefix = f"{type_config['ip']}/{type_config['prefix']}"
+            mode_config = type_config['modes'][mode]
 
-            cmds = [
-                ['nmcli', 'connection', 'modify', connection_name,
-                 'ipv4.addresses', ip_with_prefix,
-                 'ipv4.gateway', ip_config['gateway'],
-                 'ipv4.dns', ip_config['dns'],
-                 'ipv4.method', 'manual'],
-                ['nmcli', 'connection', 'up', connection_name]
-            ]
-            msg = f"Default IP ({ip_config['ip']}) set on {interface_name}"
+            # Build nmcli command
+            cmd = ['nmcli', 'connection', 'modify', connection_name,
+                   'ipv4.addresses', ip_with_prefix,
+                   'ipv4.method', 'manual']
+
+            # Add gateway if specified
+            if mode_config.get('gateway'):
+                cmd.extend(['ipv4.gateway', mode_config['gateway']])
+            else:
+                cmd.extend(['ipv4.gateway', ''])
+
+            # Add DNS if specified
+            if mode_config.get('dns'):
+                cmd.extend(['ipv4.dns', mode_config['dns']])
+            else:
+                cmd.extend(['ipv4.dns', ''])
+
+            # Set IPv6 method
+            ipv6_method = mode_config.get('ipv6', 'auto')
+            cmd.extend(['ipv6.method', ipv6_method])
+
+            cmds = [cmd, ['nmcli', 'connection', 'up', connection_name]]
+
+            if mode == 'network':
+                msg = f"Network IP ({type_config['ip']}) set on {interface_name}"
+            else:
+                msg = f"Direct IP ({type_config['ip']}) set on {interface_name}"
         else:
             # DHCP
             cmds = [
@@ -594,7 +622,8 @@ def set_network_ip():
                  'ipv4.addresses', '',
                  'ipv4.gateway', '',
                  'ipv4.dns', '',
-                 'ipv4.method', 'auto'],
+                 'ipv4.method', 'auto',
+                 'ipv6.method', 'auto'],
                 ['nmcli', 'connection', 'up', connection_name]
             ]
             msg = f'DHCP enabled on {interface_name}'
