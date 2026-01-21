@@ -931,10 +931,18 @@ systemctl restart systemd-resolved 2>/dev/null || true
 # -----------------------------------------------------------------------------
 
 mkdir -p /etc/NetworkManager/conf.d
+
 cat > /etc/NetworkManager/conf.d/dns.conf << 'EOF'
 [main]
 dns=systemd-resolved
 EOF
+
+cat > /etc/NetworkManager/conf.d/10-globally-managed.conf << 'EOF'
+[keyfile]
+unmanaged-devices=none
+EOF
+
+log "NetworkManager configured to manage all interfaces"
 
 # Mask systemd-networkd
 systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
@@ -958,9 +966,15 @@ done
 
 # Apply netplan
 netplan apply 2>/dev/null || true
-
-# Reload NetworkManager config
 sleep 2
+
+# Ensure autoconnect and activate connections
+info "Activating network connections..."
+for conn in $(nmcli -t -f NAME connection show | grep "^netplan-"); do
+    nmcli connection modify "$conn" connection.autoconnect yes 2>/dev/null || true
+    nmcli connection up "$conn" 2>/dev/null || true
+done
+
 nmcli general reload conf 2>/dev/null || true
 
 # -----------------------------------------------------------------------------
