@@ -185,7 +185,7 @@ class SystemService:
                     "type": "onboard",      # or "pcie"
                     "vendor": "MSI",        # motherboard vendor or chip vendor
                     "ip": "192.168.1.50",   # or None
-                    "state": "UP",          # or "DOWN"
+                    "state": "up",          # or "down"
                     "mac": "d8:bb:c1:4e:a9:6e"
                 },
                 ...
@@ -240,7 +240,7 @@ class SystemService:
 
                 # Get IP address and state
                 ip_addr = None
-                state = "DOWN"
+                state = "down"
                 mac = "N/A"
 
                 # Get operstate
@@ -248,7 +248,7 @@ class SystemService:
                 if os.path.exists(operstate_path):
                     try:
                         with open(operstate_path, 'r') as f:
-                            state = f.read().strip().upper()
+                            state = f.read().strip().lower()
                     except Exception:
                         pass
 

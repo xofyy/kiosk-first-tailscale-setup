@@ -89,7 +89,6 @@ const domCache = {
     statusText: null,
     connInternet: null,
     connDns: null,
-    connIp: null,
     connTailscale: null,
     _initialized: false
 };
@@ -100,7 +99,6 @@ function initDomCache() {
     domCache.statusText = document.querySelector('.status-text');
     domCache.connInternet = document.getElementById('conn-internet');
     domCache.connDns = document.getElementById('conn-dns');
-    domCache.connIp = document.getElementById('conn-ip');
     domCache.connTailscale = document.getElementById('conn-tailscale');
     domCache._initialized = true;
 }
@@ -153,19 +151,6 @@ async function checkInternetStatus() {
                 domCache.connDns.innerHTML = data.dns_working
                     ? '<span class="status-badge success">Working</span>'
                     : '<span class="status-badge error">Error</span>';
-            }
-        }
-
-        // Update IP address
-        if (domCache.connIp) {
-            if (data.ip === null) {
-                domCache.connIp.textContent = 'Checking...';
-            } else {
-                domCache.connIp.textContent = data.ip || 'N/A';
-            }
-            // Update IP mode indicator if function exists (defined in home.html)
-            if (typeof updateIpModeIndicator === 'function') {
-                updateIpModeIndicator();
             }
         }
 

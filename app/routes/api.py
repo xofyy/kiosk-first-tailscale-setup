@@ -489,8 +489,8 @@ def get_network_interfaces():
     Response:
     {
         "interfaces": [
-            {"name": "enp4s0", "type": "onboard", "vendor": "MSI", "ip": "...", "state": "UP", "mac": "..."},
-            {"name": "enp5s0", "type": "pcie", "vendor": "Realtek", "ip": "...", "state": "UP", "mac": "..."}
+            {"name": "enp4s0", "type": "onboard", "vendor": "MSI", "ip": "...", "state": "up", "mac": "..."},
+            {"name": "enp5s0", "type": "pcie", "vendor": "Realtek", "ip": "...", "state": "up", "mac": "..."}
         ],
         "default_ips": {
             "onboard": {"ip": "5.5.5.55", "prefix": 24, "gateway": "5.5.5.1", "dns": "8.8.8.8"},

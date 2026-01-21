@@ -60,7 +60,10 @@ def check_pending_modules():
 
 def get_version() -> str:
     """Read version from VERSION file"""
-    version_file = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'VERSION')
+    # Use absolute path to handle different working directories
+    app_dir = os.path.dirname(os.path.abspath(__file__))
+    project_dir = os.path.dirname(app_dir)
+    version_file = os.path.join(project_dir, 'VERSION')
     try:
         with open(version_file, 'r') as f:
             return f.read().strip()
