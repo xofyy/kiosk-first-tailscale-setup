@@ -877,10 +877,9 @@ if [[ ! -f "$CLOUD_INIT_FILE" ]]; then
 fi
 
 # -----------------------------------------------------------------------------
-# Netplan Configuration
+# Netplan Configuration (renderer only)
 # -----------------------------------------------------------------------------
 
-# Backup existing netplan configs
 mkdir -p /etc/netplan/backup
 for f in /etc/netplan/*.yaml; do
     [[ "$f" == *"01-network-manager"* ]] && continue
@@ -893,17 +892,6 @@ cat > /etc/netplan/01-network-manager.yaml << 'EOF'
 network:
   version: 2
   renderer: NetworkManager
-  ethernets:
-    all-en:
-      match:
-        name: "en*"
-      dhcp4: true
-      optional: true
-    all-eth:
-      match:
-        name: "eth*"
-      dhcp4: true
-      optional: true
 EOF
 
 log "Netplan configured with NetworkManager renderer"
@@ -968,14 +956,36 @@ done
 netplan apply 2>/dev/null || true
 sleep 2
 
-# Ensure autoconnect and activate connections
-info "Activating network connections..."
+# -----------------------------------------------------------------------------
+# Create connection for each ethernet interface
+# -----------------------------------------------------------------------------
+
+# Clean old netplan connections
 for conn in $(nmcli -t -f NAME connection show | grep "^netplan-"); do
-    nmcli connection modify "$conn" connection.autoconnect yes 2>/dev/null || true
-    nmcli connection up "$conn" 2>/dev/null || true
+    nmcli connection delete "$conn" 2>/dev/null || true
 done
 
-nmcli general reload conf 2>/dev/null || true
+# Create connection for each ethernet interface
+info "Creating ethernet connections..."
+for iface in $(nmcli -t -f DEVICE,TYPE device status | grep ':ethernet' | cut -d: -f1); do
+    # Skip if connection already exists
+    if nmcli connection show "auto-$iface" &>/dev/null; then
+        continue
+    fi
+    nmcli connection add \
+        con-name "auto-$iface" \
+        type ethernet \
+        ifname "$iface" \
+        autoconnect yes \
+        ipv4.method auto \
+        ipv6.method disabled 2>/dev/null || true
+    log "Created connection for $iface"
+done
+
+# Connect interfaces with cable
+for iface in $(nmcli -t -f DEVICE,TYPE device status | grep ':ethernet' | cut -d: -f1); do
+    nmcli device connect "$iface" 2>/dev/null || true
+done
 
 # -----------------------------------------------------------------------------
 # Wait for network connectivity
@@ -1014,7 +1024,6 @@ if [[ "$DNS_OK" != "true" ]]; then
     nmcli device status 2>/dev/null || true
 fi
 
-# Enable wait-online for boot
 systemctl enable NetworkManager-wait-online 2>/dev/null || true
 
 if systemctl is-active --quiet NetworkManager; then
