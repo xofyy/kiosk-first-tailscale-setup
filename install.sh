@@ -372,7 +372,7 @@ cat > /etc/nginx/aco-services.json << 'EOF'
   "mechcontroller": {
     "display_name": "Mechatronic Controller",
     "port": 1234,
-    "path": "/mechatronic_controller/",
+    "path": "/",
     "websocket": true,
     "check_type": "port",
     "check_value": 1234
@@ -380,7 +380,7 @@ cat > /etc/nginx/aco-services.json << 'EOF'
   "scanners": {
     "display_name": "Scanners Dashboard",
     "port": 504,
-    "path": "/scanners/",
+    "path": "/",
     "websocket": true,
     "check_type": "port",
     "check_value": 504
@@ -396,7 +396,7 @@ cat > /etc/nginx/aco-services.json << 'EOF'
   "camera": {
     "display_name": "Camera Controller",
     "port": 5100,
-    "path": "/camera/",
+    "path": "/",
     "websocket": true,
     "check_type": "port",
     "check_value": 5100
