@@ -925,7 +925,7 @@ cat > /etc/NetworkManager/conf.d/dns.conf << 'EOF'
 dns=systemd-resolved
 EOF
 
-cat > /etc/NetworkManager/conf.d/10-globally-managed.conf << 'EOF'
+cat > /etc/NetworkManager/conf.d/10-globally-managed-devices.conf << 'EOF'
 [keyfile]
 unmanaged-devices=none
 EOF
