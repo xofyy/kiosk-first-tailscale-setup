@@ -270,6 +270,9 @@ info "Copying scripts..."
 
 # Check scripts directory - only copy if changed
 if [[ -d "$SCRIPT_DIR/scripts" ]]; then
+    # Also copy to INSTALL_DIR for upgrade.sh compatibility
+    cp -r "$SCRIPT_DIR/scripts" "$INSTALL_DIR/"
+
     SCRIPTS_UPDATED=0
     for script in "$SCRIPT_DIR/scripts/"*.sh; do
         script_name=$(basename "$script")
@@ -980,40 +983,134 @@ for conn in $(nmcli -t -f NAME connection show | grep "^netplan-"); do
     nmcli connection delete "$conn" 2>/dev/null || true
 done
 
-# Eski auto-* connection'larını sil (temiz başlangıç)
+# Eski auto-* connection'larını sil (eski kurulumlardan kalan)
 for conn in $(nmcli -t -f NAME connection show | grep "^auto-"); do
+    nmcli connection delete "$conn" 2>/dev/null || true
+done
+
+# Eski eth-* connection'larını sil (yeniden oluşturulacak)
+for conn in $(nmcli -t -f NAME connection show | grep "^eth-"); do
     nmcli connection delete "$conn" 2>/dev/null || true
 done
 
 log "Old connections cleaned"
 
 # -----------------------------------------------------------------------------
-# 6. HER ETHERNET İÇİN CONNECTION OLUŞTUR
+# 6. NETWORK INIT SERVICE (Boot'ta dinamik connection oluşturma)
 # -----------------------------------------------------------------------------
 
-info "Configuring ethernet interfaces..."
+info "Installing network init service..."
 
-for iface in $(nmcli -t -f DEVICE,TYPE device status | grep ':ethernet' | cut -d: -f1); do
-    # Interface'i managed yap (garanti için)
-    nmcli device set "$iface" managed yes 2>/dev/null || true
+# network-init.sh script'i oluştur
+mkdir -p /opt/aco-panel/scripts
+
+cat > /opt/aco-panel/scripts/network-init.sh << 'SCRIPT'
+#!/bin/bash
+#
+# ACO Network Initialization Script
+# Boot'ta fiziksel ethernet interface'leri tespit edip connection oluşturur
+#
+
+LOG="/var/log/aco-panel/network-init.log"
+mkdir -p /var/log/aco-panel
+
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG"
+}
+
+log "Network init started"
+
+# NetworkManager hazır olana kadar bekle
+for i in $(seq 1 30); do
+    if nmcli general status &>/dev/null; then
+        break
+    fi
+    sleep 1
+done
+
+# Fiziksel ethernet interface'leri bul ve connection oluştur
+for iface in $(ls /sys/class/net 2>/dev/null); do
+    # Virtual interface'leri atla
+    [[ "$iface" == "lo" ]] && continue
+    [[ "$iface" == docker* ]] && continue
+    [[ "$iface" == veth* ]] && continue
+    [[ "$iface" == br-* ]] && continue
+    [[ "$iface" == virbr* ]] && continue
+    [[ "$iface" == tailscale* ]] && continue
     
-    # Connection oluştur
+    # Fiziksel cihaz mı? (device symlink var mı)
+    [[ -d "/sys/class/net/$iface/device" ]] || continue
+    
+    # Wireless mı?
+    [[ -d "/sys/class/net/$iface/wireless" ]] && continue
+    
+    CONN="eth-$iface"
+    
+    # Connection zaten var mı?
+    if nmcli connection show "$CONN" &>/dev/null; then
+        log "$CONN exists, skipping"
+        # Sadece interface'in managed ve connected olduğundan emin ol
+        nmcli device set "$iface" managed yes 2>/dev/null || true
+        nmcli connection up "$CONN" 2>/dev/null || true
+        continue
+    fi
+    
+    # Yeni connection oluştur (interface'e bağlı)
+    log "Creating $CONN for $iface"
     nmcli connection add \
-        con-name "auto-$iface" \
+        con-name "$CONN" \
         type ethernet \
         ifname "$iface" \
         autoconnect yes \
         ipv4.method auto \
-        ipv6.method disabled 2>/dev/null || true
+        ipv6.method disabled 2>/dev/null
     
-    log "Created connection: auto-$iface"
-    
-    # Bağlan (kablo varsa IP alır)
-    nmcli device connect "$iface" 2>/dev/null || true
+    # Interface'i managed yap ve bağlan
+    nmcli device set "$iface" managed yes 2>/dev/null || true
+    nmcli connection up "$CONN" 2>/dev/null || true
 done
 
+# Orphan connection temizliği (interface'i olmayan eth-* connection'ları sil)
+for conn in $(nmcli -t -f NAME connection show 2>/dev/null | grep "^eth-"); do
+    iface="${conn#eth-}"
+    if [[ ! -d "/sys/class/net/$iface" ]]; then
+        log "Removing orphan connection: $conn"
+        nmcli connection delete "$conn" 2>/dev/null || true
+    fi
+done
+
+log "Network init completed"
+SCRIPT
+
+chmod +x /opt/aco-panel/scripts/network-init.sh
+
+# Systemd service oluştur
+cat > /etc/systemd/system/aco-network-init.service << 'EOF'
+[Unit]
+Description=ACO Network Initialization
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/aco-panel/scripts/network-init.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+# Service'i etkinleştir
+systemctl daemon-reload
+systemctl enable aco-network-init.service 2>/dev/null || true
+
+# Şimdi de çalıştır (kurulum sırasında)
+/opt/aco-panel/scripts/network-init.sh
+
+log "Network init service installed and enabled"
+
 # -----------------------------------------------------------------------------
-# 7. DOĞRULAMA
+# 8. DOĞRULAMA
 # -----------------------------------------------------------------------------
 
 info "Waiting for network connectivity..."

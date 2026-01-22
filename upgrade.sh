@@ -112,6 +112,11 @@ create_backup() {
         cp -r "$INSTALL_DIR/scripts" "$backup_path/"
     fi
 
+    # Backup templates directory
+    if [[ -d "$INSTALL_DIR/templates" ]]; then
+        cp -r "$INSTALL_DIR/templates" "$backup_path/"
+    fi
+
     # Backup VERSION file
     if [[ -f "$INSTALL_DIR/VERSION" ]]; then
         cp "$INSTALL_DIR/VERSION" "$backup_path/"
@@ -185,6 +190,13 @@ rollback() {
         cp -r "$backup_path/scripts" "$INSTALL_DIR/"
         update_scripts
         log_success "Restored scripts"
+    fi
+
+    # Restore templates
+    if [[ -d "$backup_path/templates" ]]; then
+        rm -rf "$INSTALL_DIR/templates"
+        cp -r "$backup_path/templates" "$INSTALL_DIR/"
+        log_success "Restored templates directory"
     fi
 
     # Restore VERSION
@@ -283,6 +295,12 @@ perform_upgrade() {
     rm -rf "$INSTALL_DIR/scripts"
     cp -r "$source_dir/scripts" "$INSTALL_DIR/"
     update_scripts
+
+    # Update templates directory
+    if [[ -d "$source_dir/templates" ]]; then
+        rm -rf "$INSTALL_DIR/templates"
+        cp -r "$source_dir/templates" "$INSTALL_DIR/"
+    fi
 
     # Update VERSION
     cp "$source_dir/VERSION" "$INSTALL_DIR/"

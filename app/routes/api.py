@@ -595,8 +595,10 @@ def set_network_ip():
             # Add gateway if specified
             if mode_config.get('gateway'):
                 cmd.extend(['ipv4.gateway', mode_config['gateway']])
+                cmd.extend(['ipv4.never-default', 'no'])  # Gateway varsa, default route olsun
             else:
                 cmd.extend(['ipv4.gateway', ''])
+                cmd.extend(['ipv4.never-default', 'yes'])  # Gateway yoksa, default route olmasın
 
             # Add DNS if specified
             if mode_config.get('dns'):
