@@ -617,13 +617,14 @@ def set_network_ip():
             else:
                 msg = f"Direct IP ({type_config['ip']}) set on {interface_name}"
         else:
-            # DHCP
+            # DHCP - gateway DHCP'den alınacak, default route olmalı
             cmds = [
                 ['nmcli', 'connection', 'modify', connection_name,
                  'ipv4.addresses', '',
                  'ipv4.gateway', '',
                  'ipv4.dns', '',
                  'ipv4.method', 'auto',
+                 'ipv4.never-default', 'no',  # DHCP gateway default route olsun
                  'ipv6.method', 'auto'],
                 ['nmcli', 'connection', 'up', connection_name]
             ]
