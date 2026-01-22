@@ -235,6 +235,7 @@ if [[ -d "$SCRIPT_DIR/app" ]]; then
     cp -r "$SCRIPT_DIR/app" "$INSTALL_DIR/"
     cp -r "$SCRIPT_DIR/templates" "$INSTALL_DIR/" 2>/dev/null || true
     cp "$SCRIPT_DIR/requirements.txt" "$INSTALL_DIR/"
+    cp "$SCRIPT_DIR/VERSION" "$INSTALL_DIR/" 2>/dev/null || true
     log "Files copied: $SCRIPT_DIR -> $INSTALL_DIR"
 fi
 

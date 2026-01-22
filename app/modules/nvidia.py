@@ -66,7 +66,7 @@ class NvidiaModule(BaseModule):
     
     def _is_package_installed(self) -> bool:
         """Check if NVIDIA driver package is installed"""
-        driver_version = self.get_config('nvidia.driver_version', '535')
+        driver_version = self.get_config('nvidia_driver', '580')
         try:
             result = self.run_shell(
                 f'dpkg -l | grep -q "nvidia-driver-{driver_version}"',
@@ -136,26 +136,42 @@ class NvidiaModule(BaseModule):
                 self.logger.warning("Failed to install nvidia-container-toolkit package")
                 return False
 
-            # 4. Update Docker daemon.json
+            # 4. Update Docker daemon.json (merge with existing config to preserve data-root etc.)
             self.logger.info("Configuring Docker NVIDIA runtime...")
-            daemon_config = """{
-    "log-driver": "json-file",
-    "log-opts": {
-        "max-size": "10m",
-        "max-file": "3"
-    },
-    "storage-driver": "overlay2",
-    "runtimes": {
-        "nvidia": {
-            "path": "nvidia-container-runtime",
-            "runtimeArgs": []
-        }
-    }
-}
-"""
-            if not self.write_file('/etc/docker/daemon.json', daemon_config):
+            import json
+
+            daemon_path = '/etc/docker/daemon.json'
+            daemon_config = {}
+
+            # Read existing config if present
+            if os.path.exists(daemon_path):
+                try:
+                    with open(daemon_path, 'r') as f:
+                        daemon_config = json.load(f)
+                    self.logger.info(f"Existing daemon.json keys: {list(daemon_config.keys())}")
+                except (json.JSONDecodeError, IOError) as e:
+                    self.logger.warning(f"Could not read daemon.json: {e}")
+                    daemon_config = {}
+
+            # Ensure base settings exist (don't overwrite if already set)
+            daemon_config.setdefault("log-driver", "json-file")
+            daemon_config.setdefault("log-opts", {"max-size": "10m", "max-file": "3"})
+            daemon_config.setdefault("storage-driver", "overlay2")
+
+            # Add NVIDIA runtime
+            daemon_config["runtimes"] = {
+                "nvidia": {
+                    "path": "nvidia-container-runtime",
+                    "runtimeArgs": []
+                }
+            }
+
+            # Write merged config
+            if not self.write_file(daemon_path, json.dumps(daemon_config, indent=4) + '\n'):
                 self.logger.warning("Failed to update Docker daemon.json")
                 return False
+
+            self.logger.info(f"daemon.json updated with NVIDIA runtime (keys: {list(daemon_config.keys())})")
 
             # 5. Configure with nvidia-ctk
             result = self.run_shell('nvidia-ctk runtime configure --runtime=docker', check=False)
@@ -385,7 +401,7 @@ class NvidiaModule(BaseModule):
         5. Secure Boot enabled → MOK setup → mok_pending
         6. Secure Boot disabled → reboot_required
         """
-        driver_version = self.get_config('nvidia.driver_version', '535')
+        driver_version = self.get_config('nvidia_driver', '580')
         current_status = self._config.get_module_status(self.name)
         
         # =====================================================================

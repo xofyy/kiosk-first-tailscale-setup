@@ -152,7 +152,7 @@ All settings are stored in the `aco.settings` collection in MongoDB:
   "rvm_id": "RVM-001",
   "hardware_id": "auto-generated",
   "mok_password": "12345678",
-  "nvidia_driver": "535",
+  "nvidia_driver": "580",
   "modules": {
     "nvidia": "completed",
     "tailscale": "completed"
