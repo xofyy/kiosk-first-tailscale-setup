@@ -3,7 +3,6 @@ Docker Container Management Service
 Reads compose configuration and manages container lifecycle
 """
 
-import os
 import subprocess
 import logging
 from typing import Dict, List, Any, Optional, Generator
@@ -12,22 +11,22 @@ logger = logging.getLogger(__name__)
 
 # Web UI services (services with iframe access)
 WEB_UI_SERVICES = {
-    "mechcontroller": {
+    "mechatronic_controller": {
         "display_name": "Mechatronic Controller",
         "port": 1234,
         "path": "/pro",
     },
-    "scanners": {
+    "barcode_qr_reader": {
         "display_name": "Scanners Dashboard",
         "port": 504,
         "path": "/",
     },
-    "printer": {
+    "thermal_printer": {
         "display_name": "Printer Panel",
         "port": 5200,
         "path": "/printer",
     },
-    "camera": {
+    "camera_controller": {
         "display_name": "Camera Controller",
         "port": 5100,
         "path": "/",
@@ -42,7 +41,6 @@ class DockerManager:
 
     def __init__(self, compose_path: Optional[str] = None):
         self.compose_path = compose_path or self.DEFAULT_COMPOSE_PATH
-        self.compose_file = os.path.join(self.compose_path, "docker-compose.yml")
 
     def get_compose_services(self) -> List[str]:
         """
@@ -52,8 +50,9 @@ class DockerManager:
         """
         try:
             # Use 'docker compose config' to get merged configuration
+            # No -f flag: auto-detects docker-compose.yml + docker-compose.override.yml
             result = subprocess.run(
-                ['docker', 'compose', '-f', self.compose_file, 'config', '--services'],
+                ['docker', 'compose', 'config', '--services'],
                 capture_output=True, text=True, timeout=10,
                 cwd=self.compose_path
             )
@@ -77,8 +76,7 @@ class DockerManager:
         """
         try:
             result = subprocess.run(
-                ['docker', 'compose', '-f', self.compose_file,
-                 'ps', '--format', '{{.State}}', service_name],
+                ['docker', 'compose', 'ps', '--format', '{{.State}}', service_name],
                 capture_output=True, text=True, timeout=10,
                 cwd=self.compose_path
             )
@@ -135,8 +133,7 @@ class DockerManager:
 
         try:
             result = subprocess.run(
-                ['docker', 'compose', '-f', self.compose_file,
-                 action, service_name],
+                ['docker', 'compose', action, service_name],
                 capture_output=True, text=True, timeout=60,
                 cwd=self.compose_path
             )
@@ -161,8 +158,7 @@ class DockerManager:
         process = None
         try:
             process = subprocess.Popen(
-                ['docker', 'compose', '-f', self.compose_file,
-                 'logs', '--tail', str(tail), '-f', '--no-color', service_name],
+                ['docker', 'compose', 'logs', '--tail', str(tail), '-f', '--no-color', service_name],
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
                 text=True,
