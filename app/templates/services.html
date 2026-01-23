@@ -155,10 +155,19 @@
             </div>
             <div class="log-modal-footer">
                 <span id="log-status">Connecting...</span>
-                <label class="checkbox-label">
-                    <input type="checkbox" id="log-auto-scroll" checked>
-                    Auto-scroll
-                </label>
+                <div class="log-controls">
+                    <select id="log-time-range" class="log-time-select" onchange="onTimeRangeChange()">
+                        <option value="5m">Son 5 dakika</option>
+                        <option value="15m" selected>Son 15 dakika</option>
+                        <option value="1h">Son 1 saat</option>
+                        <option value="6h">Son 6 saat</option>
+                        <option value="all">Tümü</option>
+                    </select>
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="log-auto-scroll" checked>
+                        Auto-scroll
+                    </label>
+                </div>
             </div>
         </div>
     </div>
