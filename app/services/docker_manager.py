@@ -3,9 +3,12 @@ Docker Container Management Service
 Reads compose configuration and manages container lifecycle
 """
 
+import select
 import subprocess
 import logging
 from typing import Dict, List, Any, Optional, Generator
+
+from app.services.log_process_manager import log_process_manager
 
 logger = logging.getLogger(__name__)
 
@@ -167,30 +170,50 @@ class DockerManager:
             logger.error(f"Container action error: {e}")
             return {"success": False, "error": str(e)}
 
-    def stream_logs(self, service_name: str, tail: int = 200) -> Generator[str, None, None]:
+    def stream_logs(self, session_id: str, service_name: str) -> Generator[str, None, None]:
         """
-        Stream container logs using docker compose logs -f.
-        Yields log lines as they arrive.
+        Non-blocking log streaming with timeout.
+
+        Uses select() for 5 second timeout between reads.
+        Sends heartbeat on timeout to keep connection alive.
+        Properly cleans up subprocess on client disconnect.
+
+        Args:
+            session_id: Unique client session identifier
+            service_name: Docker compose service name
         """
-        process = None
+        process = log_process_manager.get_or_create_stream(session_id, service_name)
+
+        if process is None:
+            yield "Error: Could not start log stream"
+            return
+
         try:
-            process = subprocess.Popen(
-                ['docker', 'compose', 'logs', '--tail', str(tail), '-f', '--no-color', service_name],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                bufsize=1,
-                cwd=self.compose_path
-            )
+            while True:
+                # Wait for data with 5 second timeout
+                ready, _, _ = select.select([process.stdout], [], [], 5.0)
 
-            for line in iter(process.stdout.readline, ''):
-                if line:
-                    yield line.rstrip('\n')
+                if ready:
+                    line = process.stdout.readline()
+                    if line:
+                        yield line.rstrip('\n')
+                    else:
+                        # EOF - process ended
+                        break
+                else:
+                    # Timeout - send heartbeat (keeps connection alive)
+                    yield ":heartbeat"
 
+                # Check if process died
+                if process.poll() is not None:
+                    break
+
+        except GeneratorExit:
+            # Client disconnect - normal situation
+            pass
         except Exception as e:
             logger.error(f"Log streaming error: {e}")
-            yield f"Error streaming logs: {e}"
+            yield f"Error: {e}"
         finally:
-            if process:
-                process.kill()
-                process.wait()
+            # Always cleanup
+            log_process_manager.stop_stream(session_id)

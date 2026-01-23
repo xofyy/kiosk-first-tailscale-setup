@@ -21,6 +21,12 @@ let logAutoScroll = null;
 // SSE connection for logs
 let logEventSource = null;
 let currentLogService = null;
+let logSessionId = null;
+
+// Generate unique session ID for log streaming
+function generateSessionId() {
+    return 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
+}
 
 function initElements() {
     frameContainer = document.getElementById('frame-container');
@@ -138,7 +144,10 @@ function startLogStream(serviceName) {
     // Close existing connection if any
     stopLogStream();
 
-    const url = `/api/docker/containers/${serviceName}/logs?tail=200`;
+    // Generate new session ID
+    logSessionId = generateSessionId();
+
+    const url = `/api/docker/containers/${serviceName}/logs?session_id=${logSessionId}&tail=200`;
     logEventSource = new EventSource(url);
 
     logEventSource.onopen = () => {
@@ -170,6 +179,15 @@ function stopLogStream() {
     if (logEventSource) {
         logEventSource.close();
         logEventSource = null;
+    }
+
+    // Notify server to cleanup subprocess (sendBeacon is reliable even on page close)
+    if (logSessionId) {
+        const blob = new Blob([JSON.stringify({ session_id: logSessionId })], {
+            type: 'application/json'
+        });
+        navigator.sendBeacon('/api/docker/containers/logs/stop', blob);
+        logSessionId = null;
     }
 }
 

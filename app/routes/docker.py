@@ -3,9 +3,11 @@ Docker Container Management API Routes
 Includes REST endpoints and SSE for log streaming
 """
 
+import uuid
 import logging
 from flask import Blueprint, jsonify, request, Response
 from app.services.docker_manager import DockerManager
+from app.services.log_process_manager import log_process_manager
 
 docker_bp = Blueprint('docker', __name__)
 logger = logging.getLogger(__name__)
@@ -69,22 +71,33 @@ def container_logs_sse(service_name: str):
     Uses Server-Sent Events for real-time streaming.
 
     Query params:
+        session_id: Client session identifier (optional, auto-generated if missing)
         tail: Number of lines to show initially (default: 200)
     """
-    tail = request.args.get('tail', 200, type=int)
+    # Session ID - get from client or generate new one
+    session_id = request.args.get('session_id') or str(uuid.uuid4())
+
+    # Cleanup stale streams on each request
+    log_process_manager.cleanup_stale_streams()
 
     def generate():
         manager = DockerManager()
         try:
-            for line in manager.stream_logs(service_name, tail=tail):
-                # SSE format: data: <content>\n\n
-                yield f"data: {line}\n\n"
+            for line in manager.stream_logs(session_id, service_name):
+                if line == ":heartbeat":
+                    # SSE comment - invisible to client, keeps connection alive
+                    yield ": heartbeat\n\n"
+                else:
+                    yield f"data: {line}\n\n"
         except GeneratorExit:
             # Client disconnected
-            logger.debug(f"SSE client disconnected: {service_name}")
+            logger.debug(f"SSE client disconnected: {session_id}")
         except Exception as e:
             logger.error(f"SSE error for {service_name}: {e}")
             yield f"data: Error: {e}\n\n"
+        finally:
+            # Extra safety - cleanup stream
+            log_process_manager.stop_stream(session_id)
 
     return Response(
         generate(),
@@ -95,3 +108,19 @@ def container_logs_sse(service_name: str):
             'X-Accel-Buffering': 'no'  # Disable nginx buffering for SSE
         }
     )
+
+
+@docker_bp.route('/containers/logs/stop', methods=['POST'])
+def stop_log_stream():
+    """
+    Explicit log stream stop endpoint.
+    Called by client when modal is closed (optional but recommended).
+    """
+    data = request.get_json(silent=True) or {}
+    session_id = data.get('session_id')
+
+    if session_id:
+        stopped = log_process_manager.stop_stream(session_id)
+        return jsonify({"success": stopped})
+
+    return jsonify({"success": False, "error": "session_id required"}), 400
