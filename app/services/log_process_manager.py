@@ -55,7 +55,7 @@ class LogProcessManager:
             # Start new process
             try:
                 process = subprocess.Popen(
-                    ['docker', 'compose', 'logs', '--tail', '200', '-f', '--no-color', service_name],
+                    ['docker', 'compose', 'logs', '--since', '5m', '--tail', '500', '-f', '-t', '--no-color', service_name],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,

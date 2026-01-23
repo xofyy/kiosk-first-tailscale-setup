@@ -294,6 +294,7 @@ perform_upgrade() {
     log_info "Updating scripts..."
     rm -rf "$INSTALL_DIR/scripts"
     cp -r "$source_dir/scripts" "$INSTALL_DIR/"
+    chmod +x "$INSTALL_DIR/scripts/"*.sh
     update_scripts
 
     # Update templates directory
