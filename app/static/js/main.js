@@ -383,3 +383,20 @@ function initHamburgerMenu() {
 
 // Sayfa yüklendiğinde hamburger menüyü başlat
 document.addEventListener('DOMContentLoaded', initHamburgerMenu);
+
+// =============================================================================
+// Smart Refresh (iframe support)
+// =============================================================================
+
+function handleRefresh() {
+    const frameContainer = document.getElementById('frame-container');
+    const serviceFrame = document.getElementById('service-frame');
+
+    // If iframe is visible and has content, refresh iframe
+    if (frameContainer?.classList.contains('visible') && serviceFrame?.src && serviceFrame.src !== 'about:blank' && serviceFrame.src !== '') {
+        serviceFrame.src = serviceFrame.src;
+    } else {
+        // Otherwise reload page
+        location.reload();
+    }
+}

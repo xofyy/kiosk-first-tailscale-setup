@@ -8,104 +8,107 @@
 
 {% block content %}
 <div class="services-page">
-    <div class="services-header">
-        <h2>
-            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
-            </svg>
-            Services
-        </h2>
-        <p>Access installed web services from here.</p>
-    </div>
+    <!-- Services List View -->
+    <div id="services-list">
+        <div class="services-header">
+            <h2>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                </svg>
+                Services
+            </h2>
+            <p>Access installed web services from here.</p>
+        </div>
 
-    <div class="services-content">
-        {% if services %}
-        <div class="service-cards">
-            {% for name, service in services.items() %}
-            <div class="service-card {% if service.active %}active{% else %}inactive{% endif %}">
-                <div class="service-card-header">
-                    <h3>{{ service.display_name or name }}</h3>
-                    <span class="service-badge {{ service.status }}">
-                        <span class="dot"></span>
-                        {% if service.status == 'running' %}Active
-                        {% elif service.status == 'stopped' %}Stopped
-                        {% else %}?
+        <div class="services-content">
+            {% if services %}
+            <div class="service-cards">
+                {% for name, service in services.items() %}
+                <div class="service-card {% if service.active %}active{% else %}inactive{% endif %}">
+                    <div class="service-card-header">
+                        <h3>{{ service.display_name or name }}</h3>
+                        <span class="service-badge {{ service.status }}">
+                            <span class="dot"></span>
+                            {% if service.status == 'running' %}Active
+                            {% elif service.status == 'stopped' %}Stopped
+                            {% else %}?
+                            {% endif %}
+                        </span>
+                    </div>
+
+                    <div class="service-info">
+                        <div class="service-info-row">
+                            <span class="label">Port</span>
+                            <span class="value">{{ service.port or 'N/A' }}</span>
+                        </div>
+                    </div>
+
+                    <div class="service-actions">
+                        {% if service.active %}
+                        <button
+                            class="btn-open-service active"
+                            data-port="{{ service.port }}"
+                            data-path="{{ service.path or '/' }}"
+                            data-title="{{ service.display_name or name }}"
+                            onclick="openService(this.dataset.port, this.dataset.path, this.dataset.title)"
+                            title="Open service"
+                            aria-label="Open {{ service.display_name or name }}">
+                            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                                <polyline points="15 3 21 3 21 9"/>
+                                <line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                            Open
+                        </button>
+                        {% else %}
+                        <button class="btn-open-service disabled" disabled>
+                            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <rect x="6" y="4" width="4" height="16"/>
+                                <rect x="14" y="4" width="4" height="16"/>
+                            </svg>
+                            Service Stopped
+                        </button>
                         {% endif %}
-                    </span>
-                </div>
-
-                <div class="service-info">
-                    <div class="service-info-row">
-                        <span class="label">Port</span>
-                        <span class="value">{{ service.port or 'N/A' }}</span>
                     </div>
                 </div>
-
-                <div class="service-actions">
-                    {% if service.active %}
-                    <button
-                        class="btn-open-service active"
-                        data-port="{{ service.port }}"
-                        data-path="{{ service.path or '/' }}"
-                        data-title="{{ service.display_name or name }}"
-                        onclick="openService(this.dataset.port, this.dataset.path, this.dataset.title)"
-                        title="Open service"
-                        aria-label="Open {{ service.display_name or name }}">
-                        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-                            <polyline points="15 3 21 3 21 9"/>
-                            <line x1="10" y1="14" x2="21" y2="3"/>
-                        </svg>
-                        Open
-                    </button>
-                    {% else %}
-                    <button class="btn-open-service disabled" disabled>
-                        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <rect x="6" y="4" width="4" height="16"/>
-                            <rect x="14" y="4" width="4" height="16"/>
-                        </svg>
-                        Service Stopped
-                    </button>
-                    {% endif %}
+                {% endfor %}
+            </div>
+            {% else %}
+            <div class="no-services">
+                <div class="no-services-icon">
+                    <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 2v10"/>
+                        <path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>
+                    </svg>
                 </div>
+                <h3>No Services Yet</h3>
+                <p>Services will appear here after Cockpit or other services are installed.</p>
             </div>
-            {% endfor %}
+            {% endif %}
         </div>
-        {% else %}
-        <div class="no-services">
-            <div class="no-services-icon">
-                <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 2v10"/>
-                    <path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>
-                </svg>
-            </div>
-            <h3>No Services Yet</h3>
-            <p>Services will appear here after Cockpit or other services are installed.</p>
-        </div>
-        {% endif %}
     </div>
-</div>
 
-<!-- FULLSCREEN IFRAME -->
-<div class="service-frame-container" id="frame-container">
-    <div class="frame-header">
-        <div class="frame-header-left">
+    <!-- Inline Frame View -->
+    <div class="service-frame-container" id="frame-container">
+        <div class="frame-header">
+            <button class="btn-back" onclick="closeFrame()">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M19 12H5"/>
+                    <polyline points="12 19 5 12 12 5"/>
+                </svg>
+                Back
+            </button>
             <span class="frame-title" id="frame-title">Service</span>
-            <span class="frame-subtitle">Press ESC to close</span>
+            <span class="frame-subtitle">ESC to close</span>
         </div>
-        <button class="btn-close-frame" onclick="closeFrame()">
-            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <line x1="18" y1="6" x2="6" y2="18"/>
-                <line x1="6" y1="6" x2="18" y2="18"/>
-            </svg>
-            Close
-        </button>
+        <div class="frame-wrapper">
+            <div class="frame-loading" id="frame-loading">
+                <div class="spinner"></div>
+                <span>Loading...</span>
+            </div>
+            <iframe id="service-frame" class="service-frame" src=""></iframe>
+        </div>
     </div>
-    <div class="frame-loading" id="frame-loading">
-        <div class="spinner"></div>
-        <span>Loading...</span>
-    </div>
-    <iframe id="service-frame" class="service-frame" src=""></iframe>
 </div>
 {% endblock %}
 
