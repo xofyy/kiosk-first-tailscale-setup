@@ -138,7 +138,7 @@ def get_all_services_status(services: Dict[str, Any]) -> Dict[str, Dict[str, Any
         else:
             status = check_service_status(config)
             status['display_name'] = config.get('display_name', name.title())
-            status['path'] = config.get('path', f'/{name}/')
+            status['path'] = config.get('path', '/')
             status['port'] = config.get('port')
             result[name] = status
     
