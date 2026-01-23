@@ -847,38 +847,6 @@
     flex-shrink: 0;
 }
 
-.log-controls {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-}
-
-.log-time-select {
-    padding: 0.4rem 0.75rem;
-    font-size: 0.85rem;
-    border: 1px solid var(--color-border);
-    border-radius: 6px;
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-    cursor: pointer;
-    outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-
-.log-time-select:hover {
-    border-color: var(--color-primary);
-}
-
-.log-time-select:focus {
-    border-color: var(--color-primary);
-    box-shadow: 0 0 0 2px rgba(46, 204, 113, 0.2);
-}
-
-.log-time-select option {
-    background: var(--color-surface);
-    color: var(--color-text-primary);
-}
-
 .checkbox-label {
     display: flex;
     align-items: center;
@@ -924,16 +892,6 @@
         padding: 0.5rem 1rem;
         flex-direction: column;
         gap: 0.5rem;
-    }
-
-    .log-controls {
-        width: 100%;
-        justify-content: space-between;
-    }
-
-    .log-time-select {
-        flex: 1;
-        max-width: 150px;
     }
 
     .btn-action {

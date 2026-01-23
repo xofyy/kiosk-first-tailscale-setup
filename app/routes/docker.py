@@ -7,7 +7,7 @@ import uuid
 import logging
 from flask import Blueprint, jsonify, request, Response
 from app.services.docker_manager import DockerManager
-from app.services.log_process_manager import log_stream_manager
+from app.services.log_process_manager import log_process_manager
 
 docker_bp = Blueprint('docker', __name__)
 logger = logging.getLogger(__name__)
@@ -72,24 +72,18 @@ def container_logs_sse(service_name: str):
 
     Query params:
         session_id: Client session identifier (optional, auto-generated if missing)
-        since: Time filter - 5m, 15m, 1h, 6h, all (default: 15m)
+        tail: Number of lines to show initially (default: 200)
     """
     # Session ID - get from client or generate new one
     session_id = request.args.get('session_id') or str(uuid.uuid4())
-    
-    # Since parameter - time filter
-    since = request.args.get('since', '15m')
-    valid_since_values = ['5m', '15m', '1h', '6h', 'all']
-    if since not in valid_since_values:
-        since = '15m'
 
     # Cleanup stale streams on each request
-    log_stream_manager.cleanup_stale_streams()
+    log_process_manager.cleanup_stale_streams()
 
     def generate():
         manager = DockerManager()
         try:
-            for line in manager.stream_logs(session_id, service_name, since):
+            for line in manager.stream_logs(session_id, service_name):
                 if line == ":heartbeat":
                     # SSE comment - invisible to client, keeps connection alive
                     yield ": heartbeat\n\n"
@@ -103,7 +97,7 @@ def container_logs_sse(service_name: str):
             yield f"data: Error: {e}\n\n"
         finally:
             # Extra safety - cleanup stream
-            log_stream_manager.stop_stream(session_id)
+            log_process_manager.stop_stream(session_id)
 
     return Response(
         generate(),
@@ -126,7 +120,7 @@ def stop_log_stream():
     session_id = data.get('session_id')
 
     if session_id:
-        stopped = log_stream_manager.stop_stream(session_id)
+        stopped = log_process_manager.stop_stream(session_id)
         return jsonify({"success": stopped})
 
     return jsonify({"success": False, "error": "session_id required"}), 400

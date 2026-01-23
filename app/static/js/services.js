@@ -9,7 +9,7 @@
 // =============================================================================
 
 const LOG_CONFIG = {
-    MAX_LINES: 5000,        // Maximum lines in DOM (increased for longer time ranges)
+    MAX_LINES: 1000,        // Maximum lines in DOM
     MAX_LINE_LENGTH: 5000,  // Truncate lines longer than this (5000 for mechatronic_controller)
     UPDATE_INTERVAL: 100,   // Batch update interval (ms)
     TRUNCATE_SUFFIX: '...'  // Suffix for truncated lines
@@ -56,7 +56,6 @@ let logModal = null;
 let logContent = null;
 let logStatus = null;
 let logAutoScroll = null;
-let logTimeRange = null;
 
 // SSE connection for logs
 let logEventSource = null;
@@ -80,7 +79,6 @@ function initElements() {
     logContent = document.getElementById('log-content');
     logStatus = document.getElementById('log-status');
     logAutoScroll = document.getElementById('log-auto-scroll');
-    logTimeRange = document.getElementById('log-time-range');
 }
 
 // =============================================================================
@@ -261,18 +259,12 @@ function closeLogs() {
     currentLogService = null;
 }
 
-function startLogStream(serviceName, since = null) {
+function startLogStream(serviceName) {
     // Close existing connection if any
     stopLogStream();
 
-    // Get time range from dropdown if not specified
-    if (!since && logTimeRange) {
-        since = logTimeRange.value;
-    }
-    since = since || '15m';
-
     // Use single session ID - server auto-kills old process for same session
-    const url = `/api/docker/containers/${serviceName}/logs?session_id=${PAGE_LOG_SESSION_ID}&since=${since}`;
+    const url = `/api/docker/containers/${serviceName}/logs?session_id=${PAGE_LOG_SESSION_ID}&tail=200`;
     logEventSource = new EventSource(url);
 
     logEventSource.onopen = () => {
@@ -295,32 +287,6 @@ function stopLogStream() {
         logEventSource.close();
         logEventSource = null;
     }
-}
-
-/**
- * Handle time range dropdown change.
- * Restarts the log stream with the new time filter.
- */
-function onTimeRangeChange() {
-    if (!currentLogService) return;
-    
-    initElements();
-    
-    // Clear current logs
-    logBuffer = [];
-    logLines = [];
-    if (logUpdateTimer) {
-        clearTimeout(logUpdateTimer);
-        logUpdateTimer = null;
-    }
-    if (logContent) logContent.textContent = '';
-    if (logStatus) logStatus.textContent = 'Reconnecting...';
-    
-    // Get new time range
-    const since = logTimeRange ? logTimeRange.value : '15m';
-    
-    // Restart stream with new time range
-    startLogStream(currentLogService, since);
 }
 
 // =============================================================================

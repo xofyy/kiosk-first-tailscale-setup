@@ -20,8 +20,5 @@ pymongo==4.6.1
 # Process Management
 psutil==5.9.7
 
-# Docker SDK
-docker>=7.0.0
-
 # WSGI Server
 gunicorn==21.2.0

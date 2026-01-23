@@ -3,12 +3,12 @@ Docker Container Management Service
 Reads compose configuration and manages container lifecycle
 """
 
-import time
+import select
 import subprocess
 import logging
 from typing import Dict, List, Any, Optional, Generator
 
-from app.services.log_process_manager import log_stream_manager
+from app.services.log_process_manager import log_process_manager
 
 logger = logging.getLogger(__name__)
 
@@ -193,50 +193,59 @@ class DockerManager:
             logger.error(f"Container action error: {e}")
             return {"success": False, "error": str(e)}
 
-    def stream_logs(
-        self, 
-        session_id: str, 
-        service_name: str,
-        since: str = "15m"
-    ) -> Generator[str, None, None]:
+    def stream_logs(self, session_id: str, service_name: str) -> Generator[str, None, None]:
         """
-        Stream container logs using Docker SDK.
+        Non-blocking log streaming with timeout.
 
-        Sends heartbeat every 5 seconds to keep SSE connection alive.
-        Properly cleans up stream on client disconnect.
+        Uses select() for 5 second timeout between reads.
+        Sends heartbeat on timeout to keep connection alive.
+        Properly cleans up subprocess on client disconnect.
 
         Args:
             session_id: Unique client session identifier
             service_name: Docker compose service name
-            since: Time filter (5m, 15m, 1h, 6h, all)
         """
-        generator = log_stream_manager.get_or_create_stream(
-            session_id, 
-            service_name,
-            since
-        )
+        process = log_process_manager.get_or_create_stream(session_id, service_name)
 
-        if generator is None:
-            yield "Error: Could not start log stream (container not found?)"
+        if process is None:
+            yield "Error: Could not start log stream"
             return
 
-        last_data_time = time.time()
-        heartbeat_interval = 5.0
-
         try:
-            for line in generator:
-                yield line
-                last_data_time = time.time()
-                
-                # Check if we need to send heartbeat
-                # (This won't trigger often since generator yields frequently)
+            while True:
+                # Wait for data with 5 second timeout
+                ready, _, _ = select.select([process.stdout], [], [], 5.0)
+
+                if ready:
+                    line = process.stdout.readline()
+                    if line:
+                        # Split on \r (carriage return) - mechatronic_controller uses \r for progress
+                        # Only yield the LAST non-empty part (final state after all \r overwrites)
+                        # This prevents flooding with 50+ "Trying to connect" from one line
+                        parts = line.rstrip('\n').split('\r')
+                        # Find last non-empty part
+                        for part in reversed(parts):
+                            part = part.strip()
+                            if part:
+                                yield part
+                                break
+                    else:
+                        # EOF - process ended
+                        break
+                else:
+                    # Timeout - send heartbeat (keeps connection alive)
+                    yield ":heartbeat"
+
+                # Check if process died
+                if process.poll() is not None:
+                    break
 
         except GeneratorExit:
             # Client disconnect - normal situation
-            logger.debug(f"Client disconnected: {session_id}")
+            pass
         except Exception as e:
             logger.error(f"Log streaming error: {e}")
             yield f"Error: {e}"
         finally:
             # Always cleanup
-            log_stream_manager.stop_stream(session_id)
+            log_process_manager.stop_stream(session_id)
