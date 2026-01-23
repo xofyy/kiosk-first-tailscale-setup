@@ -36,26 +36,19 @@ class LogProcessManager:
 
     def get_or_create_stream(self, session_id: str, service_name: str) -> Optional[subprocess.Popen]:
         """
-        Get existing stream for session or create new one.
-        If same session switches to different service, kill the old one.
+        Create a new stream for session.
+        Always starts fresh - no reuse to ensure consistent log output.
         """
         with self._streams_lock:
-            existing = self._streams.get(session_id)
-
-            # Same session, same service - return existing process
-            if existing and existing.get("service") == service_name:
-                process = existing.get("process")
-                if process and process.poll() is None:  # Still running
-                    return process
-
-            # Different service or dead process - cleanup old one
+            # Always cleanup existing stream first (no reuse)
+            existing = self._streams.pop(session_id, None)
             if existing:
                 self._kill_process(existing.get("process"))
 
-            # Start new process
+            # Start new process with fixed tail (consistent output)
             try:
                 process = subprocess.Popen(
-                    ['docker', 'compose', 'logs', '--since', '5m', '--tail', '500', '-f', '-t', '--no-color', service_name],
+                    ['docker', 'compose', 'logs', '--tail', '300', '-f', '-t', '--no-color', service_name],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
