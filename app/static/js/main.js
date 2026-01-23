@@ -345,3 +345,41 @@ window.addEventListener('offline', () => {
     console.log('Network: Offline');
     updateOfflineUI();
 });
+
+// =============================================================================
+// Hamburger Menu
+// =============================================================================
+
+function initHamburgerMenu() {
+    const btn = document.getElementById('hamburger-btn');
+    const menu = document.getElementById('dropdown-menu');
+    if (!btn || !menu) return;
+
+    btn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = menu.classList.toggle('open');
+        btn.classList.toggle('active', isOpen);
+        btn.setAttribute('aria-expanded', isOpen);
+    });
+
+    // Dışarı tıklanınca kapat
+    document.addEventListener('click', (e) => {
+        if (!btn.contains(e.target) && !menu.contains(e.target)) {
+            menu.classList.remove('open');
+            btn.classList.remove('active');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    });
+
+    // ESC ile kapat
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape') {
+            menu.classList.remove('open');
+            btn.classList.remove('active');
+            btn.setAttribute('aria-expanded', 'false');
+        }
+    });
+}
+
+// Sayfa yüklendiğinde hamburger menüyü başlat
+document.addEventListener('DOMContentLoaded', initHamburgerMenu);
