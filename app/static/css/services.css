@@ -416,9 +416,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.35rem;
-    padding: 0.5rem 0.75rem;
-    font-size: 0.8rem;
+    gap: 0.25rem;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.75rem;
     font-weight: 600;
     border-radius: 6px;
     border: none;
@@ -427,8 +427,8 @@
 }
 
 .btn-action .icon-sm {
-    width: 16px;
-    height: 16px;
+    width: 14px;
+    height: 14px;
     flex-shrink: 0;
 }
 
@@ -452,8 +452,6 @@
 .btn-open {
     background: var(--color-success);
     color: white;
-    flex: 1;
-    max-width: 140px;
 }
 
 @media (hover: hover) {
