@@ -157,13 +157,41 @@
     .service-card:hover {
         transform: translateY(-4px);
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
-        border-color: var(--color-primary);
     }
 
-    /* Running cards get green glow on hover */
+    /* Status-based hover border colors and glow */
     .service-card.running:hover {
+        border-color: var(--color-success);
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2),
                     0 0 0 1px rgba(34, 165, 95, 0.3);
+    }
+
+    .service-card.exited:hover,
+    .service-card.stopped:hover,
+    .service-card.dead:hover {
+        border-color: var(--color-error);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2),
+                    0 0 0 1px rgba(239, 68, 68, 0.3);
+    }
+
+    .service-card.restarting:hover {
+        border-color: var(--color-warning);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2),
+                    0 0 0 1px rgba(245, 158, 11, 0.3);
+    }
+
+    .service-card.created:hover {
+        border-color: var(--color-info);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2),
+                    0 0 0 1px rgba(59, 130, 246, 0.3);
+    }
+
+    .service-card.paused:hover,
+    .service-card.not_found:hover,
+    .service-card.unknown:hover {
+        border-color: var(--color-text-muted);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2),
+                    0 0 0 1px rgba(107, 114, 128, 0.3);
     }
 }
 
