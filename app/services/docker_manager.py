@@ -197,12 +197,15 @@ class DockerManager:
                     line = process.stdout.readline()
                     if line:
                         # Split on \r (carriage return) - mechatronic_controller uses \r for progress
-                        # This prevents "Trying to connect...\r[INFO]..." from being one line
+                        # Only yield the LAST non-empty part (final state after all \r overwrites)
+                        # This prevents flooding with 50+ "Trying to connect" from one line
                         parts = line.rstrip('\n').split('\r')
-                        for part in parts:
+                        # Find last non-empty part
+                        for part in reversed(parts):
                             part = part.strip()
                             if part:
                                 yield part
+                                break
                     else:
                         # EOF - process ended
                         break
