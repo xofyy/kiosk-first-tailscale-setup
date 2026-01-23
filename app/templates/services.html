@@ -26,7 +26,10 @@
                 {% for container in containers %}
                 <div class="service-card {{ container.status }}" data-service="{{ container.service_name }}">
                     <div class="service-card-header">
-                        <h3>{{ container.display_name }}</h3>
+                        <div class="service-title">
+                            <span class="service-icon" data-icon="{{ container.icon }}"></span>
+                            <h3>{{ container.display_name }}</h3>
+                        </div>
                         <span class="service-badge {{ container.status }}">
                             <span class="dot"></span>
                             {{ container.status | capitalize }}

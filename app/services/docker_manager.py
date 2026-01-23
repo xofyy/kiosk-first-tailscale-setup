@@ -12,6 +12,27 @@ from app.services.log_process_manager import log_process_manager
 
 logger = logging.getLogger(__name__)
 
+# Service icons (Lucide icon names)
+SERVICE_ICONS = {
+    # Web UI services
+    "mechatronic_controller": "settings",
+    "barcode_qr_reader": "scan-line",
+    "thermal_printer": "printer",
+    "camera_controller": "video",
+    # Background services
+    "user_interface": "smartphone",
+    "cloud_service": "cloud",
+    "item_recognizer": "search",
+    "login_controller": "key",
+    "reward_controller": "coins",
+    "yolo_dimension": "ruler",
+    "local_database": "database",
+    "main_server": "server",
+}
+
+# Default icon for unknown services
+DEFAULT_ICON = "box"
+
 # Web UI services (services with iframe access)
 WEB_UI_SERVICES = {
     "mechatronic_controller": {
@@ -131,7 +152,8 @@ class DockerManager:
                 "display_name": web_ui_config.get("display_name", service_name.replace("_", " ").title()),
                 "type": "webui" if service_name in WEB_UI_SERVICES else "background",
                 "status": status,
-                "order": idx
+                "order": idx,
+                "icon": SERVICE_ICONS.get(service_name, DEFAULT_ICON)
             }
 
             # Add web UI specific fields
