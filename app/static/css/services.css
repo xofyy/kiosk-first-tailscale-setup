@@ -68,8 +68,8 @@
 /* Service Cards Grid */
 .service-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 1rem;
 }
 
 /* Service Card */
@@ -77,21 +77,54 @@
     background: var(--color-surface);
     border: 2px solid var(--color-border);
     border-radius: 16px;
-    padding: 1.5rem;
+    padding: 1rem 1rem 1rem 1.25rem;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
 }
 
+/* Left accent bar */
 .service-card::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
-    right: 0;
-    height: 4px;
+    bottom: 0;
+    width: 4px;
+    border-radius: 16px 0 0 16px;
     background: var(--color-border);
     transition: background 0.3s ease;
+}
+
+/* Status-based gradient overlay */
+.service-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+    border-radius: 16px;
+    opacity: 0.6;
+}
+
+.service-card.running::after {
+    background: linear-gradient(135deg, rgba(34, 165, 95, 0.08) 0%, transparent 50%);
+}
+
+.service-card.exited::after,
+.service-card.stopped::after,
+.service-card.dead::after {
+    background: linear-gradient(135deg, rgba(239, 68, 68, 0.08) 0%, transparent 50%);
+}
+
+.service-card.restarting::after {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.08) 0%, transparent 50%);
+}
+
+.service-card.created::after {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.08) 0%, transparent 50%);
 }
 
 /* Card top border colors for actual Docker statuses */
@@ -153,7 +186,7 @@
     align-items: flex-start;
     justify-content: space-between;
     gap: 0.5rem;
-    margin-bottom: 1rem;
+    margin-bottom: 0.75rem;
 }
 
 .service-title {
@@ -163,10 +196,17 @@
 }
 
 .service-icon {
-    width: 24px;
-    height: 24px;
+    width: 32px;
+    height: 32px;
+    padding: 6px;
     color: var(--color-primary);
     flex-shrink: 0;
+    background: rgba(34, 165, 95, 0.1);
+    border: 1px solid rgba(34, 165, 95, 0.2);
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .service-icon svg {
@@ -179,9 +219,44 @@
     fill: none;
 }
 
+/* Status-based icon colors */
+.service-card.running .service-icon {
+    color: var(--color-success);
+    background: rgba(34, 165, 95, 0.1);
+    border-color: rgba(34, 165, 95, 0.2);
+}
+
+.service-card.exited .service-icon,
+.service-card.stopped .service-icon,
+.service-card.dead .service-icon {
+    color: var(--color-error);
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+}
+
+.service-card.restarting .service-icon {
+    color: var(--color-warning);
+    background: rgba(245, 158, 11, 0.1);
+    border-color: rgba(245, 158, 11, 0.2);
+}
+
+.service-card.created .service-icon {
+    color: var(--color-info);
+    background: rgba(59, 130, 246, 0.1);
+    border-color: rgba(59, 130, 246, 0.2);
+}
+
+.service-card.paused .service-icon,
+.service-card.not_found .service-icon,
+.service-card.unknown .service-icon {
+    color: var(--color-text-muted);
+    background: rgba(107, 114, 128, 0.1);
+    border-color: rgba(107, 114, 128, 0.2);
+}
+
 .service-card h3 {
     margin: 0;
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: var(--color-text-primary);
     font-weight: 600;
     word-break: break-word;
@@ -288,10 +363,12 @@
    ============================================================================= */
 
 .service-info {
-    margin-bottom: 1.5rem;
-    padding: 1rem;
-    background: var(--color-bg-tertiary);
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+    background: rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(255, 255, 255, 0.03);
     border-radius: 8px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
 }
 
 .service-info-row {
@@ -308,12 +385,16 @@
 }
 
 .service-info-row .label {
-    opacity: 0.8;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    opacity: 0.7;
 }
 
 .service-info-row .value {
     color: var(--color-primary);
     font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 0.85rem;
     font-weight: 600;
 }
 
@@ -453,6 +534,9 @@
     border-top-color: var(--color-primary);
     border-radius: 50%;
     animation: spin 0.8s linear infinite;
+    background: none !important;
+    opacity: 1 !important;
+    z-index: 10;
 }
 
 /* =============================================================================
