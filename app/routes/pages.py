@@ -5,7 +5,6 @@ HTML page endpoints
 MongoDB-based config system.
 """
 
-import json
 import os
 
 from flask import Blueprint, render_template, request
@@ -16,6 +15,30 @@ from app.modules import get_all_modules, get_module
 from app.services.service_checker import get_all_services_status
 
 pages_bp = Blueprint('pages', __name__)
+
+# Hardcoded services configuration (accessed via iframe)
+SERVICES = {
+    "mechcontroller": {
+        "display_name": "Mechatronic Controller",
+        "port": 1234,
+        "check_type": "port"
+    },
+    "scanners": {
+        "display_name": "Scanners Dashboard",
+        "port": 504,
+        "check_type": "port"
+    },
+    "printer": {
+        "display_name": "Printer Panel",
+        "port": 5200,
+        "check_type": "port"
+    },
+    "camera": {
+        "display_name": "Camera Controller",
+        "port": 5100,
+        "check_type": "port"
+    }
+}
 
 
 @pages_bp.route('/')
@@ -65,41 +88,8 @@ def install():
 @pages_bp.route('/services')
 def services():
     """Services page - Service access via iframe"""
-    config.reload()  # Read current config
-
-    # Get services from config
-    services_config = config.get('services', {})
-
-    # Also check nginx services.json if exists
-    nginx_services_file = '/etc/nginx/aco-services.json'
-    if os.path.exists(nginx_services_file):
-        try:
-            with open(nginx_services_file, 'r') as f:
-                nginx_services = json.load(f)
-                # Merge services from nginx with config
-                for name, svc in nginx_services.items():
-                    if name not in services_config and not svc.get('internal'):
-                        services_config[name] = svc
-        except Exception:
-            pass
-
-    # Check status of each service
-    services_status = get_all_services_status(services_config)
-
-    # Filter internal services (like panel)
-    visible_services = {
-        name: status for name, status in services_status.items()
-        if not status.get('internal', False)
-    }
-
-    # Is nginx installed? (package-based or module-based)
-    nginx_installed = os.path.exists('/usr/sbin/nginx') or config.is_module_completed('nginx')
-
-    return render_template(
-        'services.html',
-        services=visible_services,
-        nginx_installed=nginx_installed
-    )
+    services_status = get_all_services_status(SERVICES)
+    return render_template('services.html', services=services_status)
 
 
 @pages_bp.route('/logs')

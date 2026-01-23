@@ -351,311 +351,7 @@ EOF
 log "Chromium policy created"
 
 # =============================================================================
-# 10. NGINX REVERSE PROXY
-# =============================================================================
-
-info "Installing Nginx reverse proxy..."
-
-apt-get install -y nginx
-
-# Remove default site
-rm -f /etc/nginx/sites-enabled/default
-
-# Services registry (start empty - modules add)
-mkdir -p /etc/nginx
-cat > /etc/nginx/aco-services.json << 'EOF'
-{
-  "panel": {
-    "display_name": "Panel",
-    "port": 5000,
-    "path": "/",
-    "websocket": false,
-    "internal": true
-  },
-  "mechcontroller": {
-    "display_name": "Mechatronic Controller",
-    "port": 1234,
-    "path": "/",
-    "websocket": true,
-    "check_type": "port",
-    "check_value": 1234
-  },
-  "scanners": {
-    "display_name": "Scanners Dashboard",
-    "port": 504,
-    "path": "/",
-    "websocket": true,
-    "check_type": "port",
-    "check_value": 504
-  },
-  "printer": {
-    "display_name": "Printer Panel",
-    "port": 5200,
-    "path": "/printer/",
-    "websocket": true,
-    "check_type": "port",
-    "check_value": 5200
-  },
-  "camera": {
-    "display_name": "Camera Controller",
-    "port": 5100,
-    "path": "/",
-    "websocket": true,
-    "check_type": "port",
-    "check_value": 5100
-  },
-  "cockpit": {
-    "display_name": "Cockpit",
-    "port": 9090,
-    "path": "/cockpit/",
-    "websocket": true,
-    "check_type": "systemd",
-    "check_value": "cockpit.socket"
-  }
-}
-EOF
-
-# Proxy config for panel
-cat > /etc/nginx/sites-available/aco-panel << 'NGINX_EOF'
-server {
-    listen 4444;
-    server_name localhost;
-    
-    add_header X-Content-Type-Options "nosniff" always;
-    client_max_body_size 100M;
-    
-    proxy_connect_timeout 60;
-    proxy_send_timeout 60;
-    proxy_read_timeout 60;
-    
-    location / {
-        proxy_pass http://127.0.0.1:5000/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    # Mechatronic Controller
-    location /mechatronic_controller/ {
-        proxy_pass http://127.0.0.1:1234/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 86400;
-
-        # HTML path rewrite
-        sub_filter 'src="/' 'src="/mechatronic_controller/';
-        sub_filter 'href="/' 'href="/mechatronic_controller/';
-        sub_filter "src='/" "src='/mechatronic_controller/";
-        sub_filter "href='/" "href='/mechatronic_controller/";
-        sub_filter_once off;
-        sub_filter_types text/html;
-        proxy_set_header Accept-Encoding "";
-    }
-
-    # Mechatronic socket.io (for root path access)
-    location /socket.io/ {
-        proxy_pass http://127.0.0.1:1234/socket.io/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_read_timeout 86400;
-    }
-
-    # Mechatronic API endpoint
-    location = /ip-config {
-        proxy_pass http://127.0.0.1:1234/ip-config;
-        proxy_set_header Host $host;
-    }
-
-    # Cockpit static files
-    location /cockpit/static/ {
-        proxy_pass http://127.0.0.1:9090/cockpit/cockpit/static/;
-        proxy_set_header Host $host:$server_port;
-    }
-
-    # Cockpit main
-    location /cockpit/ {
-        proxy_pass http://127.0.0.1:9090;
-        proxy_set_header Host $host:$server_port;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_set_header Origin http://localhost:4444;
-
-        # WebSocket
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 86400;
-
-        # For iframe
-        proxy_hide_header X-Frame-Options;
-        proxy_hide_header Content-Security-Policy;
-    }
-
-    # Scanners Dashboard
-    location /scanners/ {
-        proxy_pass http://127.0.0.1:504/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 86400;
-
-        # For iframe
-        proxy_hide_header X-Frame-Options;
-        proxy_hide_header Content-Security-Policy;
-
-        # HTML/JS path rewrite
-        sub_filter 'src="/' 'src="/scanners/';
-        sub_filter 'href="/' 'href="/scanners/';
-        sub_filter "src='/" "src='/scanners/";
-        sub_filter "href='/" "href='/scanners/";
-        # API/fetch calls
-        sub_filter '"/api/' '"/scanners/api/';
-        sub_filter "'/api/" "'/scanners/api/";
-        sub_filter 'fetch("/' 'fetch("/scanners/';
-        sub_filter "fetch('/" "fetch('/scanners/";
-        # Hardcoded WebSocket/HTTP URLs
-        sub_filter 'localhost:504' "' + window.location.host + '/scanners";
-        sub_filter '127.0.0.1:504' "' + window.location.host + '/scanners";
-        sub_filter_once off;
-        sub_filter_types text/html text/css text/javascript application/javascript application/x-javascript;
-        proxy_set_header Accept-Encoding "";
-    }
-
-    # Scanners socket.io
-    location /scanners/socket.io/ {
-        proxy_pass http://127.0.0.1:504/socket.io/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_read_timeout 86400;
-    }
-
-    # Printer Panel
-    location /printer/ {
-        proxy_pass http://127.0.0.1:5200/printer/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # WebSocket support
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_read_timeout 86400;
-
-        # For iframe
-        proxy_hide_header X-Frame-Options;
-        proxy_hide_header Content-Security-Policy;
-
-        # HTML/JS path rewrite
-        sub_filter 'src="/' 'src="/printer/';
-        sub_filter 'href="/' 'href="/printer/';
-        sub_filter "src='/" "src='/printer/";
-        sub_filter "href='/" "href='/printer/";
-        # API/fetch calls
-        sub_filter '"/api/' '"/printer/api/';
-        sub_filter "'/api/" "'/printer/api/";
-        sub_filter 'fetch("/' 'fetch("/printer/';
-        sub_filter "fetch('/" "fetch('/printer/";
-        # Hardcoded socket.io URLs
-        sub_filter 'http://0.0.0.0:5200/socket.io' '/printer/socket.io';
-        sub_filter '0.0.0.0:5200/socket.io' '/printer/socket.io';
-        sub_filter 'http://0.0.0.0:5200' '/printer';
-        sub_filter '0.0.0.0:5200' '/printer';
-        sub_filter_once off;
-        sub_filter_types text/html text/css text/javascript application/javascript application/x-javascript;
-        proxy_set_header Accept-Encoding "";
-    }
-
-    # Printer socket.io
-    location /printer/socket.io/ {
-        proxy_pass http://127.0.0.1:5200/socket.io/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_read_timeout 86400;
-    }
-
-    # Camera Controller
-    location /camera/ {
-        proxy_pass http://127.0.0.1:5100/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-
-        # For iframe
-        proxy_hide_header X-Frame-Options;
-        proxy_hide_header Content-Security-Policy;
-
-        # HTML/JS path rewrite
-        sub_filter 'src="/' 'src="/camera/';
-        sub_filter 'href="/' 'href="/camera/';
-        sub_filter "src='/" "src='/camera/";
-        sub_filter "href='/" "href='/camera/";
-        # API/fetch calls
-        sub_filter '"/api/' '"/camera/api/';
-        sub_filter "'/api/" "'/camera/api/";
-        sub_filter '"/static/' '"/camera/static/';
-        sub_filter "'/static/" "'/camera/static/";
-        sub_filter 'fetch("/' 'fetch("/camera/';
-        sub_filter "fetch('/" "fetch('/camera/";
-        # Hardcoded URLs
-        sub_filter 'localhost:5100' "' + window.location.host + '/camera";
-        sub_filter '127.0.0.1:5100' "' + window.location.host + '/camera";
-        sub_filter_once off;
-        sub_filter_types text/html text/css text/javascript application/javascript application/x-javascript;
-        proxy_set_header Accept-Encoding "";
-    }
-
-    # Camera Controller - Socket.IO
-    location /camera/socket.io/ {
-        proxy_pass http://127.0.0.1:5100/socket.io/;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_read_timeout 86400;
-    }
-}
-NGINX_EOF
-
-ln -sf /etc/nginx/sites-available/aco-panel /etc/nginx/sites-enabled/
-systemctl enable nginx
-systemctl restart nginx
-
-# Verification
-if systemctl is-active --quiet nginx; then
-    log "Nginx reverse proxy ready (port: 4444)"
-else
-    warn "Nginx could not be started"
-fi
-
-# =============================================================================
-# 11. SYSTEMD SERVICES
+# 10. SYSTEMD SERVICES
 # =============================================================================
 
 info "Creating systemd services..."
@@ -674,7 +370,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aco-panel
 Environment="PATH=/opt/aco-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/aco-panel/venv/bin/python -m gunicorn -b 127.0.0.1:5000 -w 2 --timeout 120 app.main:app
+ExecStart=/opt/aco-panel/venv/bin/python -m gunicorn -b 0.0.0.0:4444 -w 2 --timeout 120 app.main:app
 Restart=always
 RestartSec=5
 
@@ -690,7 +386,7 @@ systemctl enable aco-panel.service 2>/dev/null || true
 log "Systemd services ready"
 
 # =============================================================================
-# 12. TTY1 AUTOLOGIN
+# 11. TTY1 AUTOLOGIN
 # =============================================================================
 
 info "Configuring TTY1 autologin..."
@@ -706,7 +402,7 @@ EOF
 log "TTY1 autologin configured"
 
 # =============================================================================
-# 13. KIOSK USER CONFIGURATION
+# 12. KIOSK USER CONFIGURATION
 # =============================================================================
 
 info "Configuring kiosk user..."
@@ -854,7 +550,7 @@ chown -R "$KIOSK_USER:$KIOSK_USER" "$KIOSK_HOME"
 log "Kiosk user configuration completed"
 
 # =============================================================================
-# 14. SERVICE ENABLE (will start after Docker/MongoDB)
+# 13. SERVICE ENABLE (will start after Docker/MongoDB)
 # =============================================================================
 
 info "Enabling panel service..."
@@ -862,7 +558,7 @@ info "Enabling panel service..."
 log "Panel service enabled (will start after MongoDB is ready)"
 
 # =============================================================================
-# 15. NETWORK CONFIGURATION
+# 14. NETWORK CONFIGURATION
 # =============================================================================
 
 info "Configuring network..."
@@ -1146,7 +842,7 @@ else
 fi
 
 # =============================================================================
-# 16. TAILSCALE INSTALLATION (package only)
+# 15. TAILSCALE INSTALLATION (package only)
 # =============================================================================
 
 info "Installing Tailscale..."
@@ -1170,7 +866,7 @@ else
 fi
 
 # =============================================================================
-# 17. COCKPIT INSTALLATION
+# 16. COCKPIT INSTALLATION
 # =============================================================================
 
 info "Installing Cockpit..."
@@ -1189,8 +885,7 @@ apt-get install -y -qq "${COCKPIT_PACKAGES[@]}"
 mkdir -p /etc/cockpit
 cat > /etc/cockpit/cockpit.conf << 'EOF'
 [WebService]
-UrlRoot=/cockpit
-Origins = http://localhost:4444 ws://localhost:4444
+Origins = http://localhost:9090 ws://localhost:9090
 AllowUnencrypted = true
 AllowEmbedding = true
 
@@ -1235,7 +930,7 @@ else
 fi
 
 # =============================================================================
-# 18. VNC INSTALLATION
+# 17. VNC INSTALLATION
 # =============================================================================
 
 info "Installing VNC..."
@@ -1276,7 +971,7 @@ systemctl enable x11vnc 2>/dev/null || true
 log "VNC installed (will be active after X11 starts)"
 
 # =============================================================================
-# 18.5. NVIDIA FALLBACK SERVICE (enable nouveau)
+# 17.5. NVIDIA FALLBACK SERVICE (enable nouveau)
 # =============================================================================
 
 info "Installing NVIDIA fallback service..."
@@ -1396,7 +1091,7 @@ systemctl enable nvidia-fallback.service
 log "NVIDIA fallback service installed"
 
 # =============================================================================
-# 19. KIOSK CONFIGURATION
+# 18. KIOSK CONFIGURATION
 # =============================================================================
 
 info "Configuring kiosk..."
@@ -1427,7 +1122,7 @@ fi
 log "Kiosk configuration completed"
 
 # =============================================================================
-# 20. NETMON INSTALLATION
+# 19. NETMON INSTALLATION
 # =============================================================================
 
 info "Installing Netmon..."
@@ -1483,7 +1178,7 @@ else
 fi
 
 # =============================================================================
-# 21. COLLECTOR INSTALLATION
+# 20. COLLECTOR INSTALLATION
 # =============================================================================
 
 info "Installing Collector..."
@@ -1557,7 +1252,7 @@ else
 fi
 
 # =============================================================================
-# 22. DOCKER INSTALLATION
+# 21. DOCKER INSTALLATION
 # =============================================================================
 
 info "Installing Docker..."
@@ -1739,7 +1434,7 @@ fi
 log "Docker installation completed"
 
 # =============================================================================
-# 23. SECURITY PACKAGES INSTALLATION
+# 22. SECURITY PACKAGES INSTALLATION
 # =============================================================================
 
 info "Installing security packages..."
@@ -1754,7 +1449,7 @@ apt-get install -y -qq ufw fail2ban
 log "Security packages installed (configuration in tailscale module)"
 
 # =============================================================================
-# 24. INSTALLATION VERIFICATION (SUMMARY)
+# 23. INSTALLATION VERIFICATION (SUMMARY)
 # =============================================================================
 
 info "Running installation verification..."
@@ -1796,7 +1491,6 @@ check_command() {
 }
 
 echo -e "${CYAN}Base Services:${NC}"
-check_service "nginx" "Nginx (Reverse Proxy)"
 check_service "NetworkManager" "NetworkManager"
 check_service "docker" "Docker"
 check_service "aco-panel" "ACO Panel"

@@ -19,22 +19,6 @@
     </div>
 
     <div class="services-content">
-        {% if not nginx_installed %}
-        <div class="nginx-warning">
-            <span class="warning-icon">
-                <svg class="icon-lg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
-                    <line x1="12" y1="9" x2="12" y2="13"/>
-                    <line x1="12" y1="17" x2="12.01" y2="17"/>
-                </svg>
-            </span>
-            <div class="warning-content">
-                <h3>Nginx Not Installed</h3>
-                <p>Nginx is required to access services via iframe.</p>
-            </div>
-        </div>
-        {% endif %}
-
         {% if services %}
         <div class="service-cards">
             {% for name, service in services.items() %}
@@ -55,42 +39,23 @@
                         <span class="label">Port</span>
                         <span class="value">{{ service.port or 'N/A' }}</span>
                     </div>
-                    <div class="service-info-row">
-                        <span class="label">Path</span>
-                        <span class="value">{{ service.path|default('/' ~ name ~ '/') }}</span>
-                    </div>
                 </div>
 
                 <div class="service-actions">
                     {% if service.active %}
                     <button
                         class="btn-open-service active"
-                        data-path="{{ service.path or ('/' ~ name ~ '/') }}"
+                        data-port="{{ service.port }}"
                         data-title="{{ service.display_name or name }}"
-                        onclick="openService(this.dataset.path, this.dataset.title)"
-                        title="Open via nginx proxy"
-                        aria-label="Open {{ service.display_name or name }} via proxy">
+                        onclick="openService(this.dataset.port, this.dataset.title)"
+                        title="Open service"
+                        aria-label="Open {{ service.display_name or name }}">
                         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                             <polyline points="15 3 21 3 21 9"/>
                             <line x1="10" y1="14" x2="21" y2="3"/>
                         </svg>
-                        Proxy
-                    </button>
-                    <button
-                        class="btn-open-service btn-direct active"
-                        data-port="{{ service.port }}"
-                        data-path="{{ service.path or '/' }}"
-                        data-title="{{ service.display_name or name }}"
-                        onclick="openServiceDirect(this.dataset.port, this.dataset.path, this.dataset.title)"
-                        title="Open direct port (recommended for remote access)"
-                        aria-label="Open {{ service.display_name or name }} direct">
-                        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                            <circle cx="12" cy="12" r="10"/>
-                            <line x1="2" y1="12" x2="22" y2="12"/>
-                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                        </svg>
-                        Direct
+                        Open
                     </button>
                     {% else %}
                     <button class="btn-open-service disabled" disabled>

@@ -27,7 +27,7 @@ function getFrameElements() {
 // Service Frame Management
 // =============================================================================
 
-function openService(path, title) {
+function openService(port, title) {
     const { frameContainer, serviceFrame, frameTitle, frameLoading } = getFrameElements();
     if (!frameContainer || !serviceFrame) return;
 
@@ -40,27 +40,7 @@ function openService(path, title) {
         serviceFrame.style.opacity = '1';
     };
 
-    serviceFrame.src = path;
-    frameContainer.classList.add('visible');
-    document.body.style.overflow = 'hidden';
-}
-
-function openServiceDirect(port, path, title) {
-    const { frameContainer, serviceFrame, frameTitle, frameLoading } = getFrameElements();
-    if (!frameContainer || !serviceFrame) return;
-
-    if (frameTitle) frameTitle.textContent = title + ' (Direct)';
-    if (frameLoading) frameLoading.classList.add('visible');
-    serviceFrame.style.opacity = '0';
-
-    serviceFrame.onload = function() {
-        if (frameLoading) frameLoading.classList.remove('visible');
-        serviceFrame.style.opacity = '1';
-    };
-
-    // Build direct URL using current hostname and service port
-    const directUrl = `http://${window.location.hostname}:${port}${path}`;
-    console.log('Opening direct URL:', directUrl);
+    const directUrl = `http://${window.location.hostname}:${port}/`;
     serviceFrame.src = directUrl;
     frameContainer.classList.add('visible');
     document.body.style.overflow = 'hidden';
