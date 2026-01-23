@@ -50,7 +50,7 @@
                         <!-- Web UI: Open button (only when running) -->
                         {% if container.type == 'webui' and container.status == 'running' %}
                         <button class="btn-action btn-open"
-                                onclick="openService({{ container.port }}, {{ container.path | tojson }}, {{ container.display_name | tojson }})"
+                                onclick='openService({{ container.port }}, {{ container.path | tojson }}, {{ container.display_name | tojson }})'
                                 title="Open in iframe">
                             <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
@@ -65,14 +65,14 @@
                         <div class="btn-group">
                             {% if container.status == 'running' %}
                             <button class="btn-action btn-stop"
-                                    onclick="containerAction({{ container.service_name | tojson }}, 'stop')"
+                                    onclick='containerAction({{ container.service_name | tojson }}, "stop")'
                                     title="Stop container">
                                 <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor">
                                     <rect x="6" y="6" width="12" height="12" rx="1"/>
                                 </svg>
                             </button>
                             <button class="btn-action btn-restart"
-                                    onclick="containerAction({{ container.service_name | tojson }}, 'restart')"
+                                    onclick='containerAction({{ container.service_name | tojson }}, "restart")'
                                     title="Restart container">
                                 <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M23 4v6h-6M1 20v-6h6"/>
@@ -81,7 +81,7 @@
                             </button>
                             {% else %}
                             <button class="btn-action btn-start"
-                                    onclick="containerAction({{ container.service_name | tojson }}, 'start')"
+                                    onclick='containerAction({{ container.service_name | tojson }}, "start")'
                                     title="Start container">
                                 <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor">
                                     <polygon points="5 3 19 12 5 21 5 3"/>
@@ -91,7 +91,7 @@
 
                             <!-- Logs button (always available) -->
                             <button class="btn-action btn-logs"
-                                    onclick="openLogs({{ container.service_name | tojson }}, {{ container.display_name | tojson }})"
+                                    onclick='openLogs({{ container.service_name | tojson }}, {{ container.display_name | tojson }})'
                                     title="View logs">
                                 <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                     <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
