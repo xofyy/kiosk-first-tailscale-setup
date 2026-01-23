@@ -95,12 +95,29 @@ class DockerManager:
     def get_all_containers(self) -> List[Dict[str, Any]]:
         """
         Get all containers merged with web UI config.
-        Returns containers in compose file order.
+        Returns containers sorted: Web UI services first (A-Z), then background (A-Z).
         """
         containers = []
         compose_services = self.get_compose_services()
 
-        for idx, service_name in enumerate(compose_services):
+        # Separate into web UI and background services
+        webui_services = []
+        background_services = []
+
+        for service_name in compose_services:
+            if service_name in WEB_UI_SERVICES:
+                webui_services.append(service_name)
+            else:
+                background_services.append(service_name)
+
+        # Sort each group alphabetically for consistent order
+        webui_services.sort()
+        background_services.sort()
+
+        # Combine: Web UI first, then background
+        sorted_services = webui_services + background_services
+
+        for idx, service_name in enumerate(sorted_services):
             status = self.get_container_status(service_name)
 
             # Check if this is a web UI service
