@@ -27,7 +27,7 @@ function getFrameElements() {
 // Service Frame Management
 // =============================================================================
 
-function openService(port, title) {
+function openService(port, path, title) {
     const { frameContainer, serviceFrame, frameTitle, frameLoading } = getFrameElements();
     if (!frameContainer || !serviceFrame) return;
 
@@ -40,7 +40,7 @@ function openService(port, title) {
         serviceFrame.style.opacity = '1';
     };
 
-    const directUrl = `http://${window.location.hostname}:${port}/`;
+    const directUrl = `http://${window.location.hostname}:${port}${path}`;
     serviceFrame.src = directUrl;
     frameContainer.classList.add('visible');
     document.body.style.overflow = 'hidden';

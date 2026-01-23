@@ -46,8 +46,9 @@
                     <button
                         class="btn-open-service active"
                         data-port="{{ service.port }}"
+                        data-path="{{ service.path or '/' }}"
                         data-title="{{ service.display_name or name }}"
-                        onclick="openService(this.dataset.port, this.dataset.title)"
+                        onclick="openService(this.dataset.port, this.dataset.path, this.dataset.title)"
                         title="Open service"
                         aria-label="Open {{ service.display_name or name }}">
                         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

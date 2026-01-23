@@ -21,6 +21,7 @@ SERVICES = {
     "mechcontroller": {
         "display_name": "Mechatronic Controller",
         "port": 1234,
+        "path": "/pro",
         "check_type": "port"
     },
     "scanners": {
@@ -31,6 +32,7 @@ SERVICES = {
     "printer": {
         "display_name": "Printer Panel",
         "port": 5200,
+        "path": "/printer",
         "check_type": "port"
     },
     "camera": {

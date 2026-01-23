@@ -885,9 +885,7 @@ apt-get install -y -qq "${COCKPIT_PACKAGES[@]}"
 mkdir -p /etc/cockpit
 cat > /etc/cockpit/cockpit.conf << 'EOF'
 [WebService]
-Origins = http://localhost:9090 ws://localhost:9090
 AllowUnencrypted = true
-AllowEmbedding = true
 
 [Session]
 IdleTimeout = 0
