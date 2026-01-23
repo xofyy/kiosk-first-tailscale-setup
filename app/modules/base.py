@@ -126,6 +126,41 @@ class MongoConfig:
         """Set RVM ID"""
         return self.set('rvm_id', rvm_id)
 
+    def set_core_configuration(self, serial_number: str) -> bool:
+        """
+        Save core configuration to admin.configurations.
+
+        Document format:
+        {
+            "type": "core",
+            "serialNumber": "<RVM_ID>",
+            "isActive": "inactive"
+        }
+
+        Returns: True if successful, False otherwise
+        """
+        try:
+            from pymongo import MongoClient
+            client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=5000)
+            admin_db = client['admin']
+            configurations = admin_db['configurations']
+
+            configurations.update_one(
+                {'type': 'core'},
+                {'$set': {
+                    'type': 'core',
+                    'serialNumber': serial_number,
+                    'isActive': 'inactive'
+                }},
+                upsert=True
+            )
+            client.close()
+            logger.info(f"Saved to admin.configurations: {serial_number}")
+            return True
+        except Exception as e:
+            logger.warning(f"admin.configurations write error: {e}")
+            return False
+
     def get_hardware_id(self) -> Optional[str]:
         """Get Hardware ID"""
         return self.get('hardware_id')

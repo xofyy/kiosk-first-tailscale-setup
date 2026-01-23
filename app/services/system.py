@@ -517,7 +517,126 @@ class SystemService:
         except Exception as e:
             logger.debug(f"Could not get disk info: {e}")
             return {'total_gb': 0, 'used_gb': 0, 'free_gb': 0, 'percent': 0}
-    
+
+    # =========================================================================
+    # HOSTNAME MANAGEMENT
+    # =========================================================================
+
+    def set_hostname(self, hostname: str) -> dict:
+        """
+        Set system hostname and update /etc/hosts.
+
+        Args:
+            hostname: New hostname (lowercase, RFC 1123 compliant)
+
+        Returns:
+            {'success': bool, 'error': str|None}
+        """
+        import re
+
+        # 1. VALIDATION
+        if not hostname:
+            return {'success': False, 'error': 'Hostname cannot be empty'}
+
+        if not re.match(r'^[a-z0-9][a-z0-9-]*[a-z0-9]$|^[a-z0-9]$', hostname):
+            return {'success': False, 'error': 'Invalid hostname format (RFC 1123)'}
+
+        if len(hostname) > 63:
+            return {'success': False, 'error': 'Hostname too long (max 63 chars)'}
+
+        # 2. BACKUP
+        backup = self._backup_hostname_state()
+
+        # 3. APPLY
+        try:
+            # Set hostname via hostnamectl
+            result = subprocess.run(
+                ['hostnamectl', 'set-hostname', hostname],
+                capture_output=True,
+                text=True,
+                timeout=10
+            )
+            if result.returncode != 0:
+                raise subprocess.CalledProcessError(result.returncode, 'hostnamectl', result.stderr)
+
+            # Update /etc/hosts
+            self._update_hosts_file(hostname)
+
+            logger.info(f"Hostname changed to: {hostname}")
+            return {'success': True, 'error': None}
+
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired, IOError) as e:
+            error_msg = f"Hostname change failed: {e}"
+            logger.error(error_msg)
+
+            # 4. ROLLBACK
+            if self._rollback_hostname(backup):
+                return {'success': False, 'error': f'{error_msg} (restored)'}
+            else:
+                return {'success': False, 'error': f'{error_msg} (WARNING: rollback failed!)'}
+
+    def _backup_hostname_state(self) -> dict:
+        """Backup current hostname and /etc/hosts"""
+        backup = {}
+        try:
+            result = subprocess.run(['hostname'], capture_output=True, text=True, timeout=5)
+            backup['hostname'] = result.stdout.strip()
+
+            if os.path.exists('/etc/hosts'):
+                with open('/etc/hosts', 'r') as f:
+                    backup['hosts'] = f.read()
+        except Exception as e:
+            logger.debug(f"Hostname backup warning: {e}")
+        return backup
+
+    def _update_hosts_file(self, hostname: str) -> None:
+        """Update /etc/hosts with new hostname"""
+        import re
+        hosts_path = '/etc/hosts'
+
+        with open(hosts_path, 'r') as f:
+            content = f.read()
+
+        # Replace existing 127.0.1.1 line
+        new_content = re.sub(
+            r'^127\.0\.1\.1\s+.*$',
+            f'127.0.1.1\t{hostname}',
+            content,
+            flags=re.MULTILINE
+        )
+
+        # Add if not exists
+        if '127.0.1.1' not in new_content:
+            new_content = re.sub(
+                r'^(127\.0\.0\.1\s+localhost.*)$',
+                f'\\1\n127.0.1.1\t{hostname}',
+                new_content,
+                flags=re.MULTILINE
+            )
+
+        with open(hosts_path, 'w') as f:
+            f.write(new_content)
+
+    def _rollback_hostname(self, backup: dict) -> bool:
+        """Restore hostname from backup"""
+        try:
+            if 'hostname' in backup and backup['hostname']:
+                subprocess.run(
+                    ['hostnamectl', 'set-hostname', backup['hostname']],
+                    check=True, timeout=10
+                )
+            if 'hosts' in backup:
+                with open('/etc/hosts', 'w') as f:
+                    f.write(backup['hosts'])
+            return True
+        except Exception as e:
+            logger.warning(f"Hostname rollback failed: {e}")
+            return False
+
+    # =========================================================================
+    # TEMPORARY IP MANAGEMENT
+    # =========================================================================
+
     def set_temporary_ip(
         self,
         interface: str,

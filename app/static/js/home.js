@@ -54,13 +54,27 @@ function renderInterfaceCard(iface) {
     const typeConfig = defaultIpConfigs[iface.type] || defaultIpConfigs.pcie;
     const staticIp = typeConfig.ip;
 
-    // Mode badge configuration
-    const modeConfig = {
-        'network': { label: 'Network', class: 'mode-network', icon: '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>' },
-        'direct': { label: 'Direct', class: 'mode-direct', icon: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>' },
-        'dhcp': { label: 'DHCP', class: 'mode-dhcp', icon: '<path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>' }
-    };
-    const mode = modeConfig[iface.mode];
+    // Mode badge configuration - UI labels based on interface type
+    // Onboard: network→Network, dhcp→Direct
+    // PCIe: direct→Network, dhcp→Direct
+    const networkIcon = '<circle cx="12" cy="12" r="10"/><path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>';
+    const directIcon = '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>';
+
+    let mode;
+    if (iface.type === 'onboard') {
+        if (iface.mode === 'network') {
+            mode = { label: 'Network', class: 'mode-network', icon: networkIcon };
+        } else if (iface.mode === 'dhcp') {
+            mode = { label: 'Direct', class: 'mode-direct', icon: directIcon };
+        }
+    } else {
+        // PCIe
+        if (iface.mode === 'direct') {
+            mode = { label: 'Network', class: 'mode-network', icon: networkIcon };
+        } else if (iface.mode === 'dhcp') {
+            mode = { label: 'Direct', class: 'mode-direct', icon: directIcon };
+        }
+    }
     const modeBadgeHtml = mode ? `
         <div class="interface-mode-badge ${mode.class}">
             <svg class="icon-xs" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -74,10 +88,7 @@ function renderInterfaceCard(iface) {
     let buttonsHtml = '';
 
     if (iface.type === 'onboard') {
-        // Onboard: Network (with gateway), Direct (no gateway), DHCP
-        const networkConfig = typeConfig.modes?.network;
-        const networkGateway = networkConfig?.gateway || '';
-
+        // Onboard: Network (static IP + gateway), Direct (DHCP/Auto)
         buttonsHtml = `
             <button class="btn btn-sm btn-ip-network" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'network')">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -87,36 +98,30 @@ function renderInterfaceCard(iface) {
                 <span>Network</span>
                 <small>${staticIp} + GW</small>
             </button>
-            <button class="btn btn-sm btn-ip-direct" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'direct')">
+            <button class="btn btn-sm btn-ip-direct" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'dhcp')">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                 </svg>
                 <span>Direct</span>
-                <small>${staticIp}</small>
-            </button>
-            <button class="btn btn-sm btn-ip-dhcp" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'dhcp')">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
-                </svg>
-                <span>DHCP</span>
                 <small>Auto</small>
             </button>
         `;
     } else {
-        // PCIe: Direct (no gateway), DHCP only
+        // PCIe: Network (static IP, no gateway), Direct (DHCP/Auto)
         buttonsHtml = `
-            <button class="btn btn-sm btn-ip-direct" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'direct')">
+            <button class="btn btn-sm btn-ip-network" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'direct')">
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="10"/>
+                    <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                </svg>
+                <span>Network</span>
+                <small>${staticIp}</small>
+            </button>
+            <button class="btn btn-sm btn-ip-direct" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'dhcp')">
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
                 </svg>
                 <span>Direct</span>
-                <small>${staticIp}</small>
-            </button>
-            <button class="btn btn-sm btn-ip-dhcp" onclick="setInterfaceIP('${iface.name}', '${iface.type}', 'dhcp')">
-                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M5 12.55a11 11 0 0 1 14.08 0M1.42 9a16 16 0 0 1 21.16 0M8.53 16.11a6 6 0 0 1 6.95 0M12 20h.01"/>
-                </svg>
-                <span>DHCP</span>
                 <small>Auto</small>
             </button>
         `;
@@ -173,12 +178,16 @@ async function setInterfaceIP(interfaceName, interfaceType, mode) {
         });
 
         if (data.success) {
-            const modeTexts = {
-                'network': 'Network IP set',
-                'direct': 'Direct IP set',
-                'dhcp': 'DHCP enabled'
-            };
-            showToast(`${interfaceName}: ${modeTexts[mode] || 'IP set'}`, 'success');
+            // Toast message based on UI label (not backend mode)
+            // Onboard: network→Network, dhcp→Direct
+            // PCIe: direct→Network, dhcp→Direct
+            let toastText;
+            if (interfaceType === 'onboard') {
+                toastText = mode === 'network' ? 'Network IP set' : 'Direct mode set';
+            } else {
+                toastText = mode === 'direct' ? 'Network IP set' : 'Direct mode set';
+            }
+            showToast(`${interfaceName}: ${toastText}`, 'success');
 
             // Update IP display
             if (ipDisplay) {

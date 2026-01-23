@@ -167,9 +167,9 @@ def get_rvm_id():
 @api_bp.route('/rvm-id', methods=['POST'])
 def set_rvm_id():
     """Set or update RVM ID (blocked after Tailscale installation)"""
-    config.reload()  # Multi-worker sync
+    config.reload()
 
-    # Block if Remote Connection is already installed (hostname is locked)
+    # Block if Remote Connection already installed
     if config.get_module_status('remote-connection') == 'completed':
         return jsonify({
             'success': False,
@@ -179,24 +179,39 @@ def set_rvm_id():
     data = request.get_json()
     rvm_id = data.get('rvm_id', '').upper().strip()
 
+    # Input validation
     if not rvm_id:
-        return jsonify({
-            'success': False,
-            'error': 'RVM ID required'
-        }), 400
+        return jsonify({'success': False, 'error': 'RVM ID required'}), 400
 
-    # ID format check
     if not re.match(r'^[A-Z0-9_-]+$', rvm_id):
         return jsonify({
             'success': False,
             'error': 'Invalid format. Use only uppercase letters, numbers, hyphens and underscores'
         }), 400
 
+    hostname = rvm_id.lower()
+
+    # 1. Set system hostname
+    system = SystemService()
+    result = system.set_hostname(hostname)
+    if not result['success']:
+        return jsonify({'success': False, 'error': result['error']}), 500
+
+    # 2. Save to admin.configurations
+    if not config.set_core_configuration(rvm_id):
+        return jsonify({
+            'success': False,
+            'error': 'Failed to save to admin.configurations'
+        }), 500
+
+    # 3. Save RVM ID to aco.settings
     config.set_rvm_id(rvm_id)
+    logger.info(f"RVM ID set to: {rvm_id}, hostname: {hostname}")
 
     return jsonify({
         'success': True,
-        'rvm_id': rvm_id
+        'rvm_id': rvm_id,
+        'hostname': hostname
     })
 
 
