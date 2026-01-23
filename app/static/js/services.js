@@ -5,6 +5,17 @@
 'use strict';
 
 // =============================================================================
+// Log Buffer Configuration
+// =============================================================================
+
+const LOG_CONFIG = {
+    MAX_LINES: 1000,        // Maximum lines in DOM
+    MAX_LINE_LENGTH: 500,   // Truncate lines longer than this
+    UPDATE_INTERVAL: 100,   // Batch update interval (ms)
+    TRUNCATE_SUFFIX: '...'  // Suffix for truncated lines
+};
+
+// =============================================================================
 // DOM Elements (cached for performance)
 // =============================================================================
 
@@ -21,12 +32,14 @@ let logAutoScroll = null;
 // SSE connection for logs
 let logEventSource = null;
 let currentLogService = null;
-let logSessionId = null;
 
-// Generate unique session ID for log streaming
-function generateSessionId() {
-    return 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
-}
+// Log buffer state (for throttled updates)
+let logBuffer = [];
+let logLines = [];
+let logUpdateTimer = null;
+
+// Single session ID per page - server auto-kills old process when same session requests new service
+const PAGE_LOG_SESSION_ID = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
 
 function initElements() {
     frameContainer = document.getElementById('frame-container');
@@ -103,6 +116,70 @@ function updateCardStatus(serviceName, status) {
 // Log Viewer (SSE Streaming)
 // =============================================================================
 
+/**
+ * Process a log line: trim and truncate if too long.
+ * Returns null for empty lines.
+ */
+function processLogLine(line) {
+    if (!line || !line.trim()) return null;
+
+    if (line.length > LOG_CONFIG.MAX_LINE_LENGTH) {
+        return line.substring(0, LOG_CONFIG.MAX_LINE_LENGTH) + LOG_CONFIG.TRUNCATE_SUFFIX;
+    }
+    return line;
+}
+
+/**
+ * Add a line to the buffer and schedule an update.
+ */
+function addToLogBuffer(line) {
+    const processed = processLogLine(line);
+    if (processed) {
+        logBuffer.push(processed);
+        scheduleLogUpdate();
+    }
+}
+
+/**
+ * Schedule a throttled DOM update.
+ * Only one timer runs at a time.
+ */
+function scheduleLogUpdate() {
+    if (logUpdateTimer) return;
+
+    logUpdateTimer = setTimeout(() => {
+        flushLogBuffer();
+        logUpdateTimer = null;
+    }, LOG_CONFIG.UPDATE_INTERVAL);
+}
+
+/**
+ * Flush buffer to DOM with max line limit.
+ */
+function flushLogBuffer() {
+    if (!logContent || logBuffer.length === 0) return;
+
+    // Add buffered lines
+    logLines.push(...logBuffer);
+    logBuffer = [];
+
+    // Enforce max line limit (keep recent lines)
+    if (logLines.length > LOG_CONFIG.MAX_LINES) {
+        logLines = logLines.slice(-LOG_CONFIG.MAX_LINES);
+    }
+
+    // Single DOM update
+    logContent.textContent = logLines.join('\n');
+
+    // Auto-scroll if enabled
+    if (logAutoScroll?.checked) {
+        const modalBody = logContent.parentElement;
+        if (modalBody) {
+            modalBody.scrollTop = modalBody.scrollHeight;
+        }
+    }
+}
+
 function openLogs(serviceName, displayName) {
     initElements();
     if (!logModal || !logContent) return;
@@ -115,7 +192,13 @@ function openLogs(serviceName, displayName) {
         titleEl.textContent = `${displayName || serviceName} Logs`;
     }
 
-    // Clear previous content
+    // Reset buffers and clear previous content
+    logBuffer = [];
+    logLines = [];
+    if (logUpdateTimer) {
+        clearTimeout(logUpdateTimer);
+        logUpdateTimer = null;
+    }
     logContent.textContent = '';
     if (logStatus) logStatus.textContent = 'Connecting...';
 
@@ -132,6 +215,14 @@ function closeLogs() {
     // Stop SSE connection
     stopLogStream();
 
+    // Cleanup timer and buffers
+    if (logUpdateTimer) {
+        clearTimeout(logUpdateTimer);
+        logUpdateTimer = null;
+    }
+    logBuffer = [];
+    logLines = [];
+
     // Hide modal
     if (logModal) {
         logModal.classList.remove('visible');
@@ -144,10 +235,8 @@ function startLogStream(serviceName) {
     // Close existing connection if any
     stopLogStream();
 
-    // Generate new session ID
-    logSessionId = generateSessionId();
-
-    const url = `/api/docker/containers/${serviceName}/logs?session_id=${logSessionId}&tail=200`;
+    // Use single session ID - server auto-kills old process for same session
+    const url = `/api/docker/containers/${serviceName}/logs?session_id=${PAGE_LOG_SESSION_ID}&tail=200`;
     logEventSource = new EventSource(url);
 
     logEventSource.onopen = () => {
@@ -156,17 +245,7 @@ function startLogStream(serviceName) {
 
     logEventSource.onmessage = (event) => {
         if (!logContent) return;
-
-        // Append new log line
-        logContent.textContent += event.data + '\n';
-
-        // Auto-scroll if enabled
-        if (logAutoScroll?.checked) {
-            const modalBody = logContent.parentElement;
-            if (modalBody) {
-                modalBody.scrollTop = modalBody.scrollHeight;
-            }
-        }
+        addToLogBuffer(event.data);
     };
 
     logEventSource.onerror = (error) => {
@@ -179,15 +258,6 @@ function stopLogStream() {
     if (logEventSource) {
         logEventSource.close();
         logEventSource = null;
-    }
-
-    // Notify server to cleanup subprocess (sendBeacon is reliable even on page close)
-    if (logSessionId) {
-        const blob = new Blob([JSON.stringify({ session_id: logSessionId })], {
-            type: 'application/json'
-        });
-        navigator.sendBeacon('/api/docker/containers/logs/stop', blob);
-        logSessionId = null;
     }
 }
 
@@ -258,7 +328,12 @@ document.addEventListener('keydown', (e) => {
 
 document.addEventListener('DOMContentLoaded', initElements);
 
-// Clean up on page unload
+// Clean up on page unload - notify server to kill subprocess
 window.addEventListener('beforeunload', () => {
     stopLogStream();
+    // Send cleanup request (sendBeacon reliable even on page close)
+    const blob = new Blob([JSON.stringify({ session_id: PAGE_LOG_SESSION_ID })], {
+        type: 'application/json'
+    });
+    navigator.sendBeacon('/api/docker/containers/logs/stop', blob);
 });
