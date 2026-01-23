@@ -10,7 +10,7 @@
 
 const LOG_CONFIG = {
     MAX_LINES: 1000,        // Maximum lines in DOM
-    MAX_LINE_LENGTH: 500,   // Truncate lines longer than this
+    MAX_LINE_LENGTH: 5000,  // Truncate lines longer than this (5000 for mechatronic_controller)
     UPDATE_INTERVAL: 100,   // Batch update interval (ms)
     TRUNCATE_SUFFIX: '...'  // Suffix for truncated lines
 };
