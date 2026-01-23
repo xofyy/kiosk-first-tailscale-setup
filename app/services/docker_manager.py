@@ -196,7 +196,13 @@ class DockerManager:
                 if ready:
                     line = process.stdout.readline()
                     if line:
-                        yield line.rstrip('\n')
+                        # Split on \r (carriage return) - mechatronic_controller uses \r for progress
+                        # This prevents "Trying to connect...\r[INFO]..." from being one line
+                        parts = line.rstrip('\n').split('\r')
+                        for part in parts:
+                            part = part.strip()
+                            if part:
+                                yield part
                     else:
                         # EOF - process ended
                         break
