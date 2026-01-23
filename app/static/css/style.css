@@ -63,8 +63,7 @@ button, a, .clickable {
     .btn-ip-network,
     .btn-ip-direct,
     .btn-ip-dhcp,
-    .btn-reboot,
-    .btn-shutdown {
+    .btn-reboot {
         transition: none !important;
     }
 
@@ -1414,19 +1413,6 @@ body {
     .btn-reboot:hover {
         background: rgba(245, 158, 11, 0.25);
         border-color: var(--color-warning);
-    }
-}
-
-.btn-shutdown {
-    background: rgba(239, 68, 68, 0.15);
-    color: var(--color-error);
-    border-color: rgba(239, 68, 68, 0.3);
-}
-
-@media (hover: hover) {
-    .btn-shutdown:hover {
-        background: rgba(239, 68, 68, 0.25);
-        border-color: var(--color-error);
     }
 }
 

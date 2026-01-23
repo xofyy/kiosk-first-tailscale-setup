@@ -128,16 +128,6 @@ def reboot_system():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@api_bp.route('/system/shutdown', methods=['POST'])
-def shutdown_system():
-    """Shutdown the system"""
-    try:
-        subprocess.Popen(['systemctl', 'poweroff'])
-        return jsonify({'success': True, 'message': 'System shutting down...'})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
 @api_bp.route('/system/components')
 def system_components():
     """Return system component statuses (Docker, MongoDB, Tailscale, NVIDIA)"""

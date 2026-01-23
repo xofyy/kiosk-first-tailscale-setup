@@ -310,24 +310,6 @@ async function systemReboot() {
     }
 }
 
-async function systemShutdown() {
-    if (!confirm('Are you sure you want to shutdown the system?')) {
-        return;
-    }
-
-    try {
-        const data = await api.post('/system/shutdown');
-
-        if (data.success) {
-            showToast('System shutting down...', 'success');
-        } else {
-            showToast(data.error || 'Error occurred', 'error');
-        }
-    } catch (error) {
-        showToast('Connection error', 'error');
-    }
-}
-
 // =============================================================================
 // System Components Auto-Update (with DOM caching)
 // =============================================================================
