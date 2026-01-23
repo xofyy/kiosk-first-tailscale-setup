@@ -12,6 +12,7 @@ from flask import Flask
 from app.modules.base import mongo_config as config
 from app.routes.pages import pages_bp
 from app.routes.api import api_bp
+from app.routes.docker import docker_bp
 
 # Logging configuration
 os.makedirs('/var/log/aco-panel', exist_ok=True)  # Create log directory
@@ -91,6 +92,7 @@ def create_app() -> Flask:
     # Register blueprints
     app.register_blueprint(pages_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
+    app.register_blueprint(docker_bp, url_prefix='/api/docker')
 
     # Context processor - variables available in all templates
     @app.context_processor

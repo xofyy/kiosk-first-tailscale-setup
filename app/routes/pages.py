@@ -12,35 +12,9 @@ from flask import Blueprint, render_template, request
 from app.modules.base import mongo_config as config
 from app.services.system import SystemService
 from app.modules import get_all_modules, get_module
-from app.services.service_checker import get_all_services_status
+from app.services.docker_manager import DockerManager
 
 pages_bp = Blueprint('pages', __name__)
-
-# Hardcoded services configuration (accessed via iframe)
-SERVICES = {
-    "mechcontroller": {
-        "display_name": "Mechatronic Controller",
-        "port": 1234,
-        "path": "/pro",
-        "check_type": "port"
-    },
-    "scanners": {
-        "display_name": "Scanners Dashboard",
-        "port": 504,
-        "check_type": "port"
-    },
-    "printer": {
-        "display_name": "Printer Panel",
-        "port": 5200,
-        "path": "/printer",
-        "check_type": "port"
-    },
-    "camera": {
-        "display_name": "Camera Controller",
-        "port": 5100,
-        "check_type": "port"
-    }
-}
 
 
 @pages_bp.route('/')
@@ -89,9 +63,10 @@ def install():
 
 @pages_bp.route('/services')
 def services():
-    """Services page - Service access via iframe"""
-    services_status = get_all_services_status(SERVICES)
-    return render_template('services.html', services=services_status)
+    """Services page - Docker container management"""
+    manager = DockerManager()
+    containers = manager.get_all_containers()
+    return render_template('services.html', containers=containers)
 
 
 @pages_bp.route('/logs')

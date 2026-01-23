@@ -13,46 +13,45 @@
         <div class="services-header">
             <h2>
                 <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+                    <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>
                 </svg>
-                Services
+                Docker Services
             </h2>
-            <p>Access installed web services from here.</p>
+            <p>Manage and monitor Docker containers</p>
         </div>
 
         <div class="services-content">
-            {% if services %}
+            {% if containers %}
             <div class="service-cards">
-                {% for name, service in services.items() %}
-                <div class="service-card {% if service.active %}active{% else %}inactive{% endif %}">
+                {% for container in containers %}
+                <div class="service-card {{ container.status }}" data-service="{{ container.service_name }}">
                     <div class="service-card-header">
-                        <h3>{{ service.display_name or name }}</h3>
-                        <span class="service-badge {{ service.status }}">
+                        <h3>{{ container.display_name }}</h3>
+                        <span class="service-badge {{ container.status }}">
                             <span class="dot"></span>
-                            {% if service.status == 'running' %}Active
-                            {% elif service.status == 'stopped' %}Stopped
-                            {% else %}?
-                            {% endif %}
+                            {{ container.status | capitalize }}
                         </span>
                     </div>
 
                     <div class="service-info">
                         <div class="service-info-row">
-                            <span class="label">Port</span>
-                            <span class="value">{{ service.port or 'N/A' }}</span>
+                            <span class="label">Type</span>
+                            <span class="value">{{ 'Web UI' if container.type == 'webui' else 'Background' }}</span>
                         </div>
+                        {% if container.port %}
+                        <div class="service-info-row">
+                            <span class="label">Port</span>
+                            <span class="value">{{ container.port }}</span>
+                        </div>
+                        {% endif %}
                     </div>
 
                     <div class="service-actions">
-                        {% if service.active %}
-                        <button
-                            class="btn-open-service active"
-                            data-port="{{ service.port }}"
-                            data-path="{{ service.path or '/' }}"
-                            data-title="{{ service.display_name or name }}"
-                            onclick="openService(this.dataset.port, this.dataset.path, this.dataset.title)"
-                            title="Open service"
-                            aria-label="Open {{ service.display_name or name }}">
+                        <!-- Web UI: Open button (only when running) -->
+                        {% if container.type == 'webui' and container.status == 'running' %}
+                        <button class="btn-action btn-open"
+                                onclick="openService({{ container.port }}, {{ container.path | tojson }}, {{ container.display_name | tojson }})"
+                                title="Open in iframe">
                             <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
                                 <polyline points="15 3 21 3 21 9"/>
@@ -60,15 +59,48 @@
                             </svg>
                             Open
                         </button>
-                        {% else %}
-                        <button class="btn-open-service disabled" disabled>
-                            <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <rect x="6" y="4" width="4" height="16"/>
-                                <rect x="14" y="4" width="4" height="16"/>
-                            </svg>
-                            Service Stopped
-                        </button>
                         {% endif %}
+
+                        <!-- Management buttons -->
+                        <div class="btn-group">
+                            {% if container.status == 'running' %}
+                            <button class="btn-action btn-stop"
+                                    onclick="containerAction({{ container.service_name | tojson }}, 'stop')"
+                                    title="Stop container">
+                                <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor">
+                                    <rect x="6" y="6" width="12" height="12" rx="1"/>
+                                </svg>
+                            </button>
+                            <button class="btn-action btn-restart"
+                                    onclick="containerAction({{ container.service_name | tojson }}, 'restart')"
+                                    title="Restart container">
+                                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M23 4v6h-6M1 20v-6h6"/>
+                                    <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+                                </svg>
+                            </button>
+                            {% else %}
+                            <button class="btn-action btn-start"
+                                    onclick="containerAction({{ container.service_name | tojson }}, 'start')"
+                                    title="Start container">
+                                <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor">
+                                    <polygon points="5 3 19 12 5 21 5 3"/>
+                                </svg>
+                            </button>
+                            {% endif %}
+
+                            <!-- Logs button (always available) -->
+                            <button class="btn-action btn-logs"
+                                    onclick="openLogs({{ container.service_name | tojson }}, {{ container.display_name | tojson }})"
+                                    title="View logs">
+                                <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                                    <polyline points="14 2 14 8 20 8"/>
+                                    <line x1="16" y1="13" x2="8" y2="13"/>
+                                    <line x1="16" y1="17" x2="8" y2="17"/>
+                                </svg>
+                            </button>
+                        </div>
                     </div>
                 </div>
                 {% endfor %}
@@ -77,12 +109,11 @@
             <div class="no-services">
                 <div class="no-services-icon">
                     <svg class="icon-xl" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                        <path d="M12 2v10"/>
-                        <path d="M18.4 6.6a9 9 0 1 1-12.77.04"/>
+                        <path d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/>
                     </svg>
                 </div>
-                <h3>No Services Yet</h3>
-                <p>Services will appear here after Cockpit or other services are installed.</p>
+                <h3>No Containers Found</h3>
+                <p>Docker Compose configuration not found at /srv/docker or no services defined.</p>
             </div>
             {% endif %}
         </div>
@@ -107,6 +138,26 @@
                 <span>Loading...</span>
             </div>
             <iframe id="service-frame" class="service-frame" src=""></iframe>
+        </div>
+    </div>
+
+    <!-- Log Viewer Modal -->
+    <div class="log-modal" id="log-modal">
+        <div class="log-modal-content">
+            <div class="log-modal-header">
+                <h3 id="log-modal-title">Container Logs</h3>
+                <button class="btn-close" onclick="closeLogs()">&times;</button>
+            </div>
+            <div class="log-modal-body">
+                <pre id="log-content"></pre>
+            </div>
+            <div class="log-modal-footer">
+                <span id="log-status">Connecting...</span>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="log-auto-scroll" checked>
+                    Auto-scroll
+                </label>
+            </div>
         </div>
     </div>
 </div>
