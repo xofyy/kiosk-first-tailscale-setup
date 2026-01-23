@@ -46,25 +46,28 @@ class DockerManager:
 
     def get_compose_services(self) -> List[str]:
         """
-        Read service names from docker-compose.yml.
-        Maintains order from compose file.
-        Returns empty list if file not found or error.
+        Read service names from docker compose config (merged yml + override).
+        Maintains order from compose files.
+        Returns empty list if error.
         """
-        if not os.path.exists(self.compose_file):
-            logger.warning(f"Compose file not found: {self.compose_file}")
-            return []
-
         try:
-            import yaml
-            with open(self.compose_file, 'r') as f:
-                compose_data = yaml.safe_load(f)
+            # Use 'docker compose config' to get merged configuration
+            result = subprocess.run(
+                ['docker', 'compose', '-f', self.compose_file, 'config', '--services'],
+                capture_output=True, text=True, timeout=10,
+                cwd=self.compose_path
+            )
 
-            if compose_data and 'services' in compose_data:
-                return list(compose_data['services'].keys())
+            if result.returncode == 0 and result.stdout.strip():
+                # Returns service names, one per line
+                return result.stdout.strip().split('\n')
             return []
 
+        except subprocess.TimeoutExpired:
+            logger.error("Timeout getting compose services")
+            return []
         except Exception as e:
-            logger.error(f"Error reading compose file: {e}")
+            logger.error(f"Error getting compose services: {e}")
             return []
 
     def get_container_status(self, service_name: str) -> str:
