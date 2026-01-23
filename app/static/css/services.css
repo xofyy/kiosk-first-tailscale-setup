@@ -30,6 +30,7 @@
     padding: 1.5rem 2rem;
     background: linear-gradient(135deg, var(--color-surface) 0%, rgba(46, 204, 113, 0.1) 100%);
     border-bottom: 1px solid var(--color-border);
+    border-radius: 16px;
 }
 
 .services-header h2 {
@@ -125,6 +126,12 @@
         box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2);
         border-color: var(--color-primary);
     }
+
+    /* Running cards get green glow on hover */
+    .service-card.running:hover {
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.2),
+                    0 0 0 1px rgba(34, 165, 95, 0.3);
+    }
 }
 
 /* Disable hover effects on touch devices */
@@ -142,8 +149,10 @@
 
 .service-card-header {
     display: flex;
+    flex-wrap: wrap;
     align-items: flex-start;
     justify-content: space-between;
+    gap: 0.5rem;
     margin-bottom: 1rem;
 }
 
@@ -172,9 +181,11 @@
 
 .service-card h3 {
     margin: 0;
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     color: var(--color-text-primary);
-    font-weight: 700;
+    font-weight: 600;
+    word-break: break-word;
+    line-height: 1.3;
 }
 
 /* =============================================================================
@@ -191,6 +202,8 @@
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    flex-shrink: 0;
+    white-space: nowrap;
 }
 
 .service-badge .dot {
@@ -359,6 +372,7 @@
     background: var(--color-success);
     color: white;
     flex: 1;
+    max-width: 140px;
 }
 
 @media (hover: hover) {
@@ -771,8 +785,10 @@
     }
 
     .btn-action {
-        padding: 0.4rem 0.6rem;
-        font-size: 0.75rem;
+        min-height: 44px;
+        min-width: 44px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
     }
 
     .service-actions {
