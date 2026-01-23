@@ -99,8 +99,9 @@ class DockerManager:
         Returns: running, exited, paused, restarting, created, dead, not_found, unknown
         """
         try:
+            # -a flag shows all containers including stopped ones
             result = subprocess.run(
-                ['docker', 'compose', 'ps', '--format', '{{.State}}', service_name],
+                ['docker', 'compose', 'ps', '-a', '--format', '{{.State}}', service_name],
                 capture_output=True, text=True, timeout=10,
                 cwd=self.compose_path
             )
