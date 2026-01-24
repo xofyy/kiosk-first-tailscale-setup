@@ -230,8 +230,10 @@ update_scripts() {
     local scripts=(
         "chromium-panel.sh"
         "chromium-kiosk.sh"
+        "chromium-admin.sh"
         "display-init.sh"
         "toggle-panel-kiosk.sh"
+        "toggle-admin.sh"
         "switch-to-panel.sh"
         "switch-to-kiosk.sh"
     )

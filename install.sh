@@ -506,7 +506,12 @@ if [[ ! -f "$KIOSK_HOME/.config/openbox/rc.xml" ]]; then
     <keybind key="F7"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="F8"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="F9"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F11"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <!-- F11: Admin Browser Toggle -->
+    <keybind key="F11">
+      <action name="Execute">
+        <command>/usr/local/bin/toggle-admin.sh</command>
+      </action>
+    </keybind>
     <keybind key="F12"><action name="Execute"><command>/bin/true</command></action></keybind>
 
     <!-- Block Ctrl combinations -->

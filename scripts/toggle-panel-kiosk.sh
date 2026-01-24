@@ -6,10 +6,18 @@
 
 SETUP_COMPLETE="/etc/aco-panel/.setup-complete"
 CURRENT_MODE_FILE="/tmp/kiosk-current-mode"
+ADMIN_ACTIVE_FILE="/tmp/admin-browser-active"
 
 # Don't toggle if setup is not complete
 if [ ! -f "$SETUP_COMPLETE" ]; then
     exit 0
+fi
+
+# If admin browser is open, close it first
+if [ -f "$ADMIN_ACTIVE_FILE" ]; then
+    rm -f "$ADMIN_ACTIVE_FILE"
+    pkill -f "chromium.*chromium-admin" 2>/dev/null
+    sleep 0.3
 fi
 
 # Current mode (default: kiosk)
