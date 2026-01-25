@@ -148,6 +148,27 @@
         <div class="log-modal-content">
             <div class="log-modal-header">
                 <h3 id="log-modal-title">Container Logs</h3>
+                <div class="log-filters">
+                    <div class="log-filter-group">
+                        <label for="log-filter-lines">Lines:</label>
+                        <select id="log-filter-lines" class="log-filter-select">
+                            <option value="100">100</option>
+                            <option value="300" selected>300</option>
+                            <option value="500">500</option>
+                            <option value="1000">1000</option>
+                        </select>
+                    </div>
+                    <div class="log-filter-group">
+                        <label for="log-filter-since">Since:</label>
+                        <select id="log-filter-since" class="log-filter-select">
+                            <option value="" selected>All</option>
+                            <option value="1h">1 hour</option>
+                            <option value="6h">6 hours</option>
+                            <option value="24h">24 hours</option>
+                            <option value="168h">7 days</option>
+                        </select>
+                    </div>
+                </div>
                 <button class="btn-close" onclick="closeLogs()" aria-label="Close logs">&times;</button>
             </div>
             <div class="log-modal-body">

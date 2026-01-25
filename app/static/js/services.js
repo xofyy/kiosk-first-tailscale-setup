@@ -56,6 +56,8 @@ let logModal = null;
 let logContent = null;
 let logStatus = null;
 let logAutoScroll = null;
+let logFilterLines = null;
+let logFilterSince = null;
 
 // SSE connection for logs
 let logEventSource = null;
@@ -79,6 +81,8 @@ function initElements() {
     logContent = document.getElementById('log-content');
     logStatus = document.getElementById('log-status');
     logAutoScroll = document.getElementById('log-auto-scroll');
+    logFilterLines = document.getElementById('log-filter-lines');
+    logFilterSince = document.getElementById('log-filter-since');
 }
 
 // =============================================================================
@@ -220,6 +224,10 @@ function openLogs(serviceName, displayName) {
         titleEl.textContent = `${displayName || serviceName} Logs`;
     }
 
+    // Reset filters to defaults
+    if (logFilterLines) logFilterLines.value = '300';
+    if (logFilterSince) logFilterSince.value = '';
+
     // Reset buffers and clear previous content
     logBuffer = [];
     logLines = [];
@@ -263,8 +271,16 @@ function startLogStream(serviceName) {
     // Close existing connection if any
     stopLogStream();
 
-    // Use single session ID - server auto-kills old process for same session
-    const url = `/api/docker/containers/${serviceName}/logs?session_id=${PAGE_LOG_SESSION_ID}&tail=200`;
+    // Build URL with filter parameters
+    const filters = getLogFilters();
+    const params = new URLSearchParams({
+        session_id: PAGE_LOG_SESSION_ID,
+        tail: filters.tail
+    });
+    if (filters.since) {
+        params.append('since', filters.since);
+    }
+    const url = `/api/docker/containers/${serviceName}/logs?${params.toString()}`;
     logEventSource = new EventSource(url);
 
     logEventSource.onopen = () => {
@@ -286,6 +302,52 @@ function stopLogStream() {
     if (logEventSource) {
         logEventSource.close();
         logEventSource = null;
+    }
+}
+
+/**
+ * Get current filter values.
+ */
+function getLogFilters() {
+    return {
+        tail: logFilterLines?.value || '300',
+        since: logFilterSince?.value || ''
+    };
+}
+
+/**
+ * Handle filter change - restart stream with new params.
+ */
+function onLogFilterChange() {
+    if (!currentLogService) return;
+
+    // Clear existing logs and buffers
+    logBuffer = [];
+    logLines = [];
+    if (logUpdateTimer) {
+        clearTimeout(logUpdateTimer);
+        logUpdateTimer = null;
+    }
+    if (logContent) {
+        logContent.textContent = '';
+    }
+    if (logStatus) {
+        logStatus.textContent = 'Reloading...';
+    }
+
+    // Restart stream with new filters
+    startLogStream(currentLogService);
+}
+
+/**
+ * Setup filter event listeners.
+ */
+function setupLogFilterListeners() {
+    if (logFilterLines) {
+        logFilterLines.addEventListener('change', onLogFilterChange);
+    }
+    if (logFilterSince) {
+        logFilterSince.addEventListener('change', onLogFilterChange);
     }
 }
 
@@ -357,6 +419,7 @@ document.addEventListener('keydown', (e) => {
 document.addEventListener('DOMContentLoaded', () => {
     initElements();
     renderServiceIcons();
+    setupLogFilterListeners();
 });
 
 // Clean up on page unload - notify server to kill subprocess

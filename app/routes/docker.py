@@ -72,10 +72,25 @@ def container_logs_sse(service_name: str):
 
     Query params:
         session_id: Client session identifier (optional, auto-generated if missing)
-        tail: Number of lines to show initially (default: 200)
+        tail: Number of lines to show initially (default: 300, max: 1000)
+        since: Time filter (e.g., '1h', '6h', '24h', '168h' for 7 days)
     """
     # Session ID - get from client or generate new one
     session_id = request.args.get('session_id') or str(uuid.uuid4())
+
+    # Extract and validate tail parameter (10-1000)
+    tail = request.args.get('tail', '300')
+    try:
+        tail_int = max(10, min(1000, int(tail)))
+        tail = str(tail_int)
+    except ValueError:
+        tail = '300'
+
+    # Extract and validate since parameter (whitelist)
+    since = request.args.get('since', '')
+    allowed_since = {'', '1h', '6h', '24h', '168h'}
+    if since not in allowed_since:
+        since = ''
 
     # Cleanup stale streams on each request
     log_process_manager.cleanup_stale_streams()
@@ -83,7 +98,7 @@ def container_logs_sse(service_name: str):
     def generate():
         manager = DockerManager()
         try:
-            for line in manager.stream_logs(session_id, service_name):
+            for line in manager.stream_logs(session_id, service_name, tail=tail, since=since):
                 if line == ":heartbeat":
                     # SSE comment - invisible to client, keeps connection alive
                     yield ": heartbeat\n\n"

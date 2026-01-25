@@ -34,10 +34,16 @@ class LogProcessManager:
                     cls._instance._streams_lock = threading.Lock()
         return cls._instance
 
-    def get_or_create_stream(self, session_id: str, service_name: str) -> Optional[subprocess.Popen]:
+    def get_or_create_stream(self, session_id: str, service_name: str, tail: str = '300', since: str = '') -> Optional[subprocess.Popen]:
         """
         Create a new stream for session.
         Always starts fresh - no reuse to ensure consistent log output.
+
+        Args:
+            session_id: Unique client session identifier
+            service_name: Docker compose service name
+            tail: Number of historical lines (default: 300)
+            since: Time filter (e.g., '1h', '6h', '24h', '168h')
         """
         with self._streams_lock:
             # Always cleanup existing stream first (no reuse)
@@ -45,10 +51,16 @@ class LogProcessManager:
             if existing:
                 self._kill_process(existing.get("process"))
 
-            # Start new process with fixed tail (consistent output)
+            # Build command with filter parameters
+            cmd = ['docker', 'compose', 'logs', '--tail', tail]
+            if since:
+                cmd.extend(['--since', since])
+            cmd.extend(['-f', '-t', '--no-color', service_name])
+
+            # Start new process
             try:
                 process = subprocess.Popen(
-                    ['docker', 'compose', 'logs', '--tail', '300', '-f', '-t', '--no-color', service_name],
+                    cmd,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -59,10 +71,12 @@ class LogProcessManager:
                 self._streams[session_id] = {
                     "process": process,
                     "service": service_name,
-                    "created_at": time.time()
+                    "created_at": time.time(),
+                    "tail": tail,
+                    "since": since
                 }
 
-                logger.debug(f"Started log stream: {session_id} -> {service_name}")
+                logger.debug(f"Started log stream: {session_id} -> {service_name} (tail={tail}, since={since or 'all'})")
                 return process
 
             except Exception as e:

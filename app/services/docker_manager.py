@@ -193,7 +193,7 @@ class DockerManager:
             logger.error(f"Container action error: {e}")
             return {"success": False, "error": str(e)}
 
-    def stream_logs(self, session_id: str, service_name: str) -> Generator[str, None, None]:
+    def stream_logs(self, session_id: str, service_name: str, tail: str = '300', since: str = '') -> Generator[str, None, None]:
         """
         Non-blocking log streaming with timeout.
 
@@ -204,8 +204,10 @@ class DockerManager:
         Args:
             session_id: Unique client session identifier
             service_name: Docker compose service name
+            tail: Number of historical lines (default: 300)
+            since: Time filter (e.g., '1h', '6h', '24h', '168h')
         """
-        process = log_process_manager.get_or_create_stream(session_id, service_name)
+        process = log_process_manager.get_or_create_stream(session_id, service_name, tail=tail, since=since)
 
         if process is None:
             yield "Error: Could not start log stream"
