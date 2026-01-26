@@ -1,0 +1,4 @@
+SUBSYSTEM=="tty", ATTRS{idVendor}=="28e9", ATTRS{idProduct}=="018a", MODE="0666", SYMLINK+="ttyPRINTER"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="5740", MODE="0666", SYMLINK+="ttyPRINTER"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0483", ATTRS{idProduct}=="2303", MODE="0666", SYMLINK+="ttyPRINTER"
+SUBSYSTEM=="tty", ATTRS{idVendor}=="0fe6", ATTRS{idProduct}=="811e", MODE="0666", SYMLINK+="ttyPRINTER"

@@ -9,7 +9,8 @@ A graphical kiosk installation panel to be installed on Ubuntu Server.
 - MongoDB-based configuration system
 - Automatic installation (all base components via install.sh)
 - NVIDIA and Tailscale installation from web panel
-- Service management with Nginx reverse proxy
+- Docker container management with web UI access
+- NVR reverse proxy via Nginx
 
 ## Installation Flow
 
@@ -26,18 +27,10 @@ Ubuntu Server → install.sh → Reboot → Panel (4444) → NVIDIA/Tailscale �
 
 ## Installation
 
-### Installation with Git
-
 ```bash
 git clone https://github.com/xofyy/kiosk-first-tailscale-setup.git
 cd kiosk-first-tailscale-setup
 sudo bash install.sh
-```
-
-### One-Line Installation
-
-```bash
-curl -sSL https://raw.githubusercontent.com/xofyy/kiosk-first-tailscale-setup/main/install.sh | sudo bash
 ```
 
 ## Upgrade
@@ -60,7 +53,7 @@ sudo bash upgrade.sh --rollback
 
 The upgrade script:
 - Creates automatic backups before upgrading
-- Updates only app files, scripts, and dependencies
+- Updates app files, scripts, configs, and dependencies
 - Preserves MongoDB data, UFW rules, and system configuration
 - Keeps the last 5 backups for rollback
 
@@ -71,10 +64,12 @@ The upgrade script:
 | X11 / Openbox | Graphical interface |
 | Chromium | Kiosk browser |
 | NetworkManager | Network management |
-| Nginx | Reverse proxy (port 4444) |
+| Nginx | NVR reverse proxy |
 | Cockpit | Web management panel |
 | VNC (x11vnc) | Remote desktop |
-| Docker + MongoDB | Container and database |
+| Docker | Container runtime |
+| MongoDB | Database (Docker container) |
+| Mongo Express | MongoDB web admin (Docker container, port 8081) |
 | Netmon | Network monitoring service |
 | Collector | Metric collection (Prometheus) |
 | UFW + Fail2ban | Security |
@@ -91,22 +86,12 @@ Modules to be installed via panel:
 
 ## Panel Structure
 
-| Tab | Content |
-|-----|---------|
-| Home | RVM ID, connection status, IP configuration, system control |
-| Install | NVIDIA and Tailscale module installations |
-| Logs | Installation and system logs |
-| Services | Cockpit, Mechatronic Controller access |
-
-## Services
-
-Services accessible via Nginx:
-
-| Service | Port | Path | Description |
-|---------|------|------|-------------|
-| Panel | 5000 | / | ACO Maintenance Panel |
-| Cockpit | 9090 | /cockpit/ | System management |
-| Mechatronic | 1234 | /mechatronic_controller/ | Mechatronic Controller |
+| Tab | Visibility | Content |
+|-----|------------|---------|
+| Home | Always | RVM ID, connection status, IP configuration, system control |
+| Install | Setup only | NVIDIA and Tailscale module installations |
+| Logs | Setup only | Installation and system logs |
+| Services | Always | Docker container management, web UI access |
 
 ## Panel Access
 
@@ -123,7 +108,7 @@ kiosk-first-tailscale-setup/
 │   ├── modules/                # Active: nvidia.py, tailscale.py
 │   │   └── base.py             # MongoDB config client
 │   ├── routes/                 # API and page routes
-│   ├── services/               # System, Hardware, Enrollment
+│   ├── services/               # System, Hardware, Enrollment, Docker
 │   ├── templates/              # HTML templates
 │   │   ├── base.html           # Main template
 │   │   ├── home.html           # Home page
@@ -131,11 +116,26 @@ kiosk-first-tailscale-setup/
 │   │   ├── logs.html           # Logs
 │   │   └── services.html       # Services
 │   └── static/                 # CSS + JavaScript
+├── configs/                    # Configuration files
+│   ├── chromium/               # Browser policies
+│   ├── cockpit/                # Cockpit config + polkit rules
+│   ├── collector/              # Prometheus collector config
+│   ├── docker/                 # Docker daemon configs
+│   ├── kiosk/                  # User profile, xinit, openbox
+│   ├── netmon/                 # Network monitor config
+│   ├── network/                # NetworkManager, DNS, resolved
+│   ├── nginx/                  # Nginx config + NVR proxy
+│   └── systemd/                # Service unit files
 ├── scripts/                    # Shell scripts
-│   ├── chromium-panel.sh       # Panel Chromium
-│   ├── chromium-kiosk.sh       # Kiosk Chromium
-│   ├── switch-to-*.sh          # Switch scripts
-│   └── display-init.sh         # Display settings
+│   ├── chromium-admin.sh       # Admin browser
+│   ├── chromium-kiosk.sh       # Kiosk browser
+│   ├── chromium-panel.sh       # Panel browser
+│   ├── display-init.sh         # Display settings
+│   ├── kiosk-startup.sh        # Kiosk session startup
+│   ├── network-init.sh         # Network initialization
+│   ├── nvidia-fallback.sh      # NVIDIA/nouveau/fbdev fallback
+│   ├── toggle-admin.sh         # F11 admin browser toggle
+│   └── toggle-panel-kiosk.sh   # F10 panel/kiosk toggle
 ├── install.sh                  # Main installation script
 ├── upgrade.sh                  # Upgrade script
 ├── VERSION                     # Version file
@@ -165,21 +165,24 @@ All settings are stored in the `aco.settings` collection in MongoDB:
 
 ```
 /opt/aco-panel/                # Application files
-  ├── app/
+  ├── app/                     # Flask application
+  ├── configs/                 # Configuration files
+  ├── scripts/                 # Shell scripts (also in /usr/local/bin/)
   └── venv/                    # Python virtual environment
 /srv/docker/                   # Docker Compose
-  └── docker-compose.yml       # MongoDB container
+  └── docker-compose.yml       # MongoDB + Mongo Express
 /etc/nginx/
-  ├── aco-services.json        # Service registry
-  └── sites-available/aco-panel
+  ├── nginx.conf               # Main Nginx config
+  └── sites-available/nvr-proxy # NVR reverse proxy
 /var/log/aco-panel/            # Log files
 ```
 
-## Keyboard Shortcut
+## Keyboard Shortcuts
 
 | Shortcut | Action |
 |----------|--------|
 | F10 | Panel <-> Kiosk toggle |
+| F11 | Admin browser toggle |
 
 > Note: F10 does not work until setup is complete (setup_complete=false).
 

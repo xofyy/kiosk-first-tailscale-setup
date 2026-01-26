@@ -337,6 +337,18 @@ else
 fi
 
 # =============================================================================
+# 8.5. USB PRINTER UDEV RULES
+# =============================================================================
+
+info "Configuring USB printer udev rules..."
+
+cp "$SCRIPT_DIR/configs/udev/99-usb-cdc-acm.rules" /etc/udev/rules.d/99-usb-cdc-acm.rules
+udevadm control --reload-rules
+udevadm trigger
+
+log "USB printer udev rules configured (/dev/ttyPRINTER)"
+
+# =============================================================================
 # 9. CHROMIUM POLICY
 # =============================================================================
 
