@@ -27,7 +27,20 @@ SERVICE_ICONS = {
     "reward_controller": "coins",
     "yolo_dimension": "ruler",
     "local_database": "database",
+    "mongo-express": "table-2",
     "main_server": "server",
+}
+
+# Background service ports
+SERVICE_PORTS = {
+    "main_server": 3001,
+    "user_interface": 3000,
+    "cloud_service": 3020,
+    "item_recognizer": 3003,
+    "login_controller": 3005,
+    "reward_controller": 3004,
+    "yolo_dimension": 8090,
+    "local_database": 27017,
 }
 
 # Default icon for unknown services
@@ -53,6 +66,11 @@ WEB_UI_SERVICES = {
     "camera_controller": {
         "display_name": "Camera Controller",
         "port": 5100,
+        "path": "/",
+    },
+    "mongo-express": {
+        "display_name": "Mongo Express",
+        "port": 8081,
         "path": "/",
     }
 }
@@ -157,10 +175,12 @@ class DockerManager:
                 "icon": SERVICE_ICONS.get(service_name, DEFAULT_ICON)
             }
 
-            # Add web UI specific fields
+            # Add port info
             if service_name in WEB_UI_SERVICES:
                 container_info["port"] = web_ui_config.get("port")
                 container_info["path"] = web_ui_config.get("path", "/")
+            elif service_name in SERVICE_PORTS:
+                container_info["port"] = SERVICE_PORTS[service_name]
 
             containers.append(container_info)
 
