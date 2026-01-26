@@ -31,9 +31,11 @@
                         Install
                     </a>
                     {% endif %}
+                    {% if not is_setup_complete %}
                     <a href="{{ url_for('pages.logs') }}" class="dropdown-link {% if request.endpoint == 'pages.logs' %}active{% endif %}">
                         Logs
                     </a>
+                    {% endif %}
                     <a href="{{ url_for('pages.services') }}" class="dropdown-link {% if request.endpoint == 'pages.services' %}active{% endif %}">
                         Services
                     </a>

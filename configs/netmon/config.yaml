@@ -1,0 +1,5 @@
+# netmon Configuration
+db_write_interval: 30
+data_retention_days: 90
+log_level: INFO
+database_path: /var/lib/netmon/data.db

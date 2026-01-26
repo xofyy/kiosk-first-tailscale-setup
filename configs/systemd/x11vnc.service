@@ -1,0 +1,14 @@
+[Unit]
+Description=x11vnc VNC Server
+After=display-manager.service network.target
+
+[Service]
+Type=simple
+User=kiosk
+Environment=DISPLAY=:0
+ExecStart=/usr/bin/x11vnc -display :0 -forever -shared -rfbport 5900 -rfbauth /home/kiosk/.vnc/passwd -noxdamage
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

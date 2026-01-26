@@ -117,6 +117,11 @@ create_backup() {
         cp -r "$INSTALL_DIR/templates" "$backup_path/"
     fi
 
+    # Backup configs
+    if [[ -d "$INSTALL_DIR/configs" ]]; then
+        cp -r "$INSTALL_DIR/configs" "$backup_path/"
+    fi
+
     # Backup VERSION file
     if [[ -f "$INSTALL_DIR/VERSION" ]]; then
         cp "$INSTALL_DIR/VERSION" "$backup_path/"
@@ -199,6 +204,13 @@ rollback() {
         log_success "Restored templates directory"
     fi
 
+    # Restore configs
+    if [[ -d "$backup_path/configs" ]]; then
+        rm -rf "$INSTALL_DIR/configs"
+        cp -r "$backup_path/configs" "$INSTALL_DIR/"
+        log_success "Restored configs"
+    fi
+
     # Restore VERSION
     if [[ -f "$backup_path/VERSION" ]]; then
         cp "$backup_path/VERSION" "$INSTALL_DIR/"
@@ -227,22 +239,11 @@ rollback() {
 update_scripts() {
     log_info "Updating scripts in /usr/local/bin/..."
 
-    local scripts=(
-        "chromium-panel.sh"
-        "chromium-kiosk.sh"
-        "chromium-admin.sh"
-        "display-init.sh"
-        "toggle-panel-kiosk.sh"
-        "toggle-admin.sh"
-        "switch-to-panel.sh"
-        "switch-to-kiosk.sh"
-    )
-
-    for script in "${scripts[@]}"; do
-        if [[ -f "$INSTALL_DIR/scripts/$script" ]]; then
-            cp "$INSTALL_DIR/scripts/$script" "/usr/local/bin/$script"
-            chmod +x "/usr/local/bin/$script"
-        fi
+    for script in "$INSTALL_DIR/scripts/"*.sh; do
+        [[ -f "$script" ]] || continue
+        local script_name=$(basename "$script")
+        cp "$script" "/usr/local/bin/$script_name"
+        chmod +x "/usr/local/bin/$script_name"
     done
 
     log_success "Scripts updated"
@@ -303,6 +304,12 @@ perform_upgrade() {
     if [[ -d "$source_dir/templates" ]]; then
         rm -rf "$INSTALL_DIR/templates"
         cp -r "$source_dir/templates" "$INSTALL_DIR/"
+    fi
+
+    # Update configs
+    if [[ -d "$source_dir/configs" ]]; then
+        rm -rf "$INSTALL_DIR/configs"
+        cp -r "$source_dir/configs" "$INSTALL_DIR/"
     fi
 
     # Update VERSION

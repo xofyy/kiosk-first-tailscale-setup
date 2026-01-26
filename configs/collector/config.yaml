@@ -1,0 +1,14 @@
+# collector-agent Configuration
+interval: 30
+
+node_exporter:
+  enabled: true
+  url: "http://localhost:9100/metrics"
+  timeout: 5
+
+nvidia_smi:
+  enabled: true
+
+logging:
+  level: INFO
+  file: /var/log/collector-agent.log

@@ -1,0 +1,15 @@
+[Unit]
+Description=NVIDIA Fallback to Nouveau
+DefaultDependencies=no
+Before=display-manager.service
+After=systemd-modules-load.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/nvidia-fallback.sh
+RemainAfterExit=yes
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=sysinit.target

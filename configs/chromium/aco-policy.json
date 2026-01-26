@@ -1,0 +1,11 @@
+{
+  "TranslateEnabled": false,
+  "AutofillAddressEnabled": false,
+  "AutofillCreditCardEnabled": false,
+  "PasswordManagerEnabled": false,
+  "ImportBookmarks": false,
+  "ImportHistory": false,
+  "ImportSavedPasswords": false,
+  "MetricsReportingEnabled": false,
+  "SpellCheckServiceEnabled": false
+}

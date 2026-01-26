@@ -1,0 +1,8 @@
+#!/bin/bash
+# ACO Maintenance Panel - X Init
+
+# Screen settings
+/usr/local/bin/display-init.sh 2>/dev/null || true
+
+# Start Openbox
+exec openbox-session

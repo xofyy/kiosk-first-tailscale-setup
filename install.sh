@@ -293,6 +293,17 @@ if [[ -d "$SCRIPT_DIR/scripts" ]]; then
 fi
 
 # =============================================================================
+# 7.5. COPY CONFIGS
+# =============================================================================
+
+info "Copying configs..."
+
+if [[ -d "$SCRIPT_DIR/configs" ]]; then
+    cp -r "$SCRIPT_DIR/configs" "$INSTALL_DIR/"
+    log "Configs copied to $INSTALL_DIR/configs"
+fi
+
+# =============================================================================
 # 8. XORG TOUCH ROTATION CONFIG
 # =============================================================================
 
@@ -334,19 +345,7 @@ info "Configuring Chromium policy..."
 CHROME_POLICY_DIR="/etc/chromium-browser/policies/managed"
 mkdir -p "$CHROME_POLICY_DIR"
 
-cat > "$CHROME_POLICY_DIR/aco-policy.json" << 'EOF'
-{
-  "TranslateEnabled": false,
-  "AutofillAddressEnabled": false,
-  "AutofillCreditCardEnabled": false,
-  "PasswordManagerEnabled": false,
-  "ImportBookmarks": false,
-  "ImportHistory": false,
-  "ImportSavedPasswords": false,
-  "MetricsReportingEnabled": false,
-  "SpellCheckServiceEnabled": false
-}
-EOF
+cp "$SCRIPT_DIR/configs/chromium/aco-policy.json" "$CHROME_POLICY_DIR/aco-policy.json"
 
 log "Chromium policy created"
 
@@ -359,24 +358,7 @@ info "Creating systemd services..."
 SERVICE_FILE="/etc/systemd/system/aco-panel.service"
 
 # Flask Panel Service (always update - for upgrade support)
-cat > "$SERVICE_FILE" << 'EOF'
-[Unit]
-Description=ACO Maintenance Panel Web Server
-After=network.target docker.service
-Wants=docker.service
-
-[Service]
-Type=simple
-User=root
-WorkingDirectory=/opt/aco-panel
-Environment="PATH=/opt/aco-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/aco-panel/venv/bin/python -m gunicorn -b 0.0.0.0:4444 -w 2 --timeout 120 app.main:app
-Restart=always
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
+cp "$SCRIPT_DIR/configs/systemd/aco-panel.service" "$SERVICE_FILE"
 systemctl daemon-reload
 log "aco-panel.service created/updated"
 
@@ -393,11 +375,7 @@ info "Configuring TTY1 autologin..."
 
 mkdir -p /etc/systemd/system/getty@tty1.service.d/
 
-cat > /etc/systemd/system/getty@tty1.service.d/override.conf << EOF
-[Service]
-ExecStart=
-ExecStart=-/sbin/agetty --autologin $KIOSK_USER --noclear %I \$TERM
-EOF
+cp "$SCRIPT_DIR/configs/systemd/getty-override.conf" /etc/systemd/system/getty@tty1.service.d/override.conf
 
 log "TTY1 autologin configured"
 
@@ -411,17 +389,7 @@ KIOSK_HOME="/home/$KIOSK_USER"
 
 # .bash_profile - X startup (only create if missing)
 if [[ ! -f "$KIOSK_HOME/.bash_profile" ]]; then
-    cat > "$KIOSK_HOME/.bash_profile" << 'EOF'
-# ACO Maintenance Panel - Bash Profile
-
-# Automatically start X on TTY1 (with watchdog)
-if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
-    while true; do
-        startx -- -nocursor
-        sleep 2
-    done
-fi
-EOF
+    cp "$SCRIPT_DIR/configs/kiosk/bash_profile" "$KIOSK_HOME/.bash_profile"
     log ".bash_profile created"
 else
     log ".bash_profile already exists, skipping"
@@ -429,16 +397,7 @@ fi
 
 # .xinitrc (only create if missing)
 if [[ ! -f "$KIOSK_HOME/.xinitrc" ]]; then
-    cat > "$KIOSK_HOME/.xinitrc" << 'EOF'
-#!/bin/bash
-# ACO Maintenance Panel - X Init
-
-# Screen settings
-/usr/local/bin/display-init.sh 2>/dev/null || true
-
-# Start Openbox
-exec openbox-session
-EOF
+    cp "$SCRIPT_DIR/configs/kiosk/xinitrc" "$KIOSK_HOME/.xinitrc"
     chmod +x "$KIOSK_HOME/.xinitrc"
     log ".xinitrc created"
 else
@@ -450,29 +409,7 @@ mkdir -p "$KIOSK_HOME/.config/openbox"
 
 # Openbox autostart (only create if missing)
 if [[ ! -f "$KIOSK_HOME/.config/openbox/autostart" ]]; then
-    cat > "$KIOSK_HOME/.config/openbox/autostart" << 'EOF'
-#!/bin/bash
-# ACO Maintenance Panel - Openbox Autostart
-
-# Disable screensaver
-xset s off
-xset -dpms
-xset s noblank
-
-# Apply screen rotation (independent of NVIDIA/MOK status)
-# display-init.sh has its own wait and retry logic
-/usr/local/bin/display-init.sh &
-
-# Check if setup is complete
-# NOTE: This file is created by panel based on setup_complete value in MongoDB
-if [ -f /etc/aco-panel/.setup-complete ]; then
-    # Start in kiosk mode (installation complete)
-    /usr/local/bin/chromium-kiosk.sh &
-else
-    # Start in panel mode (installation in progress)
-    /usr/local/bin/chromium-panel.sh &
-fi
-EOF
+    cp "$SCRIPT_DIR/configs/kiosk/openbox/autostart" "$KIOSK_HOME/.config/openbox/autostart"
     chmod +x "$KIOSK_HOME/.config/openbox/autostart"
     log "openbox/autostart created"
 else
@@ -481,69 +418,7 @@ fi
 
 # Openbox rc.xml - keybindings (only create if missing)
 if [[ ! -f "$KIOSK_HOME/.config/openbox/rc.xml" ]]; then
-    cat > "$KIOSK_HOME/.config/openbox/rc.xml" << 'EOF'
-<?xml version="1.0" encoding="UTF-8"?>
-<openbox_config xmlns="http://openbox.org/3.4/rc">
-  <keyboard>
-    <!-- ========== Kiosk Shortcuts ========== -->
-
-    <!-- Panel/Kiosk Toggle: F10 -->
-    <keybind key="F10">
-      <action name="Execute">
-        <command>/usr/local/bin/toggle-panel-kiosk.sh</command>
-      </action>
-    </keybind>
-
-    <!-- ========== Block Browser Shortcuts ========== -->
-
-    <!-- Block F1-F9, F11-F12 (F10 is toggle) -->
-    <keybind key="F1"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F2"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F3"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F4"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F5"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F6"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F7"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F8"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="F9"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <!-- F11: Admin Browser Toggle -->
-    <keybind key="F11">
-      <action name="Execute">
-        <command>/usr/local/bin/toggle-admin.sh</command>
-      </action>
-    </keybind>
-    <keybind key="F12"><action name="Execute"><command>/bin/true</command></action></keybind>
-
-    <!-- Block Ctrl combinations -->
-    <keybind key="C-t"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-n"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-w"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-h"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-j"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-p"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-s"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-u"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-o"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-g"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-f"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-d"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-r"><action name="Execute"><command>/bin/true</command></action></keybind>
-
-    <!-- Block Ctrl+Shift combinations -->
-    <keybind key="C-S-t"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-S-n"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-S-j"><action name="Execute"><command>/bin/true</command></action></keybind>
-    <keybind key="C-S-i"><action name="Execute"><command>/bin/true</command></action></keybind>
-  </keyboard>
-
-  <applications>
-    <application class="*">
-      <decor>no</decor>
-      <fullscreen>yes</fullscreen>
-    </application>
-  </applications>
-</openbox_config>
-EOF
+    cp "$SCRIPT_DIR/configs/kiosk/openbox/rc.xml" "$KIOSK_HOME/.config/openbox/rc.xml"
     log "openbox/rc.xml created"
 else
     log "openbox/rc.xml already exists, skipping"
@@ -608,36 +483,18 @@ for f in /etc/netplan/*.yaml; do
     [[ -f "$f" ]] && mv "$f" /etc/netplan/backup/ 2>/dev/null || true
 done
 
-cat > /etc/netplan/01-network-manager.yaml << 'EOF'
-network:
-  version: 2
-  renderer: NetworkManager
-EOF
+cp "$SCRIPT_DIR/configs/network/01-network-manager.yaml" /etc/netplan/01-network-manager.yaml
 
 # 3b. NetworkManager config (DOĞRU DOSYA ADI!)
 mkdir -p /etc/NetworkManager/conf.d
 
 # Ubuntu default'unu override et - aynı dosya adı şart!
-cat > /etc/NetworkManager/conf.d/10-globally-managed-devices.conf << 'EOF'
-[keyfile]
-unmanaged-devices=none
+cp "$SCRIPT_DIR/configs/network/10-globally-managed-devices.conf" /etc/NetworkManager/conf.d/10-globally-managed-devices.conf
 
-[ifupdown]
-managed=true
-EOF
-
-cat > /etc/NetworkManager/conf.d/dns.conf << 'EOF'
-[main]
-dns=systemd-resolved
-EOF
+cp "$SCRIPT_DIR/configs/network/dns.conf" /etc/NetworkManager/conf.d/dns.conf
 
 # 3c. systemd-resolved DNS config
-cat > /etc/systemd/resolved.conf << 'EOF'
-[Resolve]
-DNS=8.8.8.8 8.8.4.4
-FallbackDNS=1.1.1.1 9.9.9.9
-DNSStubListener=yes
-EOF
+cp "$SCRIPT_DIR/configs/network/resolved.conf" /etc/systemd/resolved.conf
 
 # resolv.conf symlink (DNS için kritik)
 ln -sf /run/systemd/resolve/stub-resolv.conf /etc/resolv.conf
@@ -702,104 +559,11 @@ log "Old connections cleaned"
 
 info "Installing network init service..."
 
-# network-init.sh script'i oluştur
-mkdir -p /opt/aco-panel/scripts
-
-cat > /opt/aco-panel/scripts/network-init.sh << 'SCRIPT'
-#!/bin/bash
-#
-# ACO Network Initialization Script
-# Boot'ta fiziksel ethernet interface'leri tespit edip connection oluşturur
-#
-
-LOG="/var/log/aco-panel/network-init.log"
-mkdir -p /var/log/aco-panel
-
-log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG"
-}
-
-log "Network init started"
-
-# NetworkManager hazır olana kadar bekle
-for i in $(seq 1 30); do
-    if nmcli general status &>/dev/null; then
-        break
-    fi
-    sleep 1
-done
-
-# Fiziksel ethernet interface'leri bul ve connection oluştur
-for iface in $(ls /sys/class/net 2>/dev/null); do
-    # Virtual interface'leri atla
-    [[ "$iface" == "lo" ]] && continue
-    [[ "$iface" == docker* ]] && continue
-    [[ "$iface" == veth* ]] && continue
-    [[ "$iface" == br-* ]] && continue
-    [[ "$iface" == virbr* ]] && continue
-    [[ "$iface" == tailscale* ]] && continue
-    
-    # Fiziksel cihaz mı? (device symlink var mı)
-    [[ -d "/sys/class/net/$iface/device" ]] || continue
-    
-    # Wireless mı?
-    [[ -d "/sys/class/net/$iface/wireless" ]] && continue
-    
-    CONN="eth-$iface"
-    
-    # Connection zaten var mı?
-    if nmcli connection show "$CONN" &>/dev/null; then
-        log "$CONN exists, skipping"
-        # Sadece interface'in managed ve connected olduğundan emin ol
-        nmcli device set "$iface" managed yes 2>/dev/null || true
-        nmcli connection up "$CONN" 2>/dev/null || true
-        continue
-    fi
-    
-    # Yeni connection oluştur (interface'e bağlı)
-    log "Creating $CONN for $iface"
-    nmcli connection add \
-        con-name "$CONN" \
-        type ethernet \
-        ifname "$iface" \
-        autoconnect yes \
-        ipv4.method auto \
-        ipv6.method disabled 2>/dev/null
-    
-    # Interface'i managed yap ve bağlan
-    nmcli device set "$iface" managed yes 2>/dev/null || true
-    nmcli connection up "$CONN" 2>/dev/null || true
-done
-
-# Orphan connection temizliği (interface'i olmayan eth-* connection'ları sil)
-for conn in $(nmcli -t -f NAME connection show 2>/dev/null | grep "^eth-"); do
-    iface="${conn#eth-}"
-    if [[ ! -d "/sys/class/net/$iface" ]]; then
-        log "Removing orphan connection: $conn"
-        nmcli connection delete "$conn" 2>/dev/null || true
-    fi
-done
-
-log "Network init completed"
-SCRIPT
-
+# network-init.sh is deployed from scripts/ directory by Section 7
 chmod +x /opt/aco-panel/scripts/network-init.sh
 
 # Systemd service oluştur
-cat > /etc/systemd/system/aco-network-init.service << 'EOF'
-[Unit]
-Description=ACO Network Initialization
-After=NetworkManager.service
-Wants=NetworkManager.service
-
-[Service]
-Type=oneshot
-ExecStart=/opt/aco-panel/scripts/network-init.sh
-RemainAfterExit=yes
-
-[Install]
-WantedBy=multi-user.target
-EOF
+cp "$SCRIPT_DIR/configs/systemd/aco-network-init.service" /etc/systemd/system/aco-network-init.service
 
 # Service'i etkinleştir
 systemctl daemon-reload
@@ -888,13 +652,7 @@ apt-get install -y -qq "${COCKPIT_PACKAGES[@]}"
 
 # Cockpit configuration
 mkdir -p /etc/cockpit
-cat > /etc/cockpit/cockpit.conf << 'EOF'
-[WebService]
-AllowUnencrypted = true
-
-[Session]
-IdleTimeout = 0
-EOF
+cp "$SCRIPT_DIR/configs/cockpit/cockpit.conf" /etc/cockpit/cockpit.conf
 
 # Cockpit service
 systemctl enable cockpit.socket 2>/dev/null || true
@@ -902,34 +660,42 @@ systemctl start cockpit.socket 2>/dev/null || true
 
 # Polkit rules
 mkdir -p /etc/polkit-1/rules.d
-cat > /etc/polkit-1/rules.d/50-aco-network.rules << 'EOF'
-// NetworkManager permissions
-polkit.addRule(function(action, subject) {
-    if (action.id.indexOf("org.freedesktop.NetworkManager") == 0 &&
-        subject.user == "kiosk") {
-        return polkit.Result.YES;
-    }
-});
-
-// PackageKit permissions (limited)
-polkit.addRule(function(action, subject) {
-    if (action.id.indexOf("org.freedesktop.packagekit") == 0 &&
-        subject.user == "kiosk") {
-        if (action.id == "org.freedesktop.packagekit.system-sources-refresh" ||
-            action.id == "org.freedesktop.packagekit.package-info") {
-            return polkit.Result.YES;
-        }
-    }
-});
-EOF
-
-# NOTE: Nginx config and services.json created in Section 10 (Panel + Mechatronic + Cockpit)
+cp "$SCRIPT_DIR/configs/cockpit/50-aco-network.rules" /etc/polkit-1/rules.d/50-aco-network.rules
 
 # Verification
 if systemctl is-active --quiet cockpit.socket; then
     log "Cockpit installed"
 else
     warn "Cockpit socket could not be started"
+fi
+
+# =============================================================================
+# 16.5. NGINX INSTALLATION (Reverse Proxy)
+# =============================================================================
+
+info "Installing Nginx..."
+
+# Install nginx-full (includes stream and sub_filter modules)
+apt-get install -y -qq nginx-full
+
+# Main nginx.conf
+cp "$SCRIPT_DIR/configs/nginx/nginx.conf" /etc/nginx/nginx.conf
+
+# NVR reverse proxy site config
+cp "$SCRIPT_DIR/configs/nginx/nvr-proxy" /etc/nginx/sites-available/nvr-proxy
+
+# Enable nvr-proxy site, disable default
+rm -f /etc/nginx/sites-enabled/default
+ln -sf /etc/nginx/sites-available/nvr-proxy /etc/nginx/sites-enabled/nvr-proxy
+
+# Test and start nginx
+if nginx -t 2>/dev/null; then
+    systemctl enable nginx 2>/dev/null || true
+    systemctl restart nginx
+    log "Nginx installed and configured (NVR proxy on port 8080)"
+else
+    error "Nginx config test failed"
+    nginx -t
 fi
 
 # =============================================================================
@@ -950,22 +716,7 @@ x11vnc -storepasswd "$VNC_PASSWORD" "$VNC_DIR/passwd" 2>/dev/null || true
 chown -R "$KIOSK_USER:$KIOSK_USER" "$VNC_DIR"
 
 # x11vnc systemd service
-cat > /etc/systemd/system/x11vnc.service << EOF
-[Unit]
-Description=x11vnc VNC Server
-After=display-manager.service network.target
-
-[Service]
-Type=simple
-User=$KIOSK_USER
-Environment=DISPLAY=:0
-ExecStart=/usr/bin/x11vnc -display :0 -forever -shared -rfbport 5900 -rfbauth $VNC_DIR/passwd -noxdamage
-Restart=on-failure
-RestartSec=5
-
-[Install]
-WantedBy=multi-user.target
-EOF
+cp "$SCRIPT_DIR/configs/systemd/x11vnc.service" /etc/systemd/system/x11vnc.service
 
 systemctl daemon-reload
 systemctl enable x11vnc 2>/dev/null || true
@@ -979,114 +730,10 @@ log "VNC installed (will be active after X11 starts)"
 
 info "Installing NVIDIA fallback service..."
 
-# Script that enables nouveau if nvidia module cannot be loaded
-cat > /usr/local/bin/nvidia-fallback.sh << 'EOF'
-#!/bin/bash
-# NVIDIA Fallback Script
-# Enables nouveau if nvidia module cannot be loaded
-# Creates FBDEV rotation config in Secure Boot lockdown state
-
-LOG="/var/log/aco-panel/nvidia-fallback.log"
-FBDEV_CONF="/etc/X11/xorg.conf.d/10-fbdev-rotation.conf"
-
-mkdir -p "$(dirname "$LOG")"
-mkdir -p "$(dirname "$FBDEV_CONF")"
-
-log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" | tee -a "$LOG"
-}
-
-# Create FBDEV rotation config (Secure Boot lockdown fallback)
-create_fbdev_config() {
-    log "Creating FBDEV rotation config..."
-    cat > "$FBDEV_CONF" << 'FBDEV_EOF'
-# FBDEV Rotation Configuration (Auto-generated by nvidia-fallback)
-# Activates if GPU driver cannot be loaded in Secure Boot lockdown state
-Section "Device"
-    Identifier "FBDEV"
-    Driver "fbdev"
-    Option "fbdev" "/dev/fb0"
-    Option "Rotate" "CW"
-    Option "ShadowFB" "true"
-EndSection
-FBDEV_EOF
-    log "FBDEV rotation config created"
-}
-
-# Delete FBDEV config (not needed if nvidia/nouveau is working)
-remove_fbdev_config() {
-    if [ -f "$FBDEV_CONF" ]; then
-        rm -f "$FBDEV_CONF"
-        log "FBDEV rotation config deleted (GPU driver active)"
-    fi
-}
-
-log "Starting NVIDIA fallback check..."
-
-# Is nvidia module already loaded?
-if lsmod | grep -q "^nvidia "; then
-    log "NVIDIA module loaded, fallback not needed"
-    remove_fbdev_config
-    exit 0
-fi
-
-# Try if nvidia can be loaded
-modprobe nvidia 2>/dev/null
-if lsmod | grep -q "^nvidia "; then
-    log "NVIDIA module loaded successfully"
-    remove_fbdev_config
-    exit 0
-fi
-
-# nvidia failed to load, enable nouveau
-log "NVIDIA failed to load, trying nouveau..."
-
-# Load nouveau (won't work in kernel lockdown even if blacklisted)
-modprobe nouveau 2>/dev/null
-
-if lsmod | grep -q "^nouveau "; then
-    log "nouveau loaded successfully (NVIDIA fallback)"
-    remove_fbdev_config
-    # Wait for DRM device to be created
-    sleep 2
-    if [ -e /dev/dri/card0 ]; then
-        log "/dev/dri/card0 exists, GPU ready"
-    else
-        log "WARNING: /dev/dri/card0 not created"
-    fi
-    exit 0
-fi
-
-# nouveau also failed to load - probably Secure Boot lockdown
-log "ERROR: nouveau also failed to load (Secure Boot lockdown?)"
-log "FBDEV fallback will be used, rotation provided by Xorg config"
-
-# Create FBDEV rotation config
-create_fbdev_config
-
-log "NVIDIA fallback check completed"
-EOF
-
-chmod +x /usr/local/bin/nvidia-fallback.sh
+# nvidia-fallback.sh is deployed from scripts/ directory by Section 7
 
 # Systemd service - runs before X starts
-cat > /etc/systemd/system/nvidia-fallback.service << 'EOF'
-[Unit]
-Description=NVIDIA Fallback to Nouveau
-DefaultDependencies=no
-Before=display-manager.service
-After=systemd-modules-load.service
-
-[Service]
-Type=oneshot
-ExecStart=/usr/local/bin/nvidia-fallback.sh
-RemainAfterExit=yes
-StandardOutput=journal
-StandardError=journal
-
-[Install]
-WantedBy=sysinit.target
-EOF
+cp "$SCRIPT_DIR/configs/systemd/nvidia-fallback.service" /etc/systemd/system/nvidia-fallback.service
 
 systemctl daemon-reload
 systemctl enable nvidia-fallback.service
@@ -1153,13 +800,7 @@ if [[ -d "$NETMON_DIR" ]]; then
 
     # Config
     mkdir -p /etc/netmon
-    cat > /etc/netmon/config.yaml << 'EOF'
-# netmon Configuration
-db_write_interval: 30
-data_retention_days: 90
-log_level: INFO
-database_path: /var/lib/netmon/data.db
-EOF
+    cp "$SCRIPT_DIR/configs/netmon/config.yaml" /etc/netmon/config.yaml
 
     mkdir -p /var/lib/netmon
 
@@ -1213,22 +854,7 @@ if [[ -d "$COLLECTOR_DIR" ]]; then
 
     # Config
     mkdir -p /etc/collector-agent
-    cat > /etc/collector-agent/config.yaml << 'EOF'
-# collector-agent Configuration
-interval: 30
-
-node_exporter:
-  enabled: true
-  url: "http://localhost:9100/metrics"
-  timeout: 5
-
-nvidia_smi:
-  enabled: true
-
-logging:
-  level: INFO
-  file: /var/log/collector-agent.log
-EOF
+    cp "$SCRIPT_DIR/configs/collector/config.yaml" /etc/collector-agent/config.yaml
 
     # Systemd service
     [[ -f "$COLLECTOR_DIR/systemd/collector-agent.service" ]] && cp "$COLLECTOR_DIR/systemd/collector-agent.service" /etc/systemd/system/
@@ -1287,29 +913,10 @@ mkdir -p /etc/docker
 
 # Build daemon.json with optional data-root for /data partition
 if [[ -d "$DATA_DOCKER" ]]; then
-    cat > /etc/docker/daemon.json << EOF
-{
-    "data-root": "${DATA_DOCKER}",
-    "log-driver": "json-file",
-    "log-opts": {
-        "max-size": "10m",
-        "max-file": "3"
-    },
-    "storage-driver": "overlay2"
-}
-EOF
+    cp "$SCRIPT_DIR/configs/docker/daemon-data.json" /etc/docker/daemon.json
     log "Docker data-root set to ${DATA_DOCKER}"
 else
-    cat > /etc/docker/daemon.json << 'EOF'
-{
-    "log-driver": "json-file",
-    "log-opts": {
-        "max-size": "10m",
-        "max-file": "3"
-    },
-    "storage-driver": "overlay2"
-}
-EOF
+    cp "$SCRIPT_DIR/configs/docker/daemon.json" /etc/docker/daemon.json
 fi
 
 # Docker service
@@ -1356,6 +963,19 @@ services:
     restart: always
     volumes:
       - ${MONGODB_DATA_PATH}:/data/db
+
+  mongo-express:
+    image: mongo-express:latest
+    container_name: mongo-express
+    network_mode: host
+    restart: always
+    environment:
+      ME_CONFIG_MONGODB_URL: mongodb://127.0.0.1:27017
+      ME_CONFIG_BASICAUTH_USERNAME: admin
+      ME_CONFIG_BASICAUTH_PASSWORD: Aco1234.
+      ME_CONFIG_OPTIONS_EDITORTHEME: ambiance
+    depends_on:
+      - local_database
 EOF
 
 # Start MongoDB
@@ -1502,6 +1122,7 @@ echo ""
 echo -e "${CYAN}Network Services:${NC}"
 check_service "tailscaled" "Tailscaled"
 check_service "cockpit.socket" "Cockpit"
+check_service "nginx" "Nginx (NVR Proxy)"
 
 echo ""
 echo -e "${CYAN}Application Services:${NC}"
@@ -1513,6 +1134,7 @@ check_service "prometheus-node-exporter" "Node Exporter"
 echo ""
 echo -e "${CYAN}Containers:${NC}"
 check_command "docker ps --format '{{.Names}}' | grep -q local_database" "MongoDB Container"
+check_command "docker ps --format '{{.Names}}' | grep -q mongo-express" "Mongo Express Container"
 
 echo ""
 echo -e "${CYAN}Security:${NC}"

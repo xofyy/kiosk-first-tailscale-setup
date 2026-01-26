@@ -1,0 +1,12 @@
+[Unit]
+Description=ACO Network Initialization
+After=NetworkManager.service
+Wants=NetworkManager.service
+
+[Service]
+Type=oneshot
+ExecStart=/opt/aco-panel/scripts/network-init.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

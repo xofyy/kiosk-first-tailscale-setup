@@ -1,0 +1,9 @@
+# ACO Maintenance Panel - Bash Profile
+
+# Automatically start X on TTY1 (with watchdog)
+if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then
+    while true; do
+        startx -- -nocursor
+        sleep 2
+    done
+fi
