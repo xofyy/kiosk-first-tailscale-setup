@@ -136,6 +136,22 @@ def system_components():
     return jsonify(components)
 
 
+@api_bp.route('/system/monitor')
+def system_monitor():
+    """Return system monitor data (CPU, memory, disk, temp, network speed)"""
+    system = SystemService()
+    return jsonify(system.get_system_monitor())
+
+
+@api_bp.route('/system/network-history')
+def network_history():
+    """Return network traffic history from netmon database"""
+    hours = request.args.get('hours', 24, type=int)
+    hours = min(hours, 168)  # max 7 days
+    system = SystemService()
+    return jsonify(system.get_network_history(hours))
+
+
 @api_bp.route('/system/timezone')
 def get_timezone():
     """Return current timezone, NTP status, and available timezones"""

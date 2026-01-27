@@ -2013,3 +2013,216 @@ body {
         animation: none;
     }
 }
+
+/* =============================================================================
+   System Monitor Section
+   ============================================================================= */
+
+.monitor-section {
+    margin-top: var(--spacing-lg);
+}
+
+/* Resource Usage Grid (CPU, Memory, Disk) */
+.monitor-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.monitor-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+}
+
+.monitor-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-sm);
+}
+
+.monitor-label {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.monitor-value {
+    font-size: var(--font-size-lg);
+    font-weight: 700;
+    color: var(--color-primary);
+    font-variant-numeric: tabular-nums;
+}
+
+.monitor-card .progress-bar {
+    margin-bottom: var(--spacing-xs);
+}
+
+.monitor-card .progress-fill {
+    transition: width 0.8s ease, background-color 0.5s ease;
+}
+
+.monitor-detail {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Color-coded threshold levels */
+.progress-fill.level-ok {
+    background: var(--color-primary);
+}
+
+.progress-fill.level-warning {
+    background: var(--color-warning);
+}
+
+.progress-fill.level-critical {
+    background: var(--color-error);
+}
+
+.monitor-value.level-ok {
+    color: var(--color-primary);
+}
+
+.monitor-value.level-warning {
+    color: var(--color-warning);
+}
+
+.monitor-value.level-critical {
+    color: var(--color-error);
+}
+
+/* Temperature & Network Info Grid */
+.monitor-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-md);
+}
+
+.monitor-info-card {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+.monitor-info-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--color-primary);
+    opacity: 0.9;
+}
+
+.monitor-info-icon .icon {
+    width: 28px;
+    height: 28px;
+}
+
+.monitor-info-content {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.monitor-info-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.monitor-info-values {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Network History */
+.monitor-history {
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+}
+
+.monitor-history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--spacing-md);
+}
+
+.monitor-history-title {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.monitor-history-status {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.monitor-history-chart {
+    height: 120px;
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    overflow: hidden;
+}
+
+.monitor-history-placeholder {
+    width: 100%;
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: var(--font-size-sm);
+    align-self: center;
+}
+
+/* History bar chart */
+.history-bar {
+    flex: 1;
+    min-width: 2px;
+    background: var(--color-primary);
+    border-radius: 1px 1px 0 0;
+    opacity: 0.7;
+    transition: height 0.3s ease;
+}
+
+.history-bar.tx {
+    background: var(--color-info);
+}
+
+/* Monitor Responsive */
+@media (max-width: 768px) {
+    .monitor-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .monitor-info-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+@media (pointer: coarse) {
+    .monitor-card,
+    .monitor-info-card {
+        transition: none !important;
+    }
+}

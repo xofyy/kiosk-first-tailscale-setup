@@ -670,6 +670,230 @@ function stopComponentPolling() {
 }
 
 // =============================================================================
+// System Monitor (CPU, Memory, Disk, Temp, Network)
+// =============================================================================
+
+let monitorPollingInterval = null;
+let historyRefreshInterval = null;
+
+// DOM cache for monitor elements
+const monitorCache = {
+    cpuValue: null, cpuBar: null, cpuDetail: null,
+    memValue: null, memBar: null, memDetail: null,
+    diskValue: null, diskBar: null, diskDetail: null,
+    cpuTemp: null, gpuTemp: null,
+    netRx: null, netTx: null,
+    historyChart: null, historyStatus: null,
+    _initialized: false
+};
+
+function initMonitorCache() {
+    if (monitorCache._initialized) return;
+    monitorCache.cpuValue = document.getElementById('monitor-cpu-value');
+    monitorCache.cpuBar = document.getElementById('monitor-cpu-bar');
+    monitorCache.cpuDetail = document.getElementById('monitor-cpu-detail');
+    monitorCache.memValue = document.getElementById('monitor-memory-value');
+    monitorCache.memBar = document.getElementById('monitor-memory-bar');
+    monitorCache.memDetail = document.getElementById('monitor-memory-detail');
+    monitorCache.diskValue = document.getElementById('monitor-disk-value');
+    monitorCache.diskBar = document.getElementById('monitor-disk-bar');
+    monitorCache.diskDetail = document.getElementById('monitor-disk-detail');
+    monitorCache.cpuTemp = document.getElementById('monitor-cpu-temp');
+    monitorCache.gpuTemp = document.getElementById('monitor-gpu-temp');
+    monitorCache.netRx = document.getElementById('monitor-net-rx');
+    monitorCache.netTx = document.getElementById('monitor-net-tx');
+    monitorCache.historyChart = document.getElementById('monitor-history-chart');
+    monitorCache.historyStatus = document.getElementById('monitor-history-status');
+    monitorCache._initialized = true;
+}
+
+function getLevel(percent) {
+    if (percent >= 85) return 'level-critical';
+    if (percent >= 60) return 'level-warning';
+    return 'level-ok';
+}
+
+function formatSpeed(bytesPerSec) {
+    if (bytesPerSec < 1024) return bytesPerSec.toFixed(0) + ' B/s';
+    if (bytesPerSec < 1024 * 1024) return (bytesPerSec / 1024).toFixed(1) + ' KB/s';
+    return (bytesPerSec / (1024 * 1024)).toFixed(2) + ' MB/s';
+}
+
+function updateProgressBar(barEl, valueEl, percent) {
+    const level = getLevel(percent);
+    if (barEl) {
+        barEl.style.width = percent + '%';
+        barEl.className = 'progress-fill ' + level;
+    }
+    if (valueEl) {
+        valueEl.textContent = percent + '%';
+        valueEl.className = 'monitor-value ' + level;
+    }
+}
+
+async function updateSystemMonitor() {
+    initMonitorCache();
+
+    try {
+        const data = await api.get('/system/monitor', 5000);
+
+        // CPU
+        if (data.cpu) {
+            updateProgressBar(monitorCache.cpuBar, monitorCache.cpuValue, data.cpu.percent);
+            if (monitorCache.cpuDetail) {
+                monitorCache.cpuDetail.textContent = data.cpu.count + ' cores';
+            }
+        }
+
+        // Memory
+        if (data.memory) {
+            updateProgressBar(monitorCache.memBar, monitorCache.memValue, data.memory.percent);
+            if (monitorCache.memDetail) {
+                monitorCache.memDetail.textContent =
+                    data.memory.used_mb + ' / ' + data.memory.total_mb + ' MB';
+            }
+        }
+
+        // Disk
+        if (data.disk) {
+            updateProgressBar(monitorCache.diskBar, monitorCache.diskValue, data.disk.percent);
+            if (monitorCache.diskDetail) {
+                monitorCache.diskDetail.textContent =
+                    data.disk.used_gb + ' / ' + data.disk.total_gb + ' GB';
+            }
+        }
+
+        // Temperature
+        if (data.temperatures) {
+            if (monitorCache.cpuTemp) {
+                monitorCache.cpuTemp.textContent = data.temperatures.cpu !== null
+                    ? 'CPU: ' + data.temperatures.cpu + '\u00B0C'
+                    : 'CPU: N/A';
+            }
+            if (monitorCache.gpuTemp) {
+                monitorCache.gpuTemp.textContent = data.temperatures.gpu !== null
+                    ? 'GPU: ' + data.temperatures.gpu + '\u00B0C'
+                    : 'GPU: N/A';
+            }
+        }
+
+        // Network throughput
+        if (data.network) {
+            if (monitorCache.netRx) {
+                monitorCache.netRx.textContent = '\u2193 ' + formatSpeed(data.network.rx_speed);
+            }
+            if (monitorCache.netTx) {
+                monitorCache.netTx.textContent = '\u2191 ' + formatSpeed(data.network.tx_speed);
+            }
+        }
+
+    } catch (error) {
+        console.warn('System monitor update failed:', error.message || error);
+    }
+}
+
+async function loadNetworkHistory() {
+    initMonitorCache();
+    if (!monitorCache.historyChart) return;
+
+    try {
+        const data = await api.get('/system/network-history?hours=24', 10000);
+
+        if (!data.available || !data.data || data.data.length === 0) {
+            monitorCache.historyChart.innerHTML =
+                '<div class="monitor-history-placeholder">' +
+                (data.error || 'No data available') + '</div>';
+            if (monitorCache.historyStatus) {
+                monitorCache.historyStatus.textContent = data.error || '';
+            }
+            return;
+        }
+
+        // Aggregate into ~48 buckets (30min each for 24h)
+        const bucketCount = 48;
+        const points = data.data;
+        const timeRange = points[points.length - 1].time - points[0].time;
+        const bucketSize = timeRange / bucketCount || 1;
+
+        const buckets = [];
+        for (let i = 0; i < bucketCount; i++) {
+            buckets.push({ rx: 0, tx: 0, count: 0 });
+        }
+
+        for (const point of points) {
+            const idx = Math.min(
+                Math.floor((point.time - points[0].time) / bucketSize),
+                bucketCount - 1
+            );
+            buckets[idx].rx += (point.rx || 0);
+            buckets[idx].tx += (point.tx || 0);
+            buckets[idx].count++;
+        }
+
+        // Average each bucket
+        for (const bucket of buckets) {
+            if (bucket.count > 0) {
+                bucket.rx /= bucket.count;
+                bucket.tx /= bucket.count;
+            }
+        }
+
+        // Find max for scaling
+        const maxVal = Math.max(...buckets.map(b => Math.max(b.rx, b.tx)), 1);
+        const chartHeight = 120;
+
+        // Render bars
+        let html = '';
+        for (const bucket of buckets) {
+            const rxHeight = Math.max(Math.round((bucket.rx / maxVal) * chartHeight), 1);
+            const txHeight = Math.max(Math.round((bucket.tx / maxVal) * chartHeight), 1);
+            html += '<div class="history-bar" style="height:' + rxHeight + 'px" title="RX: ' + formatSpeed(bucket.rx) + '"></div>';
+            html += '<div class="history-bar tx" style="height:' + txHeight + 'px" title="TX: ' + formatSpeed(bucket.tx) + '"></div>';
+        }
+
+        monitorCache.historyChart.innerHTML = html;
+        if (monitorCache.historyStatus) {
+            monitorCache.historyStatus.textContent = points.length + ' data points';
+        }
+
+    } catch (error) {
+        console.warn('Network history load failed:', error.message || error);
+        if (monitorCache.historyChart) {
+            monitorCache.historyChart.innerHTML =
+                '<div class="monitor-history-placeholder">Failed to load</div>';
+        }
+    }
+}
+
+function startMonitorPolling() {
+    if (monitorPollingInterval) return;
+    monitorPollingInterval = setInterval(() => {
+        if (!document.hidden) updateSystemMonitor();
+    }, 5000);
+}
+
+function stopMonitorPolling() {
+    if (monitorPollingInterval) {
+        clearInterval(monitorPollingInterval);
+        monitorPollingInterval = null;
+    }
+}
+
+function startHistoryRefresh() {
+    if (historyRefreshInterval) return;
+    historyRefreshInterval = setInterval(() => {
+        if (!document.hidden) loadNetworkHistory();
+    }, 300000); // 5 minutes
+}
+
+function stopHistoryRefresh() {
+    if (historyRefreshInterval) {
+        clearInterval(historyRefreshInterval);
+        historyRefreshInterval = null;
+    }
+}
+
+// =============================================================================
 // Initialization
 // =============================================================================
 
@@ -688,6 +912,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // System clock, timezone, keyboard
     loadTimezoneData();
     loadKeyboardData();
+
+    // System monitor
+    updateSystemMonitor();
+    startMonitorPolling();
+    loadNetworkHistory();
+    startHistoryRefresh();
 });
 
 // Handle visibility changes
@@ -696,11 +926,16 @@ document.addEventListener('visibilitychange', () => {
         stopComponentPolling();
         stopInterfacePolling();
         stopClock();
+        stopMonitorPolling();
+        stopHistoryRefresh();
     } else {
         startComponentPolling();
         startInterfacePolling();
         updateComponentStatuses();
         loadNetworkInterfaces();
         startClock();
+        startMonitorPolling();
+        updateSystemMonitor();
+        startHistoryRefresh();
     }
 });

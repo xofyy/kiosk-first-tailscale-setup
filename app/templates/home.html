@@ -314,6 +314,96 @@
             </div>
         </div>
     </section>
+
+    <!-- System Monitor -->
+    <section class="section monitor-section">
+        <h2 class="section-title" data-icon="monitor">System Monitor</h2>
+
+        <!-- Resource Usage Grid: CPU / Memory / Disk -->
+        <div class="monitor-grid" id="monitor-grid">
+            <!-- CPU -->
+            <div class="monitor-card" id="monitor-cpu">
+                <div class="monitor-header">
+                    <span class="monitor-label">CPU</span>
+                    <span class="monitor-value" id="monitor-cpu-value">--%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="monitor-cpu-bar" style="width: 0%"></div>
+                </div>
+                <div class="monitor-detail" id="monitor-cpu-detail">-- cores</div>
+            </div>
+
+            <!-- Memory -->
+            <div class="monitor-card" id="monitor-memory">
+                <div class="monitor-header">
+                    <span class="monitor-label">Memory</span>
+                    <span class="monitor-value" id="monitor-memory-value">--%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="monitor-memory-bar" style="width: 0%"></div>
+                </div>
+                <div class="monitor-detail" id="monitor-memory-detail">-- / -- MB</div>
+            </div>
+
+            <!-- Disk -->
+            <div class="monitor-card" id="monitor-disk">
+                <div class="monitor-header">
+                    <span class="monitor-label">Disk</span>
+                    <span class="monitor-value" id="monitor-disk-value">--%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="monitor-disk-bar" style="width: 0%"></div>
+                </div>
+                <div class="monitor-detail" id="monitor-disk-detail">-- / -- GB</div>
+            </div>
+        </div>
+
+        <!-- Temperature & Network Speed -->
+        <div class="monitor-info-grid" id="monitor-info-grid">
+            <!-- Temperature -->
+            <div class="monitor-info-card" id="monitor-temp">
+                <div class="monitor-info-icon">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
+                    </svg>
+                </div>
+                <div class="monitor-info-content">
+                    <span class="monitor-info-label">Temperature</span>
+                    <div class="monitor-info-values">
+                        <span id="monitor-cpu-temp">CPU: --</span>
+                        <span id="monitor-gpu-temp">GPU: --</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Network Throughput -->
+            <div class="monitor-info-card" id="monitor-network">
+                <div class="monitor-info-icon">
+                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                </div>
+                <div class="monitor-info-content">
+                    <span class="monitor-info-label">Network</span>
+                    <div class="monitor-info-values">
+                        <span id="monitor-net-rx">&#x2193; -- KB/s</span>
+                        <span id="monitor-net-tx">&#x2191; -- KB/s</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Network History (24h) -->
+        <div class="monitor-history" id="monitor-history">
+            <div class="monitor-history-header">
+                <span class="monitor-history-title">Network History (24h)</span>
+                <span class="monitor-history-status" id="monitor-history-status"></span>
+            </div>
+            <div class="monitor-history-chart" id="monitor-history-chart">
+                <div class="monitor-history-placeholder">Loading...</div>
+            </div>
+        </div>
+    </section>
 </div>
 {% endblock %}
 

@@ -8,7 +8,10 @@ import logging
 import subprocess
 import socket
 import os
+import time
+import sqlite3
 import ipaddress
+import psutil
 from typing import Dict, Any, Optional, List
 
 logger = logging.getLogger(__name__)
@@ -70,6 +73,15 @@ DEFAULT_IP_CONFIGS = {
         }
     },
 }
+
+# =============================================================================
+# SYSTEM MONITOR CONSTANTS
+# =============================================================================
+
+NETMON_DB_PATH = '/var/lib/netmon/data.db'
+
+# Network throughput delta state (persists between API calls within same worker)
+_prev_net_bytes = {'rx': 0, 'tx': 0, 'timestamp': 0}
 
 
 class SystemService:
@@ -517,6 +529,191 @@ class SystemService:
         except Exception as e:
             logger.debug(f"Could not get disk info: {e}")
             return {'total_gb': 0, 'used_gb': 0, 'free_gb': 0, 'percent': 0}
+
+    # =========================================================================
+    # SYSTEM MONITOR
+    # =========================================================================
+
+    def get_cpu_usage(self) -> Dict[str, Any]:
+        """Get CPU usage percentage (non-blocking, uses psutil internal state)"""
+        try:
+            percent = psutil.cpu_percent(interval=None)
+            per_cpu = psutil.cpu_percent(interval=None, percpu=True)
+            count = psutil.cpu_count(logical=True)
+            return {
+                'percent': round(percent, 1),
+                'per_cpu': [round(p, 1) for p in per_cpu],
+                'count': count or 0
+            }
+        except Exception as e:
+            logger.debug(f"Could not get CPU usage: {e}")
+            return {'percent': 0, 'per_cpu': [], 'count': 0}
+
+    def get_temperatures(self) -> Dict[str, Any]:
+        """Get CPU and GPU temperatures"""
+        temps = {'cpu': None, 'gpu': None}
+
+        # CPU temperature from /sys/class/hwmon
+        try:
+            hwmon_base = '/sys/class/hwmon'
+            if os.path.exists(hwmon_base):
+                for hwmon in os.listdir(hwmon_base):
+                    hwmon_path = os.path.join(hwmon_base, hwmon)
+                    name_file = os.path.join(hwmon_path, 'name')
+                    if not os.path.exists(name_file):
+                        continue
+                    with open(name_file, 'r') as f:
+                        name = f.read().strip()
+                    if name in ('coretemp', 'k10temp', 'k8temp', 'acpitz', 'cpu_thermal'):
+                        temp_file = os.path.join(hwmon_path, 'temp1_input')
+                        if os.path.exists(temp_file):
+                            with open(temp_file, 'r') as f:
+                                temps['cpu'] = round(int(f.read().strip()) / 1000, 1)
+                            break
+        except Exception as e:
+            logger.debug(f"Could not get CPU temperature: {e}")
+
+        # GPU temperature from nvidia-smi
+        try:
+            result = subprocess.run(
+                ['nvidia-smi', '--query-gpu=temperature.gpu', '--format=csv,noheader,nounits'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                temps['gpu'] = int(result.stdout.strip().split('\n')[0])
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            pass
+        except Exception as e:
+            logger.debug(f"Could not get GPU temperature: {e}")
+
+        return temps
+
+    def get_network_throughput(self) -> Dict[str, Any]:
+        """Get network throughput (bytes/sec) from psutil counters"""
+        global _prev_net_bytes
+
+        try:
+            counters = psutil.net_io_counters()
+            now = time.time()
+
+            rx_bytes = counters.bytes_recv
+            tx_bytes = counters.bytes_sent
+
+            elapsed = now - _prev_net_bytes['timestamp']
+
+            if _prev_net_bytes['timestamp'] > 0 and elapsed > 0:
+                rx_speed = (rx_bytes - _prev_net_bytes['rx']) / elapsed
+                tx_speed = (tx_bytes - _prev_net_bytes['tx']) / elapsed
+            else:
+                rx_speed = 0
+                tx_speed = 0
+
+            _prev_net_bytes = {'rx': rx_bytes, 'tx': tx_bytes, 'timestamp': now}
+
+            return {
+                'rx_speed': round(max(rx_speed, 0)),
+                'tx_speed': round(max(tx_speed, 0)),
+                'rx_total': rx_bytes,
+                'tx_total': tx_bytes,
+            }
+        except Exception as e:
+            logger.debug(f"Could not get network throughput: {e}")
+            return {'rx_speed': 0, 'tx_speed': 0, 'rx_total': 0, 'tx_total': 0}
+
+    def get_network_history(self, hours: int = 24) -> Dict[str, Any]:
+        """Get network history from netmon SQLite database"""
+        result = {'available': False, 'data': [], 'error': None}
+
+        if not os.path.exists(NETMON_DB_PATH):
+            result['error'] = 'netmon database not found'
+            return result
+
+        try:
+            conn = sqlite3.connect(NETMON_DB_PATH, timeout=3)
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            # Discover schema
+            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
+            tables = [row[0] for row in cursor.fetchall()]
+
+            if not tables:
+                result['error'] = 'No tables in netmon database'
+                conn.close()
+                return result
+
+            # Find data table
+            data_table = None
+            for candidate in ['traffic', 'network_data', 'stats', 'bandwidth', 'usage']:
+                if candidate in tables:
+                    data_table = candidate
+                    break
+            if not data_table:
+                data_table = tables[0]
+
+            # Get column info
+            cursor.execute(f"PRAGMA table_info({data_table})")
+            columns = [col[1] for col in cursor.fetchall()]
+
+            # Find timestamp and rx/tx columns
+            time_col = next((c for c in columns if c in ('timestamp', 'time', 'created_at', 'date', 'ts')), None)
+            rx_col = next((c for c in columns if any(k in c.lower() for k in ('rx', 'recv', 'download', 'in_bytes'))), None)
+            tx_col = next((c for c in columns if any(k in c.lower() for k in ('tx', 'sent', 'upload', 'out_bytes'))), None)
+
+            if not time_col:
+                result['error'] = f'No time column in {data_table}'
+                result['tables'] = tables
+                result['columns'] = columns
+                conn.close()
+                return result
+
+            # Build query
+            query_cols = [time_col]
+            if rx_col:
+                query_cols.append(rx_col)
+            if tx_col:
+                query_cols.append(tx_col)
+
+            cutoff = time.time() - (hours * 3600)
+            query = f"SELECT {', '.join(query_cols)} FROM {data_table} WHERE {time_col} > ? ORDER BY {time_col} ASC"
+
+            cursor.execute(query, (cutoff,))
+            rows = cursor.fetchall()
+
+            data_points = []
+            for row in rows:
+                point = {'time': row[0]}
+                idx = 1
+                if rx_col:
+                    point['rx'] = row[idx]
+                    idx += 1
+                if tx_col:
+                    point['tx'] = row[idx]
+                data_points.append(point)
+
+            result['available'] = len(data_points) > 0
+            result['data'] = data_points
+            result['table'] = data_table
+            result['columns'] = columns
+
+            conn.close()
+
+        except sqlite3.Error as e:
+            result['error'] = f'Database error: {str(e)}'
+        except Exception as e:
+            result['error'] = f'Error: {str(e)}'
+
+        return result
+
+    def get_system_monitor(self) -> Dict[str, Any]:
+        """Collect all system monitor data for the dashboard"""
+        return {
+            'cpu': self.get_cpu_usage(),
+            'memory': self.get_memory_info(),
+            'disk': self.get_disk_info(),
+            'temperatures': self.get_temperatures(),
+            'network': self.get_network_throughput(),
+        }
 
     # =========================================================================
     # HOSTNAME MANAGEMENT
