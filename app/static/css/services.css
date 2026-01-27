@@ -303,6 +303,7 @@
     border-radius: 20px;
     font-size: 0.75rem;
     font-weight: 700;
+    line-height: 1;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     flex-shrink: 0;
@@ -478,6 +479,8 @@
 
 /* Open button (badge style, in card header) */
 .btn-open {
+    -webkit-appearance: none;
+    appearance: none;
     display: inline-flex;
     align-items: center;
     gap: 0.4rem;
@@ -485,6 +488,7 @@
     font-size: 0.75rem;
     font-weight: 700;
     font-family: inherit;
+    line-height: 1;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     background: var(--color-success);
@@ -497,8 +501,8 @@
 }
 
 .btn-open .icon-sm {
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     flex-shrink: 0;
 }
 
