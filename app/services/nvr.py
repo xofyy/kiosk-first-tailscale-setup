@@ -135,9 +135,15 @@ class NvrService:
         channels = []
         try:
             root = ElementTree.fromstring(xml_text)
-            ns = self._get_namespace(root)
 
-            for ch in root.findall(f'{ns}StreamingChannel'):
+            # Find StreamingChannel elements (may have different namespace than root)
+            channel_elements = root.findall(f'{self._get_namespace(root)}StreamingChannel')
+            if not channel_elements:
+                # Hikvision NVRs use different namespaces for root vs children
+                channel_elements = root.findall('.//{http://www.isapi.org/ver20/XMLSchema}StreamingChannel')
+
+            for ch in channel_elements:
+                ns = self._get_namespace(ch)
                 ch_id_text = self._xml_find_text(ch, f'{ns}id', '0')
                 ch_id = int(ch_id_text)
                 channel_no = ch_id // 100
