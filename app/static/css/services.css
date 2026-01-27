@@ -483,11 +483,13 @@
     gap: 0.4rem;
     padding: 0.4rem 0.85rem;
     font-size: 0.75rem;
-    font-weight: 600;
+    font-weight: 700;
     font-family: inherit;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
     background: var(--color-success);
     color: white;
-    border: none;
+    border: 1px solid transparent;
     border-radius: 20px;
     cursor: pointer;
     transition: all 0.2s ease;
