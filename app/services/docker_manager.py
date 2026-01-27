@@ -29,7 +29,7 @@ SERVICE_ICONS = {
     "local_database": "database",
     "mongo-express": "table-2",
     "main_server": "server",
-    "go2rtc": "video",
+    "go2rtc": "cast",
 }
 
 # Background service ports
