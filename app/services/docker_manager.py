@@ -29,6 +29,7 @@ SERVICE_ICONS = {
     "local_database": "database",
     "mongo-express": "table-2",
     "main_server": "server",
+    "go2rtc": "video",
 }
 
 # Background service ports
@@ -71,6 +72,11 @@ WEB_UI_SERVICES = {
     "mongo-express": {
         "display_name": "Mongo Express",
         "port": 8081,
+        "path": "/",
+    },
+    "go2rtc": {
+        "display_name": "go2rtc",
+        "port": 1984,
         "path": "/",
     }
 }

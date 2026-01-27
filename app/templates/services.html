@@ -118,6 +118,86 @@
         </div>
     </div>
 
+    <!-- NVR Cameras Section -->
+    <div id="nvr-section">
+        <div class="services-header nvr-header">
+            <h2>
+                <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/>
+                    <rect x="2" y="6" width="14" height="12" rx="2"/>
+                </svg>
+                NVR Cameras
+            </h2>
+            <p>Live camera monitoring via NVR</p>
+        </div>
+
+        <!-- NVR Config Form -->
+        <div class="nvr-config-section" id="nvr-config-section">
+            {% if not nvr_config_exists %}
+            <div class="nvr-config-form" id="nvr-config-form">
+                <h4>NVR Connection</h4>
+                <p>Enter NVR credentials to discover cameras</p>
+                <div class="form-row">
+                    <input type="text" id="nvr-username" placeholder="Username" autocomplete="off">
+                    <input type="password" id="nvr-password" placeholder="Password" autocomplete="off">
+                    <button class="btn-primary" onclick="saveNvrConfig()">Connect</button>
+                </div>
+                <div class="nvr-config-status" id="nvr-config-status"></div>
+            </div>
+            {% else %}
+            <div class="nvr-config-connected" id="nvr-config-connected">
+                <span class="nvr-status-badge connected">
+                    <span class="dot"></span>
+                    Configured
+                </span>
+                <button class="btn-text" onclick="toggleNvrSettings()">Change Settings</button>
+            </div>
+            <div class="nvr-config-form hidden" id="nvr-config-form">
+                <h4>NVR Connection</h4>
+                <div class="form-row">
+                    <input type="text" id="nvr-username" placeholder="Username" autocomplete="off">
+                    <input type="password" id="nvr-password" placeholder="Password" autocomplete="off">
+                    <button class="btn-primary" onclick="saveNvrConfig()">Save</button>
+                    <button class="btn-secondary" onclick="toggleNvrSettings()">Cancel</button>
+                </div>
+                <div class="nvr-config-status" id="nvr-config-status"></div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Camera Cards (populated by JS) -->
+        <div class="camera-cards" id="camera-cards">
+            <div class="camera-loading" id="camera-loading">
+                <div class="spinner"></div>
+                <span>Discovering cameras...</span>
+            </div>
+        </div>
+
+        <!-- Camera Controls (visible when streams active) -->
+        <div class="camera-controls hidden" id="camera-controls">
+            <button class="btn-danger" onclick="stopAllCameraStreams()">
+                <svg class="icon-sm" viewBox="0 0 24 24" fill="currentColor">
+                    <rect x="6" y="6" width="12" height="12" rx="1"/>
+                </svg>
+                Stop All
+            </button>
+        </div>
+
+        <!-- Video Grid (visible when watching) -->
+        <div class="video-grid hidden" id="video-grid"></div>
+    </div>
+
+    <!-- Fullscreen Camera Overlay -->
+    <div class="fullscreen-overlay hidden" id="fullscreen-overlay">
+        <div class="fullscreen-header">
+            <span class="fullscreen-title" id="fullscreen-title">Camera</span>
+            <button class="btn-close-fullscreen" onclick="closeFullscreenCamera()">&times;</button>
+        </div>
+        <div class="fullscreen-video-container">
+            <video id="fullscreen-video" autoplay playsinline muted></video>
+        </div>
+    </div>
+
     <!-- Inline Frame View -->
     <div class="service-frame-container" id="frame-container">
         <div class="frame-header">
@@ -185,4 +265,5 @@
 
 {% block extra_js %}
 <script src="{{ url_for('static', filename='js/services.js') }}"></script>
+<script src="{{ url_for('static', filename='js/cameras.js') }}"></script>
 {% endblock %}

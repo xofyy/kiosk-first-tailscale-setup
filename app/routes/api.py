@@ -891,3 +891,115 @@ def setup_status():
         'progress': int((completed / total) * 100) if total > 0 else 0,
         'module_statuses': {name: statuses.get(name, 'pending') for name in module_names}
     })
+
+
+# =============================================================================
+# NVR CAMERA API
+# =============================================================================
+
+@api_bp.route('/nvr/config')
+def get_nvr_config():
+    """Get NVR credentials (password masked)"""
+    config.reload()
+    username = config.get('nvr.username', '')
+    password = config.get('nvr.password', '')
+
+    return jsonify({
+        'configured': bool(username and password),
+        'username': username,
+        'has_password': bool(password)
+    })
+
+
+@api_bp.route('/nvr/config', methods=['POST'])
+def set_nvr_config():
+    """Save NVR credentials"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data'}), 400
+
+    username = data.get('username', '').strip()
+    password = data.get('password', '').strip()
+
+    if not username or not password:
+        return jsonify({'success': False, 'error': 'Username and password required'}), 400
+
+    config.set('nvr.username', username)
+    config.set('nvr.password', password)
+
+    return jsonify({'success': True, 'message': 'NVR credentials saved'})
+
+
+@api_bp.route('/nvr/test')
+def test_nvr_connection():
+    """Test NVR connection via ISAPI"""
+    from app.services.nvr import NvrService
+    nvr = NvrService()
+    result = nvr.test_connection()
+    return jsonify(result)
+
+
+@api_bp.route('/nvr/channels')
+def get_nvr_channels():
+    """Discover camera channels via ISAPI"""
+    from app.services.nvr import NvrService
+    nvr = NvrService()
+    result = nvr.discover_channels()
+    return jsonify(result)
+
+
+@api_bp.route('/nvr/stream/start', methods=['POST'])
+def start_nvr_stream():
+    """Start a camera stream in go2rtc"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data'}), 400
+
+    channel_id = data.get('channel_id')
+    if not channel_id:
+        return jsonify({'success': False, 'error': 'channel_id required'}), 400
+
+    try:
+        channel_id = int(channel_id)
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'error': 'Invalid channel_id'}), 400
+
+    from app.services.nvr import NvrService
+    nvr = NvrService()
+    result = nvr.start_stream(channel_id)
+    return jsonify(result)
+
+
+@api_bp.route('/nvr/stream/stop', methods=['POST'])
+def stop_nvr_stream():
+    """Stop a camera stream in go2rtc"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data'}), 400
+
+    stream_name = data.get('stream_name', '')
+    if not stream_name or not stream_name.startswith('camera_'):
+        return jsonify({'success': False, 'error': 'Invalid stream name'}), 400
+
+    from app.services.nvr import NvrService
+    nvr = NvrService()
+    result = nvr.stop_stream(stream_name)
+    return jsonify(result)
+
+
+@api_bp.route('/nvr/streams')
+def get_nvr_streams():
+    """Get active streams from go2rtc"""
+    from app.services.nvr import NvrService
+    nvr = NvrService()
+    result = nvr.get_active_streams()
+    return jsonify(result)
+
+
+@api_bp.route('/nvr/stream/stop-all', methods=['POST'])
+def stop_all_nvr_streams():
+    """Stop all camera streams"""
+    from app.services.nvr import NvrService
+    nvr = NvrService()
+    result = nvr.stop_all_streams()
+    return jsonify(result)

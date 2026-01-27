@@ -66,7 +66,11 @@ def services():
     """Services page - Docker container management"""
     manager = DockerManager()
     containers = manager.get_all_containers()
-    return render_template('services.html', containers=containers)
+
+    # Check if NVR credentials are configured
+    nvr_config_exists = bool(config.get('nvr.username') and config.get('nvr.password'))
+
+    return render_template('services.html', containers=containers, nvr_config_exists=nvr_config_exists)
 
 
 @pages_bp.route('/logs')

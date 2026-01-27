@@ -462,6 +462,14 @@ deploy_configs() {
     fi
 
     # -------------------------------------------------------------------------
+    # Group 7: Docker configs (go2rtc)
+    # -------------------------------------------------------------------------
+    if deploy_config "$INSTALL_DIR/configs/go2rtc/go2rtc.yaml" \
+                     "/srv/docker/go2rtc/go2rtc.yaml"; then
+        total_changes=$((total_changes + 1))
+    fi
+
+    # -------------------------------------------------------------------------
     # Summary
     # -------------------------------------------------------------------------
     if [[ $total_changes -gt 0 ]]; then

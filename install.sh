@@ -954,7 +954,11 @@ COMPOSE_PATH="/srv/docker"
 MONGODB_DATA_PATH="/data/mongo-data"
 
 mkdir -p "$COMPOSE_PATH"
+mkdir -p "$COMPOSE_PATH/go2rtc"
 mkdir -p "$MONGODB_DATA_PATH"
+
+# go2rtc config
+cp "$SCRIPT_DIR/configs/go2rtc/go2rtc.yaml" "$COMPOSE_PATH/go2rtc/go2rtc.yaml"
 
 # MongoDB image - use private registry if available, otherwise official
 MONGO_IMAGE="${REGISTRY_URL}/mongodb:latest"
@@ -988,6 +992,16 @@ services:
       ME_CONFIG_OPTIONS_EDITORTHEME: ambiance
     depends_on:
       - local_database
+
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: go2rtc
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./go2rtc/go2rtc.yaml:/config/go2rtc.yaml
+    environment:
+      - TZ=Europe/Istanbul
 EOF
 
 # Start MongoDB
@@ -1064,6 +1078,12 @@ if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "local_database"; then
     log "MongoDB container running"
 else
     warn "MongoDB container not running"
+fi
+
+if docker ps --format '{{.Names}}' 2>/dev/null | grep -q "go2rtc"; then
+    log "go2rtc container running"
+else
+    warn "go2rtc container not running"
 fi
 
 log "Docker installation completed"
