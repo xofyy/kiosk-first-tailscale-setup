@@ -1140,7 +1140,7 @@ body {
     align-items: center;
     gap: var(--spacing-md);
     padding: var(--spacing-md);
-    background: var(--color-bg-secondary);
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
 }
@@ -1574,7 +1574,7 @@ body {
 }
 
 .interface-card {
-    background: var(--color-bg-secondary);
+    background: var(--color-surface);
     border: 2px solid var(--color-border);
     border-radius: var(--border-radius-lg);
     padding: var(--spacing-lg);
@@ -1808,7 +1808,7 @@ body {
 
 /* Skeleton loading state for interface cards */
 .skeleton-card {
-    background: var(--color-bg-secondary);
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius-lg);
     padding: var(--spacing-lg);
@@ -1851,7 +1851,7 @@ body {
 }
 
 .component-card {
-    background: var(--color-bg-secondary);
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
@@ -1884,7 +1884,7 @@ body {
 
 .component-card.component-pending {
     border-color: var(--color-border);
-    background: var(--color-bg-secondary);
+    background: var(--color-surface);
 }
 
 .component-header {
@@ -2069,7 +2069,7 @@ body {
 }
 
 .monitor-card {
-    background: var(--color-bg-secondary);
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
@@ -2160,7 +2160,7 @@ body {
 
 /* Network History */
 .monitor-history {
-    background: var(--color-bg-secondary);
+    background: var(--color-surface);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
