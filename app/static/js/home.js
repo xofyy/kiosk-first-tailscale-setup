@@ -683,6 +683,7 @@ const monitorCache = {
     diskRootCard: null, diskRootValue: null, diskRootBar: null, diskRootDetail: null,
     diskDataCard: null, diskDataValue: null, diskDataBar: null, diskDataDetail: null,
     gpuCard: null, gpuValue: null, gpuBar: null, gpuDetail: null,
+    vramCard: null, vramValue: null, vramBar: null, vramDetail: null,
     cpuTemp: null, gpuTemp: null,
     netRx: null, netTx: null,
     historyChart: null, historyStatus: null,
@@ -709,6 +710,10 @@ function initMonitorCache() {
     monitorCache.gpuValue = document.getElementById('monitor-gpu-value');
     monitorCache.gpuBar = document.getElementById('monitor-gpu-bar');
     monitorCache.gpuDetail = document.getElementById('monitor-gpu-detail');
+    monitorCache.vramCard = document.getElementById('monitor-vram');
+    monitorCache.vramValue = document.getElementById('monitor-vram-value');
+    monitorCache.vramBar = document.getElementById('monitor-vram-bar');
+    monitorCache.vramDetail = document.getElementById('monitor-vram-detail');
     monitorCache.cpuTemp = document.getElementById('monitor-cpu-temp');
     monitorCache.gpuTemp = document.getElementById('monitor-gpu-temp');
     monitorCache.netRx = document.getElementById('monitor-net-rx');
@@ -786,14 +791,25 @@ async function updateSystemMonitor() {
             }
         }
 
-        // GPU - show card only when NVIDIA GPU is available
+        // GPU + VRAM - show cards only when NVIDIA GPU is available
         if (data.gpu) {
+            // GPU utilization card
             if (monitorCache.gpuCard) {
                 monitorCache.gpuCard.style.display = '';
             }
             updateProgressBar(monitorCache.gpuBar, monitorCache.gpuValue, data.gpu.utilization);
             if (monitorCache.gpuDetail) {
-                monitorCache.gpuDetail.textContent =
+                monitorCache.gpuDetail.textContent = data.gpu.temperature !== null
+                    ? data.gpu.temperature + '\u00B0C' : '--';
+            }
+
+            // VRAM memory card
+            if (monitorCache.vramCard) {
+                monitorCache.vramCard.style.display = '';
+            }
+            updateProgressBar(monitorCache.vramBar, monitorCache.vramValue, data.gpu.memory_percent);
+            if (monitorCache.vramDetail) {
+                monitorCache.vramDetail.textContent =
                     data.gpu.memory_used_mb + ' / ' + data.gpu.memory_total_mb + ' MB';
             }
         }

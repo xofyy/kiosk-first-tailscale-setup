@@ -319,10 +319,17 @@
     <section class="section monitor-section">
         <h2 class="section-title" data-icon="monitor">System Monitor</h2>
 
-        <!-- Resource Usage Grid: CPU / Memory / Disk -->
+        <!-- Unified Resource Monitor Grid -->
         <div class="monitor-grid" id="monitor-grid">
             <!-- CPU -->
             <div class="monitor-card" id="monitor-cpu">
+                <div class="monitor-card-icon">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="4" y="4" width="16" height="16" rx="2"/>
+                        <rect x="9" y="9" width="6" height="6"/>
+                        <path d="M15 2v2M15 20v2M2 15h2M2 9h2M20 15h2M20 9h2M9 2v2M9 20v2"/>
+                    </svg>
+                </div>
                 <div class="monitor-header">
                     <span class="monitor-label">CPU</span>
                     <span class="monitor-value" id="monitor-cpu-value">--%</span>
@@ -335,6 +342,14 @@
 
             <!-- Memory -->
             <div class="monitor-card" id="monitor-memory">
+                <div class="monitor-card-icon">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 19v-8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8"/>
+                        <path d="M6 19h12M6 15h12"/>
+                        <path d="M9 9V6M12 9V4M15 9V6"/>
+                        <rect x="4" y="19" width="16" height="2" rx="1"/>
+                    </svg>
+                </div>
                 <div class="monitor-header">
                     <span class="monitor-label">Memory</span>
                     <span class="monitor-value" id="monitor-memory-value">--%</span>
@@ -347,6 +362,14 @@
 
             <!-- Root Disk -->
             <div class="monitor-card" id="monitor-disk-root">
+                <div class="monitor-card-icon">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 12H2"/>
+                        <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+                        <line x1="6" y1="16" x2="6.01" y2="16"/>
+                        <line x1="10" y1="16" x2="10.01" y2="16"/>
+                    </svg>
+                </div>
                 <div class="monitor-header">
                     <span class="monitor-label">Root</span>
                     <span class="monitor-value" id="monitor-disk-root-value">--%</span>
@@ -357,8 +380,16 @@
                 <div class="monitor-detail" id="monitor-disk-root-detail">-- / -- GB</div>
             </div>
 
-            <!-- Data Disk -->
+            <!-- Data Disk (conditional) -->
             <div class="monitor-card" id="monitor-disk-data" style="display:none">
+                <div class="monitor-card-icon">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 12H2"/>
+                        <path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>
+                        <line x1="6" y1="16" x2="6.01" y2="16"/>
+                        <line x1="10" y1="16" x2="10.01" y2="16"/>
+                    </svg>
+                </div>
                 <div class="monitor-header">
                     <span class="monitor-label">Data</span>
                     <span class="monitor-value" id="monitor-disk-data-value">--%</span>
@@ -369,8 +400,15 @@
                 <div class="monitor-detail" id="monitor-disk-data-detail">-- / -- GB</div>
             </div>
 
-            <!-- GPU -->
+            <!-- GPU Utilization (conditional) -->
             <div class="monitor-card" id="monitor-gpu" style="display:none">
+                <div class="monitor-card-icon">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                </div>
                 <div class="monitor-header">
                     <span class="monitor-label">GPU</span>
                     <span class="monitor-value" id="monitor-gpu-value">--%</span>
@@ -378,41 +416,58 @@
                 <div class="progress-bar">
                     <div class="progress-fill" id="monitor-gpu-bar" style="width: 0%"></div>
                 </div>
-                <div class="monitor-detail" id="monitor-gpu-detail">-- / -- MB</div>
+                <div class="monitor-detail" id="monitor-gpu-detail">--</div>
             </div>
-        </div>
 
-        <!-- Temperature & Network Speed -->
-        <div class="monitor-info-grid" id="monitor-info-grid">
-            <!-- Temperature -->
-            <div class="monitor-info-card" id="monitor-temp">
-                <div class="monitor-info-icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- VRAM (conditional) -->
+            <div class="monitor-card" id="monitor-vram" style="display:none">
+                <div class="monitor-card-icon">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M6 19v-8a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8"/>
+                        <path d="M6 19h12M6 15h12"/>
+                        <path d="M9 9V6M12 9V4M15 9V6"/>
+                        <rect x="4" y="19" width="16" height="2" rx="1"/>
+                    </svg>
+                </div>
+                <div class="monitor-header">
+                    <span class="monitor-label">VRAM</span>
+                    <span class="monitor-value" id="monitor-vram-value">--%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="monitor-vram-bar" style="width: 0%"></div>
+                </div>
+                <div class="monitor-detail" id="monitor-vram-detail">-- / -- MB</div>
+            </div>
+
+            <!-- Temperature (no progress bar) -->
+            <div class="monitor-card monitor-card-text" id="monitor-temp">
+                <div class="monitor-card-icon">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>
                     </svg>
                 </div>
-                <div class="monitor-info-content">
-                    <span class="monitor-info-label">Temperature</span>
-                    <div class="monitor-info-values">
-                        <span id="monitor-cpu-temp">CPU: --</span>
-                        <span id="monitor-gpu-temp">GPU: --</span>
-                    </div>
+                <div class="monitor-header">
+                    <span class="monitor-label">Temp</span>
+                </div>
+                <div class="monitor-detail monitor-detail-values">
+                    <span id="monitor-cpu-temp">CPU: --</span>
+                    <span id="monitor-gpu-temp">GPU: --</span>
                 </div>
             </div>
 
-            <!-- Network Throughput -->
-            <div class="monitor-info-card" id="monitor-network">
-                <div class="monitor-info-icon">
-                    <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <!-- Network (no progress bar) -->
+            <div class="monitor-card monitor-card-text" id="monitor-network">
+                <div class="monitor-card-icon">
+                    <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                         <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
                     </svg>
                 </div>
-                <div class="monitor-info-content">
-                    <span class="monitor-info-label">Network</span>
-                    <div class="monitor-info-values">
-                        <span id="monitor-net-rx">&#x2193; -- KB/s</span>
-                        <span id="monitor-net-tx">&#x2191; -- KB/s</span>
-                    </div>
+                <div class="monitor-header">
+                    <span class="monitor-label">Network</span>
+                </div>
+                <div class="monitor-detail monitor-detail-values">
+                    <span id="monitor-net-rx">&#x2193; -- KB/s</span>
+                    <span id="monitor-net-tx">&#x2191; -- KB/s</span>
                 </div>
             </div>
         </div>

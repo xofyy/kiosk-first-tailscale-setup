@@ -2022,10 +2022,10 @@ body {
     margin-top: var(--spacing-lg);
 }
 
-/* Resource Usage Grid (CPU, Memory, Disk, Data) */
+/* Unified Resource Monitor Grid (4 columns) */
 .monitor-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(4, 1fr);
     gap: var(--spacing-md);
     margin-bottom: var(--spacing-md);
 }
@@ -2035,6 +2035,14 @@ body {
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);
     padding: var(--spacing-md);
+}
+
+.monitor-card-icon {
+    display: flex;
+    align-items: center;
+    color: var(--color-primary);
+    opacity: 0.7;
+    margin-bottom: var(--spacing-sm);
 }
 
 .monitor-header {
@@ -2073,6 +2081,20 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* Text-only cards (Temperature, Network) - no progress bar */
+.monitor-card-text .monitor-header {
+    margin-bottom: var(--spacing-xs);
+}
+
+.monitor-detail-values {
+    display: flex;
+    gap: var(--spacing-md);
+    font-size: var(--font-size-sm);
+    font-weight: 500;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
 /* Color-coded threshold levels */
 .progress-fill.level-ok {
     background: var(--color-primary);
@@ -2096,59 +2118,6 @@ body {
 
 .monitor-value.level-critical {
     color: var(--color-error);
-}
-
-/* Temperature & Network Info Grid */
-.monitor-info-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
-}
-
-.monitor-info-card {
-    background: var(--color-bg-secondary);
-    border: 1px solid var(--color-border);
-    border-radius: var(--border-radius);
-    padding: var(--spacing-md);
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-md);
-}
-
-.monitor-info-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: var(--color-primary);
-    opacity: 0.9;
-}
-
-.monitor-info-icon .icon {
-    width: 28px;
-    height: 28px;
-}
-
-.monitor-info-content {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
-
-.monitor-info-label {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.monitor-info-values {
-    display: flex;
-    gap: var(--spacing-md);
-    font-size: var(--font-size-sm);
-    font-weight: 500;
-    color: var(--color-text);
-    font-variant-numeric: tabular-nums;
 }
 
 /* Network History */
@@ -2212,17 +2181,18 @@ body {
 /* Monitor Responsive */
 @media (max-width: 768px) {
     .monitor-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
     }
+}
 
-    .monitor-info-grid {
+@media (max-width: 500px) {
+    .monitor-grid {
         grid-template-columns: 1fr;
     }
 }
 
 @media (pointer: coarse) {
-    .monitor-card,
-    .monitor-info-card {
+    .monitor-card {
         transition: none !important;
     }
 }
