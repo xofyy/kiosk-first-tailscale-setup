@@ -799,8 +799,7 @@ async function updateSystemMonitor() {
             }
             updateProgressBar(monitorCache.gpuBar, monitorCache.gpuValue, data.gpu.utilization);
             if (monitorCache.gpuDetail) {
-                monitorCache.gpuDetail.textContent = data.gpu.temperature !== null
-                    ? data.gpu.temperature + '\u00B0C' : '--';
+                monitorCache.gpuDetail.textContent = data.gpu.name || '--';
             }
 
             // VRAM memory card

@@ -587,7 +587,7 @@ class SystemService:
         try:
             result = subprocess.run(
                 ['nvidia-smi',
-                 '--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu',
+                 '--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu,name',
                  '--format=csv,noheader,nounits'],
                 capture_output=True, text=True, timeout=5
             )
@@ -595,15 +595,17 @@ class SystemService:
                 return None
 
             parts = result.stdout.strip().split('\n')[0].split(',')
-            if len(parts) < 4:
+            if len(parts) < 5:
                 return None
 
             util = int(parts[0].strip())
             mem_used = int(parts[1].strip())
             mem_total = int(parts[2].strip())
             temp = int(parts[3].strip())
+            name = parts[4].strip()
 
             return {
+                'name': name,
                 'utilization': util,
                 'memory_used_mb': mem_used,
                 'memory_total_mb': mem_total,
