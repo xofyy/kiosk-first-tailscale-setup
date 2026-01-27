@@ -75,8 +75,8 @@ data_retention_days: {retention_days}
 # Log level
 log_level: INFO
 
-# Database path
-database_path: /var/lib/netmon/data.db
+# Note: database path is hardcoded in netmon as /var/lib/netmon/traffic.db
+database_path: /var/lib/netmon/traffic.db
 """
             os.makedirs('/etc/netmon', exist_ok=True)
             if not self.write_file('/etc/netmon/config.yaml', config_content):

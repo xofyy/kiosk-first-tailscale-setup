@@ -78,7 +78,7 @@ DEFAULT_IP_CONFIGS = {
 # SYSTEM MONITOR CONSTANTS
 # =============================================================================
 
-NETMON_DB_PATH = '/var/lib/netmon/data.db'
+NETMON_DB_PATH = '/var/lib/netmon/traffic.db'
 
 # Network throughput delta state (persists between API calls within same worker)
 _prev_net_bytes = {'rx': 0, 'tx': 0, 'timestamp': 0}
@@ -621,7 +621,16 @@ class SystemService:
             return {'rx_speed': 0, 'tx_speed': 0, 'rx_total': 0, 'tx_total': 0}
 
     def get_network_history(self, hours: int = 24) -> Dict[str, Any]:
-        """Get network history from netmon SQLite database"""
+        """Get network history from netmon SQLite database.
+
+        netmon schema (traffic table):
+            id INTEGER PRIMARY KEY AUTOINCREMENT
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+            app_name TEXT
+            remote_ip TEXT
+            bytes_sent INTEGER
+            bytes_recv INTEGER
+        """
         result = {'available': False, 'data': [], 'error': None}
 
         if not os.path.exists(NETMON_DB_PATH):
@@ -630,72 +639,34 @@ class SystemService:
 
         try:
             conn = sqlite3.connect(NETMON_DB_PATH, timeout=3)
-            conn.row_factory = sqlite3.Row
             cursor = conn.cursor()
 
-            # Discover schema
-            cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
-            tables = [row[0] for row in cursor.fetchall()]
-
-            if not tables:
-                result['error'] = 'No tables in netmon database'
-                conn.close()
-                return result
-
-            # Find data table
-            data_table = None
-            for candidate in ['traffic', 'network_data', 'stats', 'bandwidth', 'usage']:
-                if candidate in tables:
-                    data_table = candidate
-                    break
-            if not data_table:
-                data_table = tables[0]
-
-            # Get column info
-            cursor.execute(f"PRAGMA table_info({data_table})")
-            columns = [col[1] for col in cursor.fetchall()]
-
-            # Find timestamp and rx/tx columns
-            time_col = next((c for c in columns if c in ('timestamp', 'time', 'created_at', 'date', 'ts')), None)
-            rx_col = next((c for c in columns if any(k in c.lower() for k in ('rx', 'recv', 'download', 'in_bytes'))), None)
-            tx_col = next((c for c in columns if any(k in c.lower() for k in ('tx', 'sent', 'upload', 'out_bytes'))), None)
-
-            if not time_col:
-                result['error'] = f'No time column in {data_table}'
-                result['tables'] = tables
-                result['columns'] = columns
-                conn.close()
-                return result
-
-            # Build query
-            query_cols = [time_col]
-            if rx_col:
-                query_cols.append(rx_col)
-            if tx_col:
-                query_cols.append(tx_col)
-
-            cutoff = time.time() - (hours * 3600)
-            query = f"SELECT {', '.join(query_cols)} FROM {data_table} WHERE {time_col} > ? ORDER BY {time_col} ASC"
-
-            cursor.execute(query, (cutoff,))
+            # Query aggregated traffic per time bucket
+            # strftime('%s', timestamp) converts DATETIME text to Unix epoch
+            cursor.execute(
+                "SELECT strftime('%s', timestamp) AS ts, "
+                "       SUM(bytes_recv) AS rx, "
+                "       SUM(bytes_sent) AS tx "
+                "FROM traffic "
+                "WHERE timestamp > datetime('now', ? || ' hours') "
+                "GROUP BY strftime('%Y-%m-%d %H:%M', timestamp) "
+                "ORDER BY ts ASC",
+                (str(-hours),)
+            )
             rows = cursor.fetchall()
 
             data_points = []
             for row in rows:
-                point = {'time': row[0]}
-                idx = 1
-                if rx_col:
-                    point['rx'] = row[idx]
-                    idx += 1
-                if tx_col:
-                    point['tx'] = row[idx]
-                data_points.append(point)
+                ts, rx, tx = row
+                if ts is not None:
+                    data_points.append({
+                        'time': int(ts),
+                        'rx': rx or 0,
+                        'tx': tx or 0
+                    })
 
             result['available'] = len(data_points) > 0
             result['data'] = data_points
-            result['table'] = data_table
-            result['columns'] = columns
-
             conn.close()
 
         except sqlite3.Error as e:
