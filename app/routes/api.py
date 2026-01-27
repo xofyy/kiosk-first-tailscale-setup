@@ -136,6 +136,172 @@ def system_components():
     return jsonify(components)
 
 
+@api_bp.route('/system/timezone')
+def get_timezone():
+    """Return current timezone, NTP status, and available timezones"""
+    try:
+        current_tz = 'UTC'
+        try:
+            result = subprocess.run(
+                ['timedatectl', 'show', '--property=Timezone', '--value'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0 and result.stdout.strip():
+                current_tz = result.stdout.strip()
+        except Exception:
+            try:
+                with open('/etc/timezone', 'r') as f:
+                    current_tz = f.read().strip()
+            except Exception:
+                pass
+
+        ntp_active = False
+        try:
+            result = subprocess.run(
+                ['timedatectl', 'show', '--property=NTP', '--value'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode == 0:
+                ntp_active = result.stdout.strip().lower() == 'yes'
+        except Exception:
+            pass
+
+        timezones = []
+        try:
+            result = subprocess.run(
+                ['timedatectl', 'list-timezones'],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                timezones = [tz.strip() for tz in result.stdout.strip().split('\n') if tz.strip()]
+        except Exception:
+            pass
+
+        return jsonify({
+            'timezone': current_tz,
+            'ntp': ntp_active,
+            'timezones': timezones
+        })
+    except Exception as e:
+        logger.error(f"Timezone info error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+@api_bp.route('/system/timezone', methods=['POST'])
+def set_timezone():
+    """Set system timezone"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+    timezone = data.get('timezone', '').strip()
+    if not timezone:
+        return jsonify({'success': False, 'error': 'Timezone required'}), 400
+
+    if '/' not in timezone and timezone not in ('UTC', 'GMT'):
+        return jsonify({'success': False, 'error': 'Invalid timezone format'}), 400
+
+    try:
+        result = subprocess.run(
+            ['timedatectl', 'list-timezones'],
+            capture_output=True, text=True, timeout=10
+        )
+        valid_timezones = result.stdout.strip().split('\n')
+        if timezone not in valid_timezones:
+            return jsonify({'success': False, 'error': f'Unknown timezone: {timezone}'}), 400
+
+        result = subprocess.run(
+            ['timedatectl', 'set-timezone', timezone],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            return jsonify({'success': False, 'error': result.stderr or 'Failed to set timezone'}), 500
+
+        logger.info(f"Timezone changed to: {timezone}")
+        return jsonify({'success': True, 'timezone': timezone})
+
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'Operation timed out'}), 500
+    except Exception as e:
+        logger.error(f"Timezone change error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@api_bp.route('/system/keyboard')
+def get_keyboard():
+    """Return current keyboard layout"""
+    try:
+        layout = 'us'
+        result = subprocess.run(
+            ['localectl', 'status'],
+            capture_output=True, text=True, timeout=5
+        )
+        if result.returncode == 0:
+            for line in result.stdout.split('\n'):
+                if 'X11 Layout' in line:
+                    parts = line.split(':', 1)
+                    if len(parts) == 2:
+                        layout = parts[1].strip()
+                    break
+        return jsonify({'layout': layout})
+    except Exception as e:
+        logger.error(f"Keyboard info error: {e}")
+        return jsonify({'layout': 'us', 'error': str(e)})
+
+
+@api_bp.route('/system/keyboard', methods=['POST'])
+def set_keyboard():
+    """Set keyboard layout (persistent + immediate X11 + console)"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No data provided'}), 400
+
+    layout = data.get('layout', '').strip().lower()
+    if not layout:
+        return jsonify({'success': False, 'error': 'Layout required'}), 400
+
+    allowed_layouts = [
+        'tr', 'us', 'de', 'fr', 'es', 'it', 'ru', 'ar', 'pt', 'nl',
+        'pl', 'sv', 'no', 'da', 'fi', 'el', 'hu', 'cs', 'ro', 'bg',
+        'hr', 'sk', 'sl', 'uk', 'az', 'gb', 'br', 'jp', 'kr'
+    ]
+    if layout not in allowed_layouts:
+        return jsonify({'success': False, 'error': f'Unsupported layout: {layout}'}), 400
+
+    errors = []
+    try:
+        # Persistent: write to X11 + console config files
+        result = subprocess.run(
+            ['localectl', 'set-x11-keymap', layout],
+            capture_output=True, text=True, timeout=10
+        )
+        if result.returncode != 0:
+            errors.append(f'localectl error: {result.stderr}')
+
+        # Immediate X11 effect (kiosk user's display)
+        subprocess.run(
+            ['sudo', '-u', 'kiosk', 'env', 'DISPLAY=:0', 'setxkbmap', layout],
+            capture_output=True, text=True, timeout=5
+        )
+
+        # Immediate console effect
+        subprocess.run(
+            ['setupcon', '--force'],
+            capture_output=True, text=True, timeout=5
+        )
+    except subprocess.TimeoutExpired:
+        return jsonify({'success': False, 'error': 'Operation timed out'}), 500
+    except Exception as e:
+        logger.error(f"Keyboard change error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+    if errors:
+        return jsonify({'success': False, 'error': '; '.join(errors)}), 500
+
+    logger.info(f"Keyboard layout changed to: {layout}")
+    return jsonify({'success': True, 'layout': layout})
+
+
 # =============================================================================
 # HARDWARE API
 # =============================================================================

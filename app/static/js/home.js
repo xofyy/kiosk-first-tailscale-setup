@@ -320,6 +320,249 @@ async function systemReboot() {
 }
 
 // =============================================================================
+// System Clock & Settings
+// =============================================================================
+
+let clockIntervalId = null;
+let currentTimezone = null;
+let currentKeyboardLayout = null;
+
+// -----------------------------------------------------------------------------
+// Live System Clock
+// -----------------------------------------------------------------------------
+
+function startClock() {
+    updateClockDisplay();
+    if (clockIntervalId) clearInterval(clockIntervalId);
+    clockIntervalId = setInterval(updateClockDisplay, 1000);
+}
+
+function stopClock() {
+    if (clockIntervalId) {
+        clearInterval(clockIntervalId);
+        clockIntervalId = null;
+    }
+}
+
+function updateClockDisplay() {
+    const el = document.getElementById('clock-datetime');
+    if (!el) return;
+
+    const now = new Date();
+    const options = {
+        timeZone: currentTimezone || undefined,
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false
+    };
+
+    try {
+        const formatter = new Intl.DateTimeFormat('tr-TR', options);
+        const parts = formatter.formatToParts(now);
+
+        let day = '', month = '', year = '', hour = '', minute = '', second = '';
+        for (const part of parts) {
+            switch (part.type) {
+                case 'day': day = part.value; break;
+                case 'month': month = part.value; break;
+                case 'year': year = part.value; break;
+                case 'hour': hour = part.value; break;
+                case 'minute': minute = part.value; break;
+                case 'second': second = part.value; break;
+            }
+        }
+
+        el.textContent = `${day}.${month}.${year} ${hour}:${minute}:${second}`;
+    } catch (e) {
+        const pad = n => String(n).padStart(2, '0');
+        el.textContent = `${pad(now.getDate())}.${pad(now.getMonth() + 1)}.${now.getFullYear()} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Timezone Management
+// -----------------------------------------------------------------------------
+
+async function loadTimezoneData() {
+    const select = document.getElementById('timezone-select');
+    const tzDisplay = document.getElementById('clock-timezone');
+    if (!select) return;
+
+    try {
+        const data = await api.get('/system/timezone', 10000);
+
+        currentTimezone = data.timezone || 'UTC';
+
+        if (tzDisplay) {
+            tzDisplay.textContent = `(${currentTimezone})`;
+        }
+
+        // Populate select with optgroups by region
+        if (data.timezones && data.timezones.length > 0) {
+            const groups = {};
+            data.timezones.forEach(tz => {
+                const slashIndex = tz.indexOf('/');
+                let region, city;
+                if (slashIndex !== -1) {
+                    region = tz.substring(0, slashIndex);
+                    city = tz.substring(slashIndex + 1).replace(/_/g, ' ');
+                } else {
+                    region = 'Other';
+                    city = tz;
+                }
+                if (!groups[region]) groups[region] = [];
+                groups[region].push({ value: tz, label: city });
+            });
+
+            select.innerHTML = '';
+            const sortedRegions = Object.keys(groups).sort();
+            for (const region of sortedRegions) {
+                const optgroup = document.createElement('optgroup');
+                optgroup.label = region;
+                groups[region].forEach(item => {
+                    const option = document.createElement('option');
+                    option.value = item.value;
+                    option.textContent = item.label;
+                    if (item.value === currentTimezone) {
+                        option.selected = true;
+                    }
+                    optgroup.appendChild(option);
+                });
+                select.appendChild(optgroup);
+            }
+        }
+
+        select.disabled = false;
+        startClock();
+
+    } catch (error) {
+        console.error('Failed to load timezone data:', error);
+        select.innerHTML = '<option value="">Error</option>';
+        startClock();
+    }
+}
+
+async function changeTimezone(timezone) {
+    if (!timezone) return;
+
+    const select = document.getElementById('timezone-select');
+    const tzDisplay = document.getElementById('clock-timezone');
+
+    if (select) select.disabled = true;
+
+    try {
+        const data = await api.post('/system/timezone', { timezone });
+
+        if (data.success) {
+            currentTimezone = timezone;
+            if (tzDisplay) {
+                tzDisplay.textContent = `(${timezone})`;
+            }
+            showToast(`Timezone: ${timezone}`, 'success');
+        } else {
+            showToast(data.error || 'Failed to set timezone', 'error');
+            if (select) select.value = currentTimezone;
+        }
+    } catch (error) {
+        showToast('Connection error', 'error');
+        if (select) select.value = currentTimezone;
+    } finally {
+        if (select) select.disabled = false;
+    }
+}
+
+// -----------------------------------------------------------------------------
+// Keyboard Layout Management
+// -----------------------------------------------------------------------------
+
+const KEYBOARD_LAYOUTS = [
+    { value: 'tr', label: 'Turkish (TR)' },
+    { value: 'us', label: 'English US (US)' },
+    { value: 'gb', label: 'English UK (GB)' },
+    { value: 'de', label: 'German (DE)' },
+    { value: 'fr', label: 'French (FR)' },
+    { value: 'es', label: 'Spanish (ES)' },
+    { value: 'it', label: 'Italian (IT)' },
+    { value: 'pt', label: 'Portuguese (PT)' },
+    { value: 'br', label: 'Portuguese Brazil (BR)' },
+    { value: 'ru', label: 'Russian (RU)' },
+    { value: 'ar', label: 'Arabic (AR)' },
+    { value: 'nl', label: 'Dutch (NL)' },
+    { value: 'pl', label: 'Polish (PL)' },
+    { value: 'sv', label: 'Swedish (SV)' },
+    { value: 'no', label: 'Norwegian (NO)' },
+    { value: 'da', label: 'Danish (DA)' },
+    { value: 'fi', label: 'Finnish (FI)' },
+    { value: 'el', label: 'Greek (EL)' },
+    { value: 'hu', label: 'Hungarian (HU)' },
+    { value: 'cs', label: 'Czech (CS)' },
+    { value: 'ro', label: 'Romanian (RO)' },
+    { value: 'bg', label: 'Bulgarian (BG)' },
+    { value: 'hr', label: 'Croatian (HR)' },
+    { value: 'sk', label: 'Slovak (SK)' },
+    { value: 'sl', label: 'Slovenian (SL)' },
+    { value: 'uk', label: 'Ukrainian (UK)' },
+    { value: 'az', label: 'Azerbaijani (AZ)' },
+    { value: 'jp', label: 'Japanese (JP)' },
+    { value: 'kr', label: 'Korean (KR)' },
+];
+
+async function loadKeyboardData() {
+    const select = document.getElementById('keyboard-select');
+    if (!select) return;
+
+    try {
+        const data = await api.get('/system/keyboard');
+        currentKeyboardLayout = data.layout || 'us';
+
+        select.innerHTML = '';
+        KEYBOARD_LAYOUTS.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item.value;
+            option.textContent = item.label;
+            if (item.value === currentKeyboardLayout) {
+                option.selected = true;
+            }
+            select.appendChild(option);
+        });
+
+        select.disabled = false;
+
+    } catch (error) {
+        console.error('Failed to load keyboard data:', error);
+        select.innerHTML = '<option value="">Error</option>';
+    }
+}
+
+async function changeKeyboard(layout) {
+    if (!layout) return;
+
+    const select = document.getElementById('keyboard-select');
+    if (select) select.disabled = true;
+
+    try {
+        const data = await api.post('/system/keyboard', { layout });
+
+        if (data.success) {
+            currentKeyboardLayout = layout;
+            showToast(`Keyboard: ${layout.toUpperCase()}`, 'success');
+        } else {
+            showToast(data.error || 'Failed to set keyboard', 'error');
+            if (select) select.value = currentKeyboardLayout;
+        }
+    } catch (error) {
+        showToast('Connection error', 'error');
+        if (select) select.value = currentKeyboardLayout;
+    } finally {
+        if (select) select.disabled = false;
+    }
+}
+
+// =============================================================================
 // System Components Auto-Update (with DOM caching)
 // =============================================================================
 
@@ -441,6 +684,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Component status polling
     startComponentPolling();
+
+    // System clock, timezone, keyboard
+    loadTimezoneData();
+    loadKeyboardData();
 });
 
 // Handle visibility changes
@@ -448,10 +695,12 @@ document.addEventListener('visibilitychange', () => {
     if (document.hidden) {
         stopComponentPolling();
         stopInterfacePolling();
+        stopClock();
     } else {
         startComponentPolling();
         startInterfacePolling();
         updateComponentStatuses();
         loadNetworkInterfaces();
+        startClock();
     }
 });
