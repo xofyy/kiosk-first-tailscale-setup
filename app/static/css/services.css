@@ -485,9 +485,9 @@
     font-size: 0.75rem;
     font-weight: 600;
     font-family: inherit;
-    background: rgba(34, 165, 95, 0.15);
-    color: var(--color-success);
-    border: 1px solid rgba(34, 165, 95, 0.3);
+    background: var(--color-success);
+    color: white;
+    border: none;
     border-radius: 20px;
     cursor: pointer;
     transition: all 0.2s ease;
@@ -502,8 +502,8 @@
 
 @media (hover: hover) {
     .btn-open:hover {
-        background: rgba(34, 165, 95, 0.3);
-        border-color: rgba(34, 165, 95, 0.5);
+        filter: brightness(0.9);
+        box-shadow: 0 4px 12px rgba(34, 165, 95, 0.4);
     }
 }
 
