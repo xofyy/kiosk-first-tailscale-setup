@@ -345,16 +345,28 @@
                 <div class="monitor-detail" id="monitor-memory-detail">-- / -- MB</div>
             </div>
 
-            <!-- Disk -->
-            <div class="monitor-card" id="monitor-disk">
+            <!-- Root Disk -->
+            <div class="monitor-card" id="monitor-disk-root">
                 <div class="monitor-header">
-                    <span class="monitor-label">Disk</span>
-                    <span class="monitor-value" id="monitor-disk-value">--%</span>
+                    <span class="monitor-label">Root</span>
+                    <span class="monitor-value" id="monitor-disk-root-value">--%</span>
                 </div>
                 <div class="progress-bar">
-                    <div class="progress-fill" id="monitor-disk-bar" style="width: 0%"></div>
+                    <div class="progress-fill" id="monitor-disk-root-bar" style="width: 0%"></div>
                 </div>
-                <div class="monitor-detail" id="monitor-disk-detail">-- / -- GB</div>
+                <div class="monitor-detail" id="monitor-disk-root-detail">-- / -- GB</div>
+            </div>
+
+            <!-- Data Disk -->
+            <div class="monitor-card" id="monitor-disk-data" style="display:none">
+                <div class="monitor-header">
+                    <span class="monitor-label">Data</span>
+                    <span class="monitor-value" id="monitor-disk-data-value">--%</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="monitor-disk-data-bar" style="width: 0%"></div>
+                </div>
+                <div class="monitor-detail" id="monitor-disk-data-detail">-- / -- GB</div>
             </div>
         </div>
 

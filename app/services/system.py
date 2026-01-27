@@ -511,23 +511,23 @@ class SystemService:
             logger.debug(f"Could not get memory info: {e}")
             return {'total_mb': 0, 'used_mb': 0, 'free_mb': 0, 'percent': 0}
     
-    def get_disk_info(self) -> Dict[str, Any]:
-        """Get disk info (root partition)"""
+    def get_disk_info(self, path: str = '/') -> Dict[str, Any]:
+        """Get disk info for a given mount point"""
         try:
-            stat = os.statvfs('/')
+            stat = os.statvfs(path)
             total = (stat.f_blocks * stat.f_frsize) / (1024 ** 3)  # GB
             free = (stat.f_bavail * stat.f_frsize) / (1024 ** 3)  # GB
             used = total - free
-            
+
             return {
                 'total_gb': round(total, 1),
                 'used_gb': round(used, 1),
                 'free_gb': round(free, 1),
                 'percent': int((used / total) * 100) if total > 0 else 0
             }
-            
+
         except Exception as e:
-            logger.debug(f"Could not get disk info: {e}")
+            logger.debug(f"Could not get disk info for {path}: {e}")
             return {'total_gb': 0, 'used_gb': 0, 'free_gb': 0, 'percent': 0}
 
     # =========================================================================
@@ -554,8 +554,13 @@ class SystemService:
         temps = {'cpu': None, 'gpu': None}
 
         # CPU temperature from /sys/class/hwmon
+        # Priority: coretemp (Intel) > k10temp/k8temp (AMD) > cpu_thermal (ARM) > acpitz (ACPI fallback)
         try:
             hwmon_base = '/sys/class/hwmon'
+            driver_priority = {'coretemp': 0, 'k10temp': 1, 'k8temp': 1, 'cpu_thermal': 2, 'acpitz': 3}
+            best_priority = 999
+            best_temp = None
+
             if os.path.exists(hwmon_base):
                 for hwmon in os.listdir(hwmon_base):
                     hwmon_path = os.path.join(hwmon_base, hwmon)
@@ -564,12 +569,15 @@ class SystemService:
                         continue
                     with open(name_file, 'r') as f:
                         name = f.read().strip()
-                    if name in ('coretemp', 'k10temp', 'k8temp', 'acpitz', 'cpu_thermal'):
+                    priority = driver_priority.get(name)
+                    if priority is not None and priority < best_priority:
                         temp_file = os.path.join(hwmon_path, 'temp1_input')
                         if os.path.exists(temp_file):
                             with open(temp_file, 'r') as f:
-                                temps['cpu'] = round(int(f.read().strip()) / 1000, 1)
-                            break
+                                best_temp = round(int(f.read().strip()) / 1000, 1)
+                            best_priority = priority
+
+            temps['cpu'] = best_temp
         except Exception as e:
             logger.debug(f"Could not get CPU temperature: {e}")
 
@@ -678,10 +686,16 @@ class SystemService:
 
     def get_system_monitor(self) -> Dict[str, Any]:
         """Collect all system monitor data for the dashboard"""
+        disk_data = {'root': self.get_disk_info('/')}
+
+        # Add /data partition if it exists as a separate mount
+        if os.path.ismount('/data'):
+            disk_data['data'] = self.get_disk_info('/data')
+
         return {
             'cpu': self.get_cpu_usage(),
             'memory': self.get_memory_info(),
-            'disk': self.get_disk_info(),
+            'disk': disk_data,
             'temperatures': self.get_temperatures(),
             'network': self.get_network_throughput(),
         }

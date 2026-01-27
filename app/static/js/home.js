@@ -680,7 +680,8 @@ let historyRefreshInterval = null;
 const monitorCache = {
     cpuValue: null, cpuBar: null, cpuDetail: null,
     memValue: null, memBar: null, memDetail: null,
-    diskValue: null, diskBar: null, diskDetail: null,
+    diskRootCard: null, diskRootValue: null, diskRootBar: null, diskRootDetail: null,
+    diskDataCard: null, diskDataValue: null, diskDataBar: null, diskDataDetail: null,
     cpuTemp: null, gpuTemp: null,
     netRx: null, netTx: null,
     historyChart: null, historyStatus: null,
@@ -695,9 +696,14 @@ function initMonitorCache() {
     monitorCache.memValue = document.getElementById('monitor-memory-value');
     monitorCache.memBar = document.getElementById('monitor-memory-bar');
     monitorCache.memDetail = document.getElementById('monitor-memory-detail');
-    monitorCache.diskValue = document.getElementById('monitor-disk-value');
-    monitorCache.diskBar = document.getElementById('monitor-disk-bar');
-    monitorCache.diskDetail = document.getElementById('monitor-disk-detail');
+    monitorCache.diskRootCard = document.getElementById('monitor-disk-root');
+    monitorCache.diskRootValue = document.getElementById('monitor-disk-root-value');
+    monitorCache.diskRootBar = document.getElementById('monitor-disk-root-bar');
+    monitorCache.diskRootDetail = document.getElementById('monitor-disk-root-detail');
+    monitorCache.diskDataCard = document.getElementById('monitor-disk-data');
+    monitorCache.diskDataValue = document.getElementById('monitor-disk-data-value');
+    monitorCache.diskDataBar = document.getElementById('monitor-disk-data-bar');
+    monitorCache.diskDataDetail = document.getElementById('monitor-disk-data-detail');
     monitorCache.cpuTemp = document.getElementById('monitor-cpu-temp');
     monitorCache.gpuTemp = document.getElementById('monitor-gpu-temp');
     monitorCache.netRx = document.getElementById('monitor-net-rx');
@@ -754,12 +760,24 @@ async function updateSystemMonitor() {
             }
         }
 
-        // Disk
-        if (data.disk) {
-            updateProgressBar(monitorCache.diskBar, monitorCache.diskValue, data.disk.percent);
-            if (monitorCache.diskDetail) {
-                monitorCache.diskDetail.textContent =
-                    data.disk.used_gb + ' / ' + data.disk.total_gb + ' GB';
+        // Disk (root)
+        if (data.disk && data.disk.root) {
+            updateProgressBar(monitorCache.diskRootBar, monitorCache.diskRootValue, data.disk.root.percent);
+            if (monitorCache.diskRootDetail) {
+                monitorCache.diskRootDetail.textContent =
+                    data.disk.root.used_gb + ' / ' + data.disk.root.total_gb + ' GB';
+            }
+        }
+
+        // Disk (data) - show card only when backend reports /data mount
+        if (data.disk && data.disk.data) {
+            if (monitorCache.diskDataCard) {
+                monitorCache.diskDataCard.style.display = '';
+            }
+            updateProgressBar(monitorCache.diskDataBar, monitorCache.diskDataValue, data.disk.data.percent);
+            if (monitorCache.diskDataDetail) {
+                monitorCache.diskDataDetail.textContent =
+                    data.disk.data.used_gb + ' / ' + data.disk.data.total_gb + ' GB';
             }
         }
 
