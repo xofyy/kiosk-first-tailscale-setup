@@ -549,12 +549,10 @@ class SystemService:
             logger.debug(f"Could not get CPU usage: {e}")
             return {'percent': 0, 'per_cpu': [], 'count': 0}
 
-    def get_temperatures(self) -> Dict[str, Any]:
-        """Get CPU and GPU temperatures"""
-        temps = {'cpu': None, 'gpu': None}
-
-        # CPU temperature from /sys/class/hwmon
-        # Priority: coretemp (Intel) > k10temp/k8temp (AMD) > cpu_thermal (ARM) > acpitz (ACPI fallback)
+    def get_cpu_temperature(self) -> Optional[float]:
+        """Get CPU temperature from /sys/class/hwmon.
+        Priority: coretemp (Intel) > k10temp/k8temp (AMD) > cpu_thermal (ARM) > acpitz (ACPI fallback)
+        """
         try:
             hwmon_base = '/sys/class/hwmon'
             driver_priority = {'coretemp': 0, 'k10temp': 1, 'k8temp': 1, 'cpu_thermal': 2, 'acpitz': 3}
@@ -577,24 +575,46 @@ class SystemService:
                                 best_temp = round(int(f.read().strip()) / 1000, 1)
                             best_priority = priority
 
-            temps['cpu'] = best_temp
+            return best_temp
         except Exception as e:
             logger.debug(f"Could not get CPU temperature: {e}")
+            return None
 
-        # GPU temperature from nvidia-smi
+    def get_gpu_info(self) -> Optional[Dict[str, Any]]:
+        """Get GPU utilization, memory, and temperature from nvidia-smi (single call).
+        Returns None if NVIDIA GPU is not available.
+        """
         try:
             result = subprocess.run(
-                ['nvidia-smi', '--query-gpu=temperature.gpu', '--format=csv,noheader,nounits'],
+                ['nvidia-smi',
+                 '--query-gpu=utilization.gpu,memory.used,memory.total,temperature.gpu',
+                 '--format=csv,noheader,nounits'],
                 capture_output=True, text=True, timeout=5
             )
-            if result.returncode == 0 and result.stdout.strip():
-                temps['gpu'] = int(result.stdout.strip().split('\n')[0])
-        except (FileNotFoundError, subprocess.TimeoutExpired):
-            pass
-        except Exception as e:
-            logger.debug(f"Could not get GPU temperature: {e}")
+            if result.returncode != 0 or not result.stdout.strip():
+                return None
 
-        return temps
+            parts = result.stdout.strip().split('\n')[0].split(',')
+            if len(parts) < 4:
+                return None
+
+            util = int(parts[0].strip())
+            mem_used = int(parts[1].strip())
+            mem_total = int(parts[2].strip())
+            temp = int(parts[3].strip())
+
+            return {
+                'utilization': util,
+                'memory_used_mb': mem_used,
+                'memory_total_mb': mem_total,
+                'memory_percent': int((mem_used / mem_total) * 100) if mem_total > 0 else 0,
+                'temperature': temp,
+            }
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            return None
+        except Exception as e:
+            logger.debug(f"Could not get GPU info: {e}")
+            return None
 
     def get_network_throughput(self) -> Dict[str, Any]:
         """Get network throughput (bytes/sec) from psutil counters"""
@@ -692,11 +712,21 @@ class SystemService:
         if os.path.ismount('/data'):
             disk_data['data'] = self.get_disk_info('/data')
 
+        # GPU info (single nvidia-smi call for utilization + memory + temp)
+        gpu_info = self.get_gpu_info()
+
+        # Build temperatures from CPU hwmon + GPU info
+        temperatures = {
+            'cpu': self.get_cpu_temperature(),
+            'gpu': gpu_info['temperature'] if gpu_info else None,
+        }
+
         return {
             'cpu': self.get_cpu_usage(),
             'memory': self.get_memory_info(),
             'disk': disk_data,
-            'temperatures': self.get_temperatures(),
+            'gpu': gpu_info,
+            'temperatures': temperatures,
             'network': self.get_network_throughput(),
         }
 

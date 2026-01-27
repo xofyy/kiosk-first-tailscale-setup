@@ -682,6 +682,7 @@ const monitorCache = {
     memValue: null, memBar: null, memDetail: null,
     diskRootCard: null, diskRootValue: null, diskRootBar: null, diskRootDetail: null,
     diskDataCard: null, diskDataValue: null, diskDataBar: null, diskDataDetail: null,
+    gpuCard: null, gpuValue: null, gpuBar: null, gpuDetail: null,
     cpuTemp: null, gpuTemp: null,
     netRx: null, netTx: null,
     historyChart: null, historyStatus: null,
@@ -704,6 +705,10 @@ function initMonitorCache() {
     monitorCache.diskDataValue = document.getElementById('monitor-disk-data-value');
     monitorCache.diskDataBar = document.getElementById('monitor-disk-data-bar');
     monitorCache.diskDataDetail = document.getElementById('monitor-disk-data-detail');
+    monitorCache.gpuCard = document.getElementById('monitor-gpu');
+    monitorCache.gpuValue = document.getElementById('monitor-gpu-value');
+    monitorCache.gpuBar = document.getElementById('monitor-gpu-bar');
+    monitorCache.gpuDetail = document.getElementById('monitor-gpu-detail');
     monitorCache.cpuTemp = document.getElementById('monitor-cpu-temp');
     monitorCache.gpuTemp = document.getElementById('monitor-gpu-temp');
     monitorCache.netRx = document.getElementById('monitor-net-rx');
@@ -778,6 +783,18 @@ async function updateSystemMonitor() {
             if (monitorCache.diskDataDetail) {
                 monitorCache.diskDataDetail.textContent =
                     data.disk.data.used_gb + ' / ' + data.disk.data.total_gb + ' GB';
+            }
+        }
+
+        // GPU - show card only when NVIDIA GPU is available
+        if (data.gpu) {
+            if (monitorCache.gpuCard) {
+                monitorCache.gpuCard.style.display = '';
+            }
+            updateProgressBar(monitorCache.gpuBar, monitorCache.gpuValue, data.gpu.utilization);
+            if (monitorCache.gpuDetail) {
+                monitorCache.gpuDetail.textContent =
+                    data.gpu.memory_used_mb + ' / ' + data.gpu.memory_total_mb + ' MB';
             }
         }
 
