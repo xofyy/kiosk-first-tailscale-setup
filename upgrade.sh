@@ -48,6 +48,29 @@ check_root() {
     fi
 }
 
+# Idempotent config deploy helper
+# Copies src to dest only if different (or dest doesn't exist)
+# Returns 0 if changed, 1 if unchanged
+deploy_config() {
+    local src="$1"
+    local dest="$2"
+
+    if [[ ! -f "$src" ]]; then
+        return 1
+    fi
+
+    local dest_dir
+    dest_dir=$(dirname "$dest")
+    [[ -d "$dest_dir" ]] || mkdir -p "$dest_dir"
+
+    if [[ -f "$dest" ]] && cmp -s "$src" "$dest"; then
+        return 1
+    fi
+
+    cp "$src" "$dest"
+    return 0
+}
+
 # =============================================================================
 # Version Functions
 # =============================================================================
@@ -189,11 +212,17 @@ rollback() {
         log_success "Restored app directory"
     fi
 
-    # Restore scripts
+    # Restore scripts (with cleanup of removed scripts)
     if [[ -d "$backup_path/scripts" ]]; then
+        local old_scripts_dir=""
+        if [[ -d "$INSTALL_DIR/scripts" ]]; then
+            old_scripts_dir=$(mktemp -d)
+            cp -r "$INSTALL_DIR/scripts/"*.sh "$old_scripts_dir/" 2>/dev/null || true
+        fi
         rm -rf "$INSTALL_DIR/scripts"
         cp -r "$backup_path/scripts" "$INSTALL_DIR/"
-        update_scripts
+        update_scripts "$old_scripts_dir"
+        [[ -n "$old_scripts_dir" ]] && rm -rf "$old_scripts_dir"
         log_success "Restored scripts"
     fi
 
@@ -210,6 +239,9 @@ rollback() {
         cp -r "$backup_path/configs" "$INSTALL_DIR/"
         log_success "Restored configs"
     fi
+
+    # Deploy configs to system locations (idempotent)
+    deploy_configs
 
     # Restore VERSION
     if [[ -f "$backup_path/VERSION" ]]; then
@@ -237,16 +269,206 @@ rollback() {
 # =============================================================================
 
 update_scripts() {
+    local old_scripts_dir="${1:-}"
+    local scripts_changed=0
+
     log_info "Updating scripts in /usr/local/bin/..."
 
+    # Step 1: Remove scripts that no longer exist in the new version
+    if [[ -n "$old_scripts_dir" && -d "$old_scripts_dir" ]]; then
+        for old_script in "$old_scripts_dir/"*.sh; do
+            [[ -f "$old_script" ]] || continue
+            local old_name
+            old_name=$(basename "$old_script")
+            if [[ ! -f "$INSTALL_DIR/scripts/$old_name" ]]; then
+                if [[ -f "/usr/local/bin/$old_name" ]]; then
+                    rm -f "/usr/local/bin/$old_name"
+                    log_info "Removed obsolete script: $old_name"
+                    scripts_changed=$((scripts_changed + 1))
+                fi
+            fi
+        done
+    fi
+
+    # Step 2: Deploy new/changed scripts (idempotent)
     for script in "$INSTALL_DIR/scripts/"*.sh; do
         [[ -f "$script" ]] || continue
-        local script_name=$(basename "$script")
-        cp "$script" "/usr/local/bin/$script_name"
-        chmod +x "/usr/local/bin/$script_name"
+        local script_name
+        script_name=$(basename "$script")
+        if deploy_config "$script" "/usr/local/bin/$script_name"; then
+            chmod +x "/usr/local/bin/$script_name"
+            scripts_changed=$((scripts_changed + 1))
+        fi
     done
 
-    log_success "Scripts updated"
+    if [[ $scripts_changed -gt 0 ]]; then
+        log_success "Scripts updated ($scripts_changed changes)"
+    else
+        log_success "Scripts already up to date"
+    fi
+}
+
+deploy_configs() {
+    log_info "Deploying configs to system locations..."
+
+    local total_changes=0
+
+    # -------------------------------------------------------------------------
+    # Group 1: Systemd Services
+    # -------------------------------------------------------------------------
+    local SYSTEMD_CHANGED=false
+
+    if deploy_config "$INSTALL_DIR/configs/systemd/aco-panel.service" \
+                     "/etc/systemd/system/aco-panel.service"; then
+        SYSTEMD_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/systemd/getty-override.conf" \
+                     "/etc/systemd/system/getty@tty1.service.d/override.conf"; then
+        SYSTEMD_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/systemd/aco-network-init.service" \
+                     "/etc/systemd/system/aco-network-init.service"; then
+        SYSTEMD_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/systemd/x11vnc.service" \
+                     "/etc/systemd/system/x11vnc.service"; then
+        SYSTEMD_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/systemd/nvidia-fallback.service" \
+                     "/etc/systemd/system/nvidia-fallback.service"; then
+        SYSTEMD_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if [[ "$SYSTEMD_CHANGED" == "true" ]]; then
+        systemctl daemon-reload
+        log_info "systemd daemon-reload (unit files changed)"
+    fi
+
+    # -------------------------------------------------------------------------
+    # Group 2: Kiosk User Configs
+    # -------------------------------------------------------------------------
+    local KIOSK_CHANGED=false
+
+    if deploy_config "$INSTALL_DIR/configs/kiosk/openbox/rc.xml" \
+                     "/home/kiosk/.config/openbox/rc.xml"; then
+        KIOSK_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/kiosk/openbox/autostart" \
+                     "/home/kiosk/.config/openbox/autostart"; then
+        KIOSK_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/kiosk/bash_profile" \
+                     "/home/kiosk/.bash_profile"; then
+        KIOSK_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/kiosk/xinitrc" \
+                     "/home/kiosk/.xinitrc"; then
+        KIOSK_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if [[ "$KIOSK_CHANGED" == "true" ]]; then
+        chmod +x /home/kiosk/.config/openbox/autostart 2>/dev/null || true
+        chmod +x /home/kiosk/.xinitrc 2>/dev/null || true
+        chown -R kiosk:kiosk /home/kiosk 2>/dev/null || true
+        log_info "Kiosk user configs updated (permissions set)"
+    fi
+
+    # -------------------------------------------------------------------------
+    # Group 3: Udev Rules
+    # -------------------------------------------------------------------------
+    local UDEV_CHANGED=false
+
+    if deploy_config "$INSTALL_DIR/configs/udev/99-usb-cdc-acm.rules" \
+                     "/etc/udev/rules.d/99-usb-cdc-acm.rules"; then
+        UDEV_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if [[ "$UDEV_CHANGED" == "true" ]]; then
+        udevadm control --reload-rules && udevadm trigger
+        log_info "Udev rules reloaded"
+    fi
+
+    # -------------------------------------------------------------------------
+    # Group 4: Chromium Policy (no side effect needed)
+    # -------------------------------------------------------------------------
+    if deploy_config "$INSTALL_DIR/configs/chromium/aco-policy.json" \
+                     "/etc/chromium-browser/policies/managed/aco-policy.json"; then
+        total_changes=$((total_changes + 1))
+    fi
+
+    # -------------------------------------------------------------------------
+    # Group 5: Nginx
+    # -------------------------------------------------------------------------
+    local NGINX_CHANGED=false
+
+    if deploy_config "$INSTALL_DIR/configs/nginx/nginx.conf" \
+                     "/etc/nginx/nginx.conf"; then
+        NGINX_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/nginx/nvr-proxy" \
+                     "/etc/nginx/sites-available/nvr-proxy"; then
+        NGINX_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if [[ "$NGINX_CHANGED" == "true" ]]; then
+        if nginx -t 2>/dev/null; then
+            systemctl reload nginx 2>/dev/null || true
+            log_info "Nginx reloaded (config changed)"
+        else
+            log_warning "Nginx config test failed - skipping reload"
+        fi
+    fi
+
+    # -------------------------------------------------------------------------
+    # Group 6: Cockpit
+    # -------------------------------------------------------------------------
+    local COCKPIT_CHANGED=false
+
+    if deploy_config "$INSTALL_DIR/configs/cockpit/cockpit.conf" \
+                     "/etc/cockpit/cockpit.conf"; then
+        COCKPIT_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/cockpit/50-aco-network.rules" \
+                     "/etc/polkit-1/rules.d/50-aco-network.rules"; then
+        COCKPIT_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if [[ "$COCKPIT_CHANGED" == "true" ]]; then
+        systemctl restart cockpit.socket 2>/dev/null || true
+        log_info "Cockpit socket restarted"
+    fi
+
+    # -------------------------------------------------------------------------
+    # Summary
+    # -------------------------------------------------------------------------
+    if [[ $total_changes -gt 0 ]]; then
+        log_success "Deployed $total_changes config changes"
+    else
+        log_success "All configs already up to date"
+    fi
 }
 
 download_and_extract() {
@@ -293,12 +515,18 @@ perform_upgrade() {
     rm -rf "$INSTALL_DIR/app"
     cp -r "$source_dir/app" "$INSTALL_DIR/"
 
-    # Update scripts
+    # Update scripts (with cleanup of removed scripts)
     log_info "Updating scripts..."
+    local old_scripts_dir=""
+    if [[ -d "$INSTALL_DIR/scripts" ]]; then
+        old_scripts_dir=$(mktemp -d)
+        cp -r "$INSTALL_DIR/scripts/"*.sh "$old_scripts_dir/" 2>/dev/null || true
+    fi
     rm -rf "$INSTALL_DIR/scripts"
     cp -r "$source_dir/scripts" "$INSTALL_DIR/"
     chmod +x "$INSTALL_DIR/scripts/"*.sh
-    update_scripts
+    update_scripts "$old_scripts_dir"
+    [[ -n "$old_scripts_dir" ]] && rm -rf "$old_scripts_dir"
 
     # Update templates directory
     if [[ -d "$source_dir/templates" ]]; then
@@ -311,6 +539,9 @@ perform_upgrade() {
         rm -rf "$INSTALL_DIR/configs"
         cp -r "$source_dir/configs" "$INSTALL_DIR/"
     fi
+
+    # Deploy configs to system locations (idempotent)
+    deploy_configs
 
     # Update VERSION
     cp "$source_dir/VERSION" "$INSTALL_DIR/"

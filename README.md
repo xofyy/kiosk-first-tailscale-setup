@@ -134,8 +134,7 @@ kiosk-first-tailscale-setup/
 │   ├── kiosk-startup.sh        # Kiosk session startup
 │   ├── network-init.sh         # Network initialization
 │   ├── nvidia-fallback.sh      # NVIDIA/nouveau/fbdev fallback
-│   ├── toggle-admin.sh         # F11 admin browser toggle
-│   └── toggle-panel-kiosk.sh   # F10 panel/kiosk toggle
+│   └── switch-mode.sh          # Browser mode switch (kiosk/panel/admin)
 ├── install.sh                  # Main installation script
 ├── upgrade.sh                  # Upgrade script
 ├── VERSION                     # Version file
@@ -181,10 +180,11 @@ All settings are stored in the `aco.settings` collection in MongoDB:
 
 | Shortcut | Action |
 |----------|--------|
-| F10 | Panel <-> Kiosk toggle |
-| F11 | Admin browser toggle |
+| Ctrl+Alt+D | Switch to Kiosk mode |
+| Ctrl+Alt+K | Switch to Panel mode |
+| Ctrl+Alt+M | Switch to Admin mode |
 
-> Note: F10 does not work until setup is complete (setup_complete=false).
+> Note: Ctrl+Alt+D (Kiosk) does not work until setup is complete.
 
 ## Security
 

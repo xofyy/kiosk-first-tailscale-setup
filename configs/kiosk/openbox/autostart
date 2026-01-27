@@ -14,8 +14,10 @@ xset s noblank
 # NOTE: This file is created by panel based on setup_complete value in MongoDB
 if [ -f /etc/aco-panel/.setup-complete ]; then
     # Start in kiosk mode (installation complete)
+    echo "kiosk" > /tmp/kiosk-current-mode
     /usr/local/bin/chromium-kiosk.sh &
 else
     # Start in panel mode (installation in progress)
+    echo "panel" > /tmp/kiosk-current-mode
     /usr/local/bin/chromium-panel.sh &
 fi

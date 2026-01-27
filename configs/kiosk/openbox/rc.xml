@@ -1,25 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <openbox_config xmlns="http://openbox.org/3.4/rc">
   <keyboard>
-    <!-- ========== Kiosk Shortcuts ========== -->
+    <!-- ========== Mode Switch Shortcuts ========== -->
 
-    <!-- Panel/Kiosk Toggle: F10 -->
-    <keybind key="F10">
+    <!-- Ctrl+Alt+D: Switch to Kiosk Mode -->
+    <keybind key="C-A-d">
       <action name="Execute">
-        <command>/usr/local/bin/toggle-panel-kiosk.sh</command>
+        <command>/usr/local/bin/switch-mode.sh kiosk</command>
       </action>
     </keybind>
 
-     <!-- F11: Admin Browser Toggle -->
-    <keybind key="F11">
+    <!-- Ctrl+Alt+K: Switch to Panel Mode -->
+    <keybind key="C-A-k">
       <action name="Execute">
-        <command>/usr/local/bin/toggle-admin.sh</command>
+        <command>/usr/local/bin/switch-mode.sh panel</command>
+      </action>
+    </keybind>
+
+    <!-- Ctrl+Alt+M: Switch to Admin Mode -->
+    <keybind key="C-A-m">
+      <action name="Execute">
+        <command>/usr/local/bin/switch-mode.sh admin</command>
       </action>
     </keybind>
 
     <!-- ========== Block Browser Shortcuts ========== -->
 
-    <!-- Block F1-F9, F11-F12 (F10, F11 are toggle) -->
+    <!-- Block all F keys -->
     <keybind key="F1"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="F2"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="F3"><action name="Execute"><command>/bin/true</command></action></keybind>
@@ -29,6 +36,8 @@
     <keybind key="F7"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="F8"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="F9"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F10"><action name="Execute"><command>/bin/true</command></action></keybind>
+    <keybind key="F11"><action name="Execute"><command>/bin/true</command></action></keybind>
     <keybind key="F12"><action name="Execute"><command>/bin/true</command></action></keybind>
 
     <!-- Block Ctrl combinations -->
