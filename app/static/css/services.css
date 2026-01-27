@@ -476,19 +476,19 @@
     outline-offset: 2px;
 }
 
-/* Open button (in card header, prominent) */
+/* Open button (badge style, in card header) */
 .btn-open {
     display: inline-flex;
     align-items: center;
-    gap: 0.35rem;
+    gap: 0.4rem;
     padding: 0.4rem 0.85rem;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 600;
     font-family: inherit;
-    background: var(--color-success);
-    color: white;
-    border: none;
-    border-radius: 6px;
+    background: rgba(34, 165, 95, 0.15);
+    color: var(--color-success);
+    border: 1px solid rgba(34, 165, 95, 0.3);
+    border-radius: 20px;
     cursor: pointer;
     transition: all 0.2s ease;
     white-space: nowrap;
@@ -502,8 +502,8 @@
 
 @media (hover: hover) {
     .btn-open:hover {
-        background: var(--color-primary-hover);
-        box-shadow: 0 4px 12px rgba(34, 165, 95, 0.4);
+        background: rgba(34, 165, 95, 0.3);
+        border-color: rgba(34, 165, 95, 0.5);
     }
 }
 
