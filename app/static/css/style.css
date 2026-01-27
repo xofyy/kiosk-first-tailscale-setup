@@ -1404,6 +1404,7 @@ body {
 
 .system-controls.open .system-controls-collapse {
     grid-template-rows: 1fr;
+    margin-top: var(--spacing-md);
 }
 
 .system-controls-settings {
@@ -1412,7 +1413,6 @@ body {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: var(--spacing-md);
-    padding-top: var(--spacing-md);
 }
 
 /* =============================================================================
@@ -1424,6 +1424,7 @@ body {
     align-items: center;
     gap: var(--spacing-sm);
     padding: var(--spacing-sm) var(--spacing-md);
+    min-height: 40px;
     background: var(--color-bg-tertiary);
     border: 1px solid var(--color-border);
     border-radius: var(--border-radius);

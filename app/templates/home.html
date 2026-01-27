@@ -35,19 +35,6 @@
         <div class="system-controls-collapse">
             <div class="system-controls-settings" id="clock-settings">
                 <div class="system-control-select">
-                    <label class="control-select-label" for="timezone-select">
-                        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <circle cx="12" cy="12" r="10"/>
-                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-                        </svg>
-                        Timezone
-                    </label>
-                    <select id="timezone-select" class="select-input select-input-sm" onchange="changeTimezone(this.value)" disabled>
-                        <option value="">Loading...</option>
-                    </select>
-                </div>
-
-                <div class="system-control-select">
                     <label class="control-select-label" for="keyboard-select">
                         <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <rect x="2" y="4" width="20" height="16" rx="2" ry="2"/>
@@ -63,6 +50,19 @@
                         Keyboard
                     </label>
                     <select id="keyboard-select" class="select-input select-input-sm" onchange="changeKeyboard(this.value)" disabled>
+                        <option value="">Loading...</option>
+                    </select>
+                </div>
+
+                <div class="system-control-select">
+                    <label class="control-select-label" for="timezone-select">
+                        <svg class="icon-sm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                        Timezone
+                    </label>
+                    <select id="timezone-select" class="select-input select-input-sm" onchange="changeTimezone(this.value)" disabled>
                         <option value="">Loading...</option>
                     </select>
                 </div>
