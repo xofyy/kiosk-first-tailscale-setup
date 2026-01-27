@@ -196,8 +196,8 @@ class NvrService:
 
         stream_name = f'camera_{channel_id}'
         rtsp_url = (
-            f'rtsp://{username}:{password}@{RTSP_HOST}:{RTSP_PORT}'
-            f'/ISAPI/Streaming/channels/{channel_id}'
+            f'ffmpeg:rtsp://{username}:{password}@{RTSP_HOST}:{RTSP_PORT}'
+            f'/ISAPI/Streaming/channels/{channel_id}#video=h264'
         )
 
         try:
