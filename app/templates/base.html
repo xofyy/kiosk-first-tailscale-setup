@@ -15,32 +15,25 @@
                 <span class="logo">⬡</span>
                 <h1>ACO Maintenance Panel</h1>
             </div>
-            <!-- Hamburger Menu -->
-            <div class="header-menu">
-                <button class="hamburger-btn" id="hamburger-btn" aria-label="Menu" aria-expanded="false">
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                    <span class="hamburger-line"></span>
-                </button>
-                <nav class="dropdown-menu" id="dropdown-menu">
-                    <a href="{{ url_for('pages.home') }}" class="dropdown-link {% if request.endpoint == 'pages.home' %}active{% endif %}">
-                        Home
-                    </a>
-                    {% if not is_setup_complete %}
-                    <a href="{{ url_for('pages.install') }}" class="dropdown-link {% if request.endpoint == 'pages.install' %}active{% endif %}">
-                        Install
-                    </a>
-                    {% endif %}
-                    {% if not is_setup_complete %}
-                    <a href="{{ url_for('pages.logs') }}" class="dropdown-link {% if request.endpoint == 'pages.logs' %}active{% endif %}">
-                        Logs
-                    </a>
-                    {% endif %}
-                    <a href="{{ url_for('pages.services') }}" class="dropdown-link {% if request.endpoint == 'pages.services' %}active{% endif %}">
-                        Services
-                    </a>
-                </nav>
-            </div>
+            <!-- Navigation -->
+            <nav class="header-nav">
+                <a href="{{ url_for('pages.home') }}" class="nav-link {% if request.endpoint == 'pages.home' %}active{% endif %}">
+                    Home
+                </a>
+                {% if not is_setup_complete %}
+                <a href="{{ url_for('pages.install') }}" class="nav-link {% if request.endpoint == 'pages.install' %}active{% endif %}">
+                    Install
+                </a>
+                {% endif %}
+                {% if not is_setup_complete %}
+                <a href="{{ url_for('pages.logs') }}" class="nav-link {% if request.endpoint == 'pages.logs' %}active{% endif %}">
+                    Logs
+                </a>
+                {% endif %}
+                <a href="{{ url_for('pages.services') }}" class="nav-link {% if request.endpoint == 'pages.services' %}active{% endif %}">
+                    Services
+                </a>
+            </nav>
         </header>
 
         <!-- Main Content -->
