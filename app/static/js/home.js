@@ -323,6 +323,13 @@ async function systemReboot() {
 // System Clock & Settings
 // =============================================================================
 
+function toggleClockSettings() {
+    const controls = document.querySelector('.system-controls');
+    if (controls) {
+        controls.classList.toggle('open');
+    }
+}
+
 let clockIntervalId = null;
 let currentTimezone = null;
 let currentKeyboardLayout = null;
@@ -398,7 +405,7 @@ async function loadTimezoneData() {
         currentTimezone = data.timezone || 'UTC';
 
         if (tzDisplay) {
-            tzDisplay.textContent = `(${currentTimezone})`;
+            tzDisplay.textContent = currentTimezone;
         }
 
         // Populate select with optgroups by region
@@ -460,7 +467,7 @@ async function changeTimezone(timezone) {
         if (data.success) {
             currentTimezone = timezone;
             if (tzDisplay) {
-                tzDisplay.textContent = `(${timezone})`;
+                tzDisplay.textContent = timezone;
             }
             showToast(`Timezone: ${timezone}`, 'success');
         } else {
