@@ -284,17 +284,13 @@ class DockerManager:
 
     def stream_logs(self, session_id: str, service_name: str, tail: str = '300', since: str = '') -> Generator[str, None, None]:
         """
-        Stream container logs via subprocess.
+        Stream container logs via subprocess with NON-BLOCKING I/O.
 
-        Args:
-            session_id: Unique client session identifier
-            service_name: Docker compose service name
-            tail: Number of historical lines (default: 300)
-            since: Time filter (e.g., '1h', '6h', '24h', '168h')
-
-        Yields:
-            Log lines as strings
+        Uses select() to prevent worker threads from getting stuck.
+        Critical for Gunicorn with limited workers.
         """
+        import select
+
         process = log_process_manager.get_or_create_stream(session_id, service_name, tail=tail, since=since)
 
         if process is None:
@@ -302,21 +298,40 @@ class DockerManager:
             return
 
         try:
-            # Read from subprocess stdout
-            for line in iter(process.stdout.readline, ''):
+            stdout_fd = process.stdout
+
+            while True:
+                # Check if process died
                 if process.poll() is not None:
-                    # Process ended
+                    # Drain remaining output
+                    while True:
+                        ready, _, _ = select.select([stdout_fd], [], [], 0.1)
+                        if not ready:
+                            break
+                        line = stdout_fd.readline()
+                        if not line:
+                            break
+                        line = line.rstrip('\n\r')
+                        if line:
+                            yield line
                     break
-                line = line.rstrip('\n\r')
-                if line:
-                    yield line
+
+                # NON-BLOCKING: Wait max 1 second for data
+                ready, _, _ = select.select([stdout_fd], [], [], 1.0)
+
+                if ready:
+                    line = stdout_fd.readline()
+                    if not line:  # EOF
+                        break
+                    line = line.rstrip('\n\r')
+                    if line:
+                        yield line
+                # Timeout: loop again, check process status
 
         except GeneratorExit:
-            # Client disconnected
             logger.debug(f"Client disconnected: {session_id}")
         except Exception as e:
             logger.error(f"Log streaming error: {e}")
             yield f"Error: {e}"
         finally:
-            # Always cleanup
             log_process_manager.stop_stream(session_id)
