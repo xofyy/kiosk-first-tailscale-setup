@@ -8,7 +8,7 @@ import logging
 import threading
 import queue
 import docker
-from typing import Dict, Optional, Any, Generator
+from typing import Dict, Optional, Any, Generator, List
 from datetime import datetime, timedelta
 from dataclasses import dataclass, field
 
@@ -16,11 +16,11 @@ logger = logging.getLogger(__name__)
 
 # Constants
 STALE_TIMEOUT = 300          # 5 minutes - cleanup threshold
-HEARTBEAT_INTERVAL = 15      # Heartbeat frequency (seconds)
+HEARTBEAT_INTERVAL = 10      # Heartbeat frequency (seconds) - reduced for faster response
 READ_TIMEOUT = 60            # No data timeout (seconds)
 MAX_CONCURRENT_STREAMS = 10  # Maximum concurrent streams
-QUEUE_MAX_SIZE = 1000        # Log buffer queue size
-THREAD_JOIN_TIMEOUT = 2      # Thread join timeout (seconds)
+QUEUE_MAX_SIZE = 500         # Log buffer queue size - reduced
+THREAD_JOIN_TIMEOUT = 0.5    # Thread join timeout (seconds) - very short, don't block
 
 
 @dataclass
@@ -42,6 +42,8 @@ class LogStreamManager:
     """
     Singleton pattern for single instance.
     Thread-safe log stream management via Docker API with non-blocking I/O.
+
+    CRITICAL: Lock is only held for dict operations, never during cleanup!
     """
 
     _instance = None
@@ -64,24 +66,21 @@ class LogStreamManager:
         """
         Create a new non-blocking stream for session.
         Uses threading to prevent blocking on Docker API reads.
-
-        Args:
-            session_id: Unique client session identifier
-            service_name: Docker compose service name
-            tail: Number of historical lines (default: 300)
-            since: Time filter (e.g., '1h', '6h', '24h', '168h')
-
-        Returns:
-            Generator yielding log bytes or heartbeat markers
         """
+        # Step 1: Remove existing stream from dict (with lock)
+        # Step 2: Cleanup old stream (WITHOUT lock - this can block!)
+        # Step 3: Create new stream (with lock for dict update)
+
+        existing = None
+        streams_to_cleanup: List[StreamInfo] = []
+
+        # PHASE 1: Quick lock - just remove from dict
         with self._streams_lock:
-            # Always cleanup existing stream first (no reuse)
             existing = self._streams.pop(session_id, None)
             if existing:
-                self._stop_stream_internal(existing)
-                logger.debug(f"Cleaned up existing stream for session: {session_id}")
+                streams_to_cleanup.append(existing)
 
-            # Enforce concurrent stream limit
+            # Check concurrent limit
             if len(self._streams) >= MAX_CONCURRENT_STREAMS:
                 oldest_session = min(
                     self._streams.keys(),
@@ -89,77 +88,101 @@ class LogStreamManager:
                 )
                 oldest = self._streams.pop(oldest_session, None)
                 if oldest:
-                    self._stop_stream_internal(oldest)
-                    logger.info(f"Evicted oldest stream due to limit: {oldest_session}")
+                    streams_to_cleanup.append(oldest)
+                    logger.info(f"Evicted oldest stream: {oldest_session}")
 
-            # Find container by service label
-            log_stream = None
-            try:
-                containers = self._docker_client.containers.list(
-                    filters={'label': f'com.docker.compose.service={service_name}'}
-                )
+        # PHASE 2: Cleanup WITHOUT lock (this can take time)
+        for stream_info in streams_to_cleanup:
+            self._cleanup_stream_async(stream_info)
 
-                if not containers:
-                    logger.warning(f"No container found for service: {service_name}")
-                    return None
+        # PHASE 3: Create new stream
+        log_stream = None
+        try:
+            containers = self._docker_client.containers.list(
+                filters={'label': f'com.docker.compose.service={service_name}'}
+            )
 
-                container = containers[0]
+            if not containers:
+                logger.warning(f"No container found for service: {service_name}")
+                return None
 
-                # Parse since parameter (convert '1h' -> datetime)
-                since_timestamp = None
-                if since:
-                    since_timestamp = self._parse_since(since)
+            container = containers[0]
 
-                # Create log stream (Generator from Docker API)
-                log_stream = container.logs(
-                    stream=True,
-                    follow=True,
-                    tail=int(tail),
-                    since=since_timestamp,
-                    timestamps=True
-                )
+            # Parse since parameter
+            since_timestamp = self._parse_since(since) if since else None
 
-                # Create stream info with threading components
-                stop_event = threading.Event()
-                log_queue: queue.Queue[Optional[bytes]] = queue.Queue(maxsize=QUEUE_MAX_SIZE)
+            # Create log stream (Generator from Docker API)
+            log_stream = container.logs(
+                stream=True,
+                follow=True,
+                tail=int(tail),
+                since=since_timestamp,
+                timestamps=True
+            )
 
-                stream_info = StreamInfo(
-                    generator=log_stream,
-                    container=container,
-                    container_id=container.id,
-                    service=service_name,
-                    created_at=time.time(),
-                    tail=tail,
-                    since=since,
-                    stop_event=stop_event,
-                    reader_thread=None,
-                    log_queue=log_queue
-                )
+            # Create stream info
+            stop_event = threading.Event()
+            log_queue: queue.Queue[Optional[bytes]] = queue.Queue(maxsize=QUEUE_MAX_SIZE)
 
-                # Start reader thread
-                reader_thread = threading.Thread(
-                    target=self._reader_thread_func,
-                    args=(log_stream, log_queue, stop_event, session_id),
-                    daemon=True,
-                    name=f"LogReader-{session_id[:8]}"
-                )
-                stream_info.reader_thread = reader_thread
-                reader_thread.start()
+            stream_info = StreamInfo(
+                generator=log_stream,
+                container=container,
+                container_id=container.id,
+                service=service_name,
+                created_at=time.time(),
+                tail=tail,
+                since=since,
+                stop_event=stop_event,
+                reader_thread=None,
+                log_queue=log_queue
+            )
 
-                # Track stream
+            # Start reader thread
+            reader_thread = threading.Thread(
+                target=self._reader_thread_func,
+                args=(log_stream, log_queue, stop_event, session_id),
+                daemon=True,
+                name=f"LogReader-{session_id[:8]}"
+            )
+            stream_info.reader_thread = reader_thread
+            reader_thread.start()
+
+            # PHASE 4: Quick lock - just add to dict
+            with self._streams_lock:
                 self._streams[session_id] = stream_info
 
-                logger.debug(f"Started log stream: {session_id} -> {service_name} (tail={tail}, since={since or 'all'})")
+            logger.debug(f"Started log stream: {session_id} -> {service_name}")
 
-                # Return non-blocking generator
-                return self._create_non_blocking_generator(stream_info, session_id)
+            # Return non-blocking generator
+            return self._create_non_blocking_generator(stream_info, session_id)
 
-            except Exception as e:
-                # If generator was created but not tracked, close it
-                if log_stream is not None:
-                    self._close_generator(log_stream)
-                logger.error(f"Failed to start log stream: {e}")
-                return None
+        except Exception as e:
+            if log_stream is not None:
+                self._close_generator(log_stream)
+            logger.error(f"Failed to start log stream: {e}")
+            return None
+
+    def _cleanup_stream_async(self, stream_info: StreamInfo) -> None:
+        """
+        Cleanup a stream asynchronously - doesn't block.
+        First closes generator to unblock the reader thread.
+        """
+        # 1. Close generator FIRST - this unblocks the reader thread
+        self._close_generator(stream_info.generator)
+
+        # 2. Signal thread to stop
+        stream_info.stop_event.set()
+
+        # 3. Quick join - don't wait long (thread is daemon, will die with process)
+        if stream_info.reader_thread and stream_info.reader_thread.is_alive():
+            stream_info.reader_thread.join(timeout=THREAD_JOIN_TIMEOUT)
+
+        # 4. Drain queue
+        try:
+            while True:
+                stream_info.log_queue.get_nowait()
+        except queue.Empty:
+            pass
 
     def _reader_thread_func(
         self,
@@ -169,128 +192,99 @@ class LogStreamManager:
         session_id: str
     ) -> None:
         """
-        Reader thread function that reads from Docker API and writes to queue.
-        Runs in separate thread to prevent blocking the main generator.
+        Reader thread - reads from Docker API and writes to queue.
+        Will exit when generator is closed or stop_event is set.
         """
         try:
             for log_bytes in docker_generator:
                 if stop_event.is_set():
                     break
                 try:
-                    # Non-blocking put with timeout to check stop_event periodically
-                    log_queue.put(log_bytes, timeout=1)
+                    log_queue.put(log_bytes, timeout=0.5)
                 except queue.Full:
-                    # Queue full, skip this log line (client too slow)
-                    logger.warning(f"Log queue full for {session_id}, dropping log line")
+                    # Skip if queue full
                     continue
+        except GeneratorExit:
+            pass
         except Exception as e:
             if not stop_event.is_set():
-                logger.debug(f"Reader thread exception for {session_id}: {e}")
+                logger.debug(f"Reader thread error {session_id}: {e}")
         finally:
-            # Signal end of stream
             try:
-                log_queue.put(None, timeout=1)
-            except queue.Full:
+                log_queue.put(None, timeout=0.1)
+            except:
                 pass
-            logger.debug(f"Reader thread finished: {session_id}")
 
     def _create_non_blocking_generator(
         self, stream_info: StreamInfo, session_id: str
     ) -> Generator[bytes, None, None]:
         """
-        Create a non-blocking generator that reads from queue with heartbeat support.
+        Non-blocking generator with heartbeat support.
         """
         last_data_time = time.time()
 
         while not stream_info.stop_event.is_set():
             try:
-                # Wait for data with heartbeat interval timeout
                 item = stream_info.log_queue.get(timeout=HEARTBEAT_INTERVAL)
 
                 if item is None:
-                    # End of stream signal
                     break
 
                 last_data_time = time.time()
                 yield item
 
             except queue.Empty:
-                # No data within heartbeat interval
-                current_time = time.time()
-
-                # Check for read timeout (no data for too long)
-                if current_time - last_data_time > READ_TIMEOUT:
-                    logger.debug(f"Read timeout for session {session_id}, closing stream")
+                # Timeout - check if we should stop
+                if time.time() - last_data_time > READ_TIMEOUT:
+                    logger.debug(f"Read timeout: {session_id}")
                     break
-
                 # Send heartbeat
                 yield b":heartbeat"
 
     def stop_stream(self, session_id: str) -> bool:
         """Stop and cleanup stream for session."""
+        # Quick lock - just remove from dict
+        stream_info = None
         with self._streams_lock:
             stream_info = self._streams.pop(session_id, None)
-            if stream_info:
-                self._stop_stream_internal(stream_info)
-                logger.debug(f"Stopped log stream: {session_id}")
-                return True
-            return False
 
-    def _stop_stream_internal(self, stream_info: StreamInfo) -> None:
-        """
-        Internal method to stop a stream (without lock).
-        Signals thread to stop, waits for completion, closes resources.
-        """
-        # Signal thread to stop
-        stream_info.stop_event.set()
-
-        # Wait for thread to finish
-        if stream_info.reader_thread and stream_info.reader_thread.is_alive():
-            stream_info.reader_thread.join(timeout=THREAD_JOIN_TIMEOUT)
-            if stream_info.reader_thread.is_alive():
-                logger.warning(f"Reader thread did not stop in time for {stream_info.service}")
-
-        # Close Docker API generator
-        self._close_generator(stream_info.generator)
-
-        # Drain and clear queue
-        try:
-            while True:
-                stream_info.log_queue.get_nowait()
-        except queue.Empty:
-            pass
+        # Cleanup WITHOUT lock
+        if stream_info:
+            self._cleanup_stream_async(stream_info)
+            logger.debug(f"Stopped log stream: {session_id}")
+            return True
+        return False
 
     def cleanup_stale_streams(self) -> int:
-        """
-        Cleanup old (5min+) streams and detect dead containers.
-        Should be called periodically.
-        """
+        """Cleanup old streams - called periodically."""
         now = time.time()
-        stale_sessions = []
+        stale_streams: List[tuple] = []
 
+        # Quick lock - just identify stale streams
         with self._streams_lock:
-            for session_id, stream_info in self._streams.items():
-                # Check age
+            for session_id, stream_info in list(self._streams.items()):
+                is_stale = False
+
                 if now - stream_info.created_at > STALE_TIMEOUT:
-                    stale_sessions.append(session_id)
-                    continue
+                    is_stale = True
+                else:
+                    try:
+                        stream_info.container.reload()
+                    except:
+                        is_stale = True
 
-                # Check if container still exists
-                try:
-                    stream_info.container.reload()
-                except Exception:
-                    # Container gone or not accessible
-                    stale_sessions.append(session_id)
+                if is_stale:
+                    self._streams.pop(session_id, None)
+                    stale_streams.append((session_id, stream_info))
 
-            for session_id in stale_sessions:
-                stream_info = self._streams.pop(session_id, None)
-                if stream_info:
-                    self._stop_stream_internal(stream_info)
+        # Cleanup WITHOUT lock
+        for session_id, stream_info in stale_streams:
+            self._cleanup_stream_async(stream_info)
 
-        if stale_sessions:
-            logger.info(f"Cleaned up {len(stale_sessions)} stale log streams")
+        if stale_streams:
+            logger.info(f"Cleaned up {len(stale_streams)} stale streams")
 
-        return len(stale_sessions)
+        return len(stale_streams)
 
     def get_active_count(self) -> int:
         """Get number of active streams."""
@@ -298,54 +292,41 @@ class LogStreamManager:
             return len(self._streams)
 
     def get_stream_info(self) -> Dict[str, Dict[str, Any]]:
-        """Get information about all active streams (for debugging)."""
+        """Get debug info about active streams."""
         with self._streams_lock:
             return {
-                session_id: {
+                sid: {
                     "service": info.service,
-                    "created_at": info.created_at,
-                    "age_seconds": time.time() - info.created_at,
+                    "age_seconds": int(time.time() - info.created_at),
                     "queue_size": info.log_queue.qsize(),
                     "thread_alive": info.reader_thread.is_alive() if info.reader_thread else False
                 }
-                for session_id, info in self._streams.items()
+                for sid, info in self._streams.items()
             }
 
     def shutdown(self):
-        """Close all streams (graceful shutdown)."""
+        """Close all streams."""
+        streams_to_cleanup = []
         with self._streams_lock:
-            for session_id, stream_info in list(self._streams.items()):
-                self._stop_stream_internal(stream_info)
+            streams_to_cleanup = list(self._streams.values())
             self._streams.clear()
+
+        for stream_info in streams_to_cleanup:
+            self._cleanup_stream_async(stream_info)
+
         logger.info("All log streams shut down")
 
     def _close_generator(self, generator) -> None:
-        """
-        Safely close Docker API generator and release connection.
-
-        Docker API generators maintain an open socket connection.
-        Must be explicitly closed to prevent resource leaks.
-        """
+        """Safely close Docker API generator."""
         if generator is None:
             return
-
         try:
             generator.close()
-            logger.debug("Docker API generator closed, socket released")
-        except Exception as e:
-            # Generator may already be closed or invalid
-            logger.warning(f"Error closing generator: {e}")
+        except:
+            pass
 
     def _parse_since(self, since: str) -> Optional[datetime]:
-        """
-        Convert since parameter to datetime object.
-
-        Args:
-            since: Time string ('1h', '6h', '24h', '168h')
-
-        Returns:
-            datetime object or None
-        """
+        """Convert since parameter to datetime."""
         mappings = {
             '1h': timedelta(hours=1),
             '6h': timedelta(hours=6),
@@ -353,9 +334,7 @@ class LogStreamManager:
             '168h': timedelta(hours=168)
         }
         delta = mappings.get(since)
-        if delta:
-            return datetime.utcnow() - delta
-        return None
+        return datetime.utcnow() - delta if delta else None
 
 
 # Singleton instance
