@@ -901,14 +901,6 @@ async function loadNetworkHistory() {
             totalTx += (point.tx || 0);
         }
 
-        // Calculate peak values
-        let peakRx = 0;
-        let peakTx = 0;
-        for (const bucket of buckets) {
-            if (bucket.rx > peakRx) peakRx = bucket.rx;
-            if (bucket.tx > peakTx) peakTx = bucket.tx;
-        }
-
         // Find max for scaling
         const maxVal = Math.max(...buckets.map(b => Math.max(b.rx, b.tx)), 1);
         const chartHeight = 220;
@@ -922,39 +914,12 @@ async function loadNetworkHistory() {
             html += '<div class="history-bar tx" style="height:' + txHeight + 'px" title="Upload: ' + formatBytes(bucket.tx) + '"></div>';
         }
 
-        // Summary stats (4 stats: total + peak)
-        const summaryHtml =
-            '<div class="history-summary">' +
-                '<div class="history-stat">' +
-                    '<span class="history-stat-label">Total Download</span>' +
-                    '<span class="history-stat-value">' + formatBytes(totalRx) + '</span>' +
-                '</div>' +
-                '<div class="history-stat">' +
-                    '<span class="history-stat-label">Peak Download</span>' +
-                    '<span class="history-stat-value">' + formatBytes(peakRx) + '</span>' +
-                '</div>' +
-                '<div class="history-stat">' +
-                    '<span class="history-stat-label">Total Upload</span>' +
-                    '<span class="history-stat-value">' + formatBytes(totalTx) + '</span>' +
-                '</div>' +
-                '<div class="history-stat">' +
-                    '<span class="history-stat-label">Peak Upload</span>' +
-                    '<span class="history-stat-value">' + formatBytes(peakTx) + '</span>' +
-                '</div>' +
-            '</div>';
-
-        // Legend
+        // Legend (inline format for header)
         const legendHtml =
-            '<div class="history-legend">' +
-                '<div class="legend-item">' +
-                    '<span class="legend-dot legend-rx"></span>' +
-                    '<span class="legend-label">Download</span>' +
-                '</div>' +
-                '<div class="legend-item">' +
-                    '<span class="legend-dot legend-tx"></span>' +
-                    '<span class="legend-label">Upload</span>' +
-                '</div>' +
-            '</div>';
+            '<span class="legend-dot legend-rx"></span>' +
+            '<span class="legend-label">Download</span>' +
+            '<span class="legend-dot legend-tx"></span>' +
+            '<span class="legend-label">Upload</span>';
 
         // Y-axis scale labels
         const scaleSteps = 4;
@@ -982,13 +947,19 @@ async function loadNetworkHistory() {
             '<div class="history-bars-container">' + gridHtml + barsHtml + '</div>' +
             '</div>';
 
-        // Combine all
-        monitorCache.historyChart.innerHTML = summaryHtml + legendHtml + chartHtml;
+        // Render chart only (no summary stats)
+        monitorCache.historyChart.innerHTML = chartHtml;
 
+        // Update status with legend and totals
         if (monitorCache.historyStatus) {
-            monitorCache.historyStatus.textContent =
-                points.length + ' data points · ' +
-                formatBytes(totalRx + totalTx) + ' total';
+            monitorCache.historyStatus.innerHTML =
+                '<span class="history-legend-inline">' + legendHtml + '</span>' +
+                '<span class="history-stats-inline">' +
+                    points.length + ' points · ' +
+                    formatBytes(totalRx) + ' ↓ · ' +
+                    formatBytes(totalTx) + ' ↑ · ' +
+                    formatBytes(totalRx + totalTx) + ' total' +
+                '</span>';
         }
 
     } catch (error) {

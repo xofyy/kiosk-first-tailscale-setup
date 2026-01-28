@@ -2112,7 +2112,9 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: var(--spacing-md);
     margin-bottom: var(--spacing-md);
+    flex-wrap: wrap;
 }
 
 .monitor-history-title {
@@ -2121,11 +2123,52 @@ body {
     color: var(--color-text);
     text-transform: uppercase;
     letter-spacing: 0.5px;
+    white-space: nowrap;
 }
 
 .monitor-history-status {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);
+}
+
+/* Inline legend in header */
+.history-legend-inline {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    font-size: var(--font-size-xs);
+    color: var(--color-text-secondary);
+}
+
+.history-legend-inline .legend-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 2px;
+    display: inline-block;
+    margin-right: 4px;
+}
+
+.history-legend-inline .legend-dot.legend-rx {
+    background: var(--color-primary);
+}
+
+.history-legend-inline .legend-dot.legend-tx {
+    background: var(--color-info);
+}
+
+.history-legend-inline .legend-label {
+    margin-right: var(--spacing-sm);
+}
+
+/* Inline stats in header */
+.history-stats-inline {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-family: var(--font-family-mono);
+    white-space: nowrap;
 }
 
 .monitor-history-chart {
@@ -2162,70 +2205,6 @@ body {
 
 .history-bar.tx {
     background: var(--color-info);
-}
-
-/* Network History - Summary Stats */
-.history-summary {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
-    padding: var(--spacing-sm) var(--spacing-md);
-    background: var(--color-bg-tertiary);
-    border-radius: var(--border-radius);
-}
-
-.history-stat {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-}
-
-.history-stat-label {
-    font-size: var(--font-size-xs);
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.history-stat-value {
-    font-size: var(--font-size-base);
-    font-weight: 600;
-    color: var(--color-text);
-    font-variant-numeric: tabular-nums;
-}
-
-/* Network History - Legend */
-.history-legend {
-    display: flex;
-    gap: var(--spacing-md);
-    justify-content: center;
-    margin-bottom: var(--spacing-sm);
-    font-size: var(--font-size-xs);
-}
-
-.legend-item {
-    display: flex;
-    align-items: center;
-    gap: var(--spacing-xs);
-}
-
-.legend-dot {
-    width: 10px;
-    height: 10px;
-    border-radius: 2px;
-}
-
-.legend-dot.legend-rx {
-    background: var(--color-primary);
-}
-
-.legend-dot.legend-tx {
-    background: var(--color-info);
-}
-
-.legend-label {
-    color: var(--color-text-secondary);
 }
 
 /* Chart wrapper with scale */
@@ -2296,22 +2275,26 @@ body {
     .monitor-grid {
         grid-template-columns: repeat(2, 1fr);
     }
-
-    /* 2x2 grid for stats on tablet */
-    .history-summary {
-        grid-template-columns: repeat(2, 1fr);
-    }
 }
 
-@media (max-width: 500px) {
+@media (max-width: 600px) {
     .monitor-grid {
         grid-template-columns: 1fr;
     }
 
-    /* Stack summary stats vertically on mobile */
-    .history-summary {
-        grid-template-columns: 1fr;
-        gap: var(--spacing-sm);
+    /* Header wraps on mobile */
+    .monitor-history-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-xs);
+    }
+
+    /* Stack legend and stats vertically */
+    .monitor-history-status {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: var(--spacing-xs);
+        width: 100%;
     }
 
     /* Smaller scale labels on mobile */
