@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 COMPOSE_PATH = "/srv/docker"
 STALE_TIMEOUT = 300  # 5 minutes
 MAX_CONCURRENT_STREAMS = 10
-QUEUE_TIMEOUT = 1.0  # Queue read timeout (seconds)
+QUEUE_TIMEOUT = 0.2  # Queue read timeout (seconds) - shorter for faster response
 
 
 class LogProcessManager:
@@ -203,23 +203,32 @@ class LogProcessManager:
         if stop_event:
             stop_event.set()
 
-        # Kill process
+        # Kill process and close stdout (unblocks readline)
         process = stream.get("process")
         if process:
             self._kill_process(process)
 
-        # Don't wait for thread - it's daemon and will die with process
-
     def _kill_process(self, process: subprocess.Popen) -> None:
-        """Kill process immediately."""
+        """Kill process and close stdout to unblock readline."""
         if process is None:
             return
         try:
+            # First close stdout - this unblocks readline() in reader thread
+            try:
+                if process.stdout:
+                    process.stdout.close()
+            except Exception:
+                pass
+
+            # Then kill the process
             if process.poll() is None:
                 try:
                     os.killpg(os.getpgid(process.pid), signal.SIGKILL)
                 except (ProcessLookupError, PermissionError, OSError):
-                    process.kill()
+                    try:
+                        process.kill()
+                    except Exception:
+                        pass
         except Exception as e:
             logger.debug(f"Kill error (ignored): {e}")
 
