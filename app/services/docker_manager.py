@@ -284,50 +284,20 @@ class DockerManager:
 
     def stream_logs(self, session_id: str, service_name: str, tail: str = '300', since: str = '') -> Generator[str, None, None]:
         """
-        Stream container logs via subprocess with NON-BLOCKING I/O.
-
-        Uses select() to prevent worker threads from getting stuck.
-        Critical for Gunicorn with limited workers.
+        Stream container logs.
+        Uses thread-based non-blocking reader from LogProcessManager.
         """
-        import select
+        log_generator = log_process_manager.get_or_create_stream(
+            session_id, service_name, tail=tail, since=since
+        )
 
-        process = log_process_manager.get_or_create_stream(session_id, service_name, tail=tail, since=since)
-
-        if process is None:
+        if log_generator is None:
             yield "Error: Could not start log stream"
             return
 
         try:
-            stdout_fd = process.stdout
-
-            while True:
-                # Check if process died
-                if process.poll() is not None:
-                    # Drain remaining output
-                    while True:
-                        ready, _, _ = select.select([stdout_fd], [], [], 0.1)
-                        if not ready:
-                            break
-                        line = stdout_fd.readline()
-                        if not line:
-                            break
-                        line = line.rstrip('\n\r')
-                        if line:
-                            yield line
-                    break
-
-                # NON-BLOCKING: Wait max 1 second for data
-                ready, _, _ = select.select([stdout_fd], [], [], 1.0)
-
-                if ready:
-                    line = stdout_fd.readline()
-                    if not line:  # EOF
-                        break
-                    line = line.rstrip('\n\r')
-                    if line:
-                        yield line
-                # Timeout: loop again, check process status
-
+            for line in log_generator:
+                yield line
         except GeneratorExit:
             logger.debug(f"Client disconnected: {session_id}")
         except Exception as e:
