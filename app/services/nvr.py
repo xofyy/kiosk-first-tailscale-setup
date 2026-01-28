@@ -89,9 +89,9 @@ class NvrService:
                 return {'success': False, 'error': f'HTTP {response.status_code}'}
 
         except requests.exceptions.Timeout:
-            return {'success': False, 'error': 'Connection timeout'}
+            return {'success': False, 'error': 'NVR not responding (check network)'}
         except requests.exceptions.ConnectionError:
-            return {'success': False, 'error': 'Cannot connect to NVR (check nginx proxy)'}
+            return {'success': False, 'error': 'Cannot connect to NVR (check network)'}
         except Exception as e:
             logger.error(f"NVR connection test error: {e}")
             return {'success': False, 'error': str(e)}
@@ -123,9 +123,9 @@ class NvrService:
             return {'success': True, 'channels': channels}
 
         except requests.exceptions.Timeout:
-            return {'success': False, 'error': 'ISAPI timeout', 'channels': []}
+            return {'success': False, 'error': 'NVR not reachable (check network connection)', 'channels': []}
         except requests.exceptions.ConnectionError:
-            return {'success': False, 'error': 'Cannot connect to NVR', 'channels': []}
+            return {'success': False, 'error': 'Cannot connect to NVR (check network)', 'channels': []}
         except Exception as e:
             logger.error(f"Channel discovery error: {e}")
             return {'success': False, 'error': str(e), 'channels': []}
