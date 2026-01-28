@@ -742,6 +742,13 @@ function formatSpeed(bytesPerSec) {
     return (bytesPerSec / (1024 * 1024)).toFixed(2) + ' MB/s';
 }
 
+function formatBytes(bytes) {
+    if (bytes < 1024) return bytes.toFixed(0) + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    if (bytes < 1024 * 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    return (bytes / (1024 * 1024 * 1024)).toFixed(2) + ' GB';
+}
+
 function updateProgressBar(barEl, valueEl, percent) {
     const level = getLevel(percent);
     if (barEl) {
@@ -874,7 +881,7 @@ async function loadNetworkHistory() {
 
         const buckets = [];
         for (let i = 0; i < bucketCount; i++) {
-            buckets.push({ rx: 0, tx: 0, count: 0 });
+            buckets.push({ rx: 0, tx: 0 });
         }
 
         for (const point of points) {
@@ -884,15 +891,14 @@ async function loadNetworkHistory() {
             );
             buckets[idx].rx += (point.rx || 0);
             buckets[idx].tx += (point.tx || 0);
-            buckets[idx].count++;
         }
 
-        // Average each bucket
-        for (const bucket of buckets) {
-            if (bucket.count > 0) {
-                bucket.rx /= bucket.count;
-                bucket.tx /= bucket.count;
-            }
+        // Calculate 24h totals
+        let totalRx = 0;
+        let totalTx = 0;
+        for (const point of points) {
+            totalRx += (point.rx || 0);
+            totalTx += (point.tx || 0);
         }
 
         // Find max for scaling
@@ -904,13 +910,46 @@ async function loadNetworkHistory() {
         for (const bucket of buckets) {
             const rxHeight = Math.max(Math.round((bucket.rx / maxVal) * chartHeight), 1);
             const txHeight = Math.max(Math.round((bucket.tx / maxVal) * chartHeight), 1);
-            html += '<div class="history-bar" style="height:' + rxHeight + 'px" title="RX: ' + formatSpeed(bucket.rx) + '"></div>';
-            html += '<div class="history-bar tx" style="height:' + txHeight + 'px" title="TX: ' + formatSpeed(bucket.tx) + '"></div>';
+            html += '<div class="history-bar" style="height:' + rxHeight + 'px" title="Download: ' + formatBytes(bucket.rx) + '"></div>';
+            html += '<div class="history-bar tx" style="height:' + txHeight + 'px" title="Upload: ' + formatBytes(bucket.tx) + '"></div>';
         }
 
-        monitorCache.historyChart.innerHTML = html;
+        // Summary stats
+        const summaryHtml =
+            '<div class="history-summary">' +
+                '<div class="history-stat">' +
+                    '<span class="history-stat-label">Total Download:</span>' +
+                    '<span class="history-stat-value">' + formatBytes(totalRx) + '</span>' +
+                '</div>' +
+                '<div class="history-stat">' +
+                    '<span class="history-stat-label">Total Upload:</span>' +
+                    '<span class="history-stat-value">' + formatBytes(totalTx) + '</span>' +
+                '</div>' +
+            '</div>';
+
+        // Legend
+        const legendHtml =
+            '<div class="history-legend">' +
+                '<div class="legend-item">' +
+                    '<span class="legend-dot legend-rx"></span>' +
+                    '<span class="legend-label">Download</span>' +
+                '</div>' +
+                '<div class="legend-item">' +
+                    '<span class="legend-dot legend-tx"></span>' +
+                    '<span class="legend-label">Upload</span>' +
+                '</div>' +
+            '</div>';
+
+        // Chart
+        const chartHtml = '<div class="history-bars-container">' + html + '</div>';
+
+        // Combine all
+        monitorCache.historyChart.innerHTML = summaryHtml + legendHtml + chartHtml;
+
         if (monitorCache.historyStatus) {
-            monitorCache.historyStatus.textContent = points.length + ' data points';
+            monitorCache.historyStatus.textContent =
+                points.length + ' data points · ' +
+                formatBytes(totalRx + totalTx) + ' total';
         }
 
     } catch (error) {

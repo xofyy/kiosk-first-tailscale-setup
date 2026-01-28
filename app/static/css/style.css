@@ -2158,6 +2158,78 @@ body {
     background: var(--color-info);
 }
 
+/* Network History - Summary Stats */
+.history-summary {
+    display: flex;
+    gap: var(--spacing-lg);
+    margin-bottom: var(--spacing-md);
+    padding: var(--spacing-sm) var(--spacing-md);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--border-radius);
+}
+
+.history-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.history-stat-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.history-stat-value {
+    font-size: var(--font-size-base);
+    font-weight: 600;
+    color: var(--color-text);
+    font-variant-numeric: tabular-nums;
+}
+
+/* Network History - Legend */
+.history-legend {
+    display: flex;
+    gap: var(--spacing-md);
+    justify-content: center;
+    margin-bottom: var(--spacing-sm);
+    font-size: var(--font-size-xs);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+}
+
+.legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 2px;
+}
+
+.legend-dot.legend-rx {
+    background: var(--color-primary);
+}
+
+.legend-dot.legend-tx {
+    background: var(--color-info);
+}
+
+.legend-label {
+    color: var(--color-text-secondary);
+}
+
+/* History bars container */
+.history-bars-container {
+    height: 120px;
+    display: flex;
+    align-items: flex-end;
+    gap: 1px;
+    overflow: hidden;
+}
+
 /* Monitor Responsive */
 @media (max-width: 768px) {
     .monitor-grid {
@@ -2168,6 +2240,12 @@ body {
 @media (max-width: 500px) {
     .monitor-grid {
         grid-template-columns: 1fr;
+    }
+
+    /* Stack summary stats on small screens */
+    .history-summary {
+        flex-direction: column;
+        gap: var(--spacing-sm);
     }
 }
 
