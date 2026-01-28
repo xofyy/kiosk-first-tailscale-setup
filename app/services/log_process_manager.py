@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 COMPOSE_PATH = "/srv/docker"
 STALE_TIMEOUT = 300  # 5 minutes
 MAX_CONCURRENT_STREAMS = 10
-QUEUE_TIMEOUT = 0.2  # Queue read timeout (seconds) - shorter for faster response
+QUEUE_TIMEOUT = 1.0  # Queue read timeout (seconds) - gevent handles concurrency
 
 
 class LogProcessManager:

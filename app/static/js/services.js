@@ -320,6 +320,13 @@ function startLogStream(serviceName) {
     };
 
     logEventSource.onerror = (error) => {
+        // Browser auto-reconnects when CONNECTING - don't count these
+        if (logEventSource?.readyState === EventSource.CONNECTING) {
+            if (logStatus) logStatus.textContent = 'Reconnecting...';
+            return;
+        }
+
+        // Real error (CLOSED state) - count attempt
         reconnectAttempts++;
 
         if (reconnectAttempts >= LOG_CONFIG.MAX_RECONNECT_ATTEMPTS) {
