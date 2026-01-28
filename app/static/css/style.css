@@ -650,13 +650,6 @@ body {
     font-size: var(--font-size-lg);
 }
 
-.form-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: var(--spacing-md);
-    margin-bottom: var(--spacing-md);
-}
-
 .form-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
@@ -1026,10 +1019,6 @@ body {
     .module-actions {
         grid-column: 1 / -1;
         justify-self: end;
-    }
-    
-    .form-row {
-        grid-template-columns: 1fr;
     }
 }
 

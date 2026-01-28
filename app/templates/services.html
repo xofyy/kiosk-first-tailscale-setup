@@ -139,10 +139,10 @@
             <div class="nvr-config-form" id="nvr-config-form">
                 <h4>NVR Connection</h4>
                 <p>Enter NVR credentials to discover cameras</p>
-                <div class="form-row">
+                <div class="nvr-form-row">
                     <input type="text" id="nvr-username" placeholder="Username" autocomplete="off">
                     <input type="password" id="nvr-password" placeholder="Password" autocomplete="off">
-                    <button class="btn-primary" onclick="saveNvrConfig()">Connect</button>
+                    <button class="nvr-btn-primary" onclick="saveNvrConfig()">Connect</button>
                 </div>
                 <div class="nvr-config-status" id="nvr-config-status"></div>
             </div>
@@ -156,11 +156,11 @@
             </div>
             <div class="nvr-config-form hidden" id="nvr-config-form">
                 <h4>NVR Connection</h4>
-                <div class="form-row">
+                <div class="nvr-form-row">
                     <input type="text" id="nvr-username" placeholder="Username" autocomplete="off">
                     <input type="password" id="nvr-password" placeholder="Password" autocomplete="off">
-                    <button class="btn-primary" onclick="saveNvrConfig()">Save</button>
-                    <button class="btn-secondary" onclick="toggleNvrSettings()">Cancel</button>
+                    <button class="nvr-btn-primary" onclick="saveNvrConfig()">Save</button>
+                    <button class="nvr-btn-secondary" onclick="toggleNvrSettings()">Cancel</button>
                 </div>
                 <div class="nvr-config-status" id="nvr-config-status"></div>
             </div>
@@ -255,7 +255,7 @@
             </div>
             <div class="log-modal-footer">
                 <span id="log-status">Connecting...</span>
-                <label class="checkbox-label">
+                <label class="log-checkbox-label">
                     <input type="checkbox" id="log-auto-scroll" checked>
                     Auto-scroll
                 </label>

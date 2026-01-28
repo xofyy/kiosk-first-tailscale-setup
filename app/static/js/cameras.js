@@ -5,6 +5,16 @@
 'use strict';
 
 // =============================================================================
+// Utilities
+// =============================================================================
+
+function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+}
+
+// =============================================================================
 // State
 // =============================================================================
 
@@ -136,7 +146,7 @@ function createCameraCard(channel) {
     return `
         <div class="camera-card" id="card-${channel.id}" data-channel-id="${channel.id}">
             <div class="camera-card-header">
-                <span class="camera-name">${channel.name || 'Camera ' + channel.channel_no}</span>
+                <span class="camera-name">${escapeHtml(channel.name || 'Camera ' + channel.channel_no)}</span>
                 <span class="camera-badge">CH ${channel.channel_no}</span>
             </div>
             <div class="camera-card-info">
@@ -145,7 +155,7 @@ function createCameraCard(channel) {
             </div>
             <div class="camera-card-actions">
                 <button class="btn-watch ${isActive ? 'active' : ''}"
-                        onclick="toggleCameraStream(${channel.id}, '${channel.name || 'Camera ' + channel.channel_no}')"
+                        onclick="toggleCameraStream(${channel.id}, '${escapeHtml(channel.name || 'Camera ' + channel.channel_no)}')"
                         id="btn-watch-${channel.id}">
                     ${isActive ? 'Stop' : 'Watch'}
                 </button>
@@ -413,7 +423,7 @@ function createVideoCell(streamName, channelName) {
     const overlay = document.createElement('div');
     overlay.className = 'video-cell-overlay';
     overlay.innerHTML = `
-        <span class="video-cell-name">${channelName}</span>
+        <span class="video-cell-name">${escapeHtml(channelName)}</span>
         <div class="video-cell-controls">
             <button class="btn-fullscreen" onclick="openFullscreenCamera('${streamName}')" title="Fullscreen">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

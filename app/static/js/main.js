@@ -17,6 +17,9 @@ const api = {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
+            if (!response.ok) {
+                return { success: false, error: `HTTP ${response.status}` };
+            }
             return await response.json();
         } catch (error) {
             clearTimeout(timeoutId);
@@ -43,6 +46,9 @@ const api = {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
+            if (!response.ok) {
+                return { success: false, error: `HTTP ${response.status}` };
+            }
             return await response.json();
         } catch (error) {
             clearTimeout(timeoutId);
