@@ -57,6 +57,7 @@ class LogStreamManager:
                 self._close_generator(existing.get("generator"))
 
             # Find container by service label
+            log_stream = None  # Initialize before try block
             try:
                 containers = self._docker_client.containers.list(
                     filters={'label': f'com.docker.compose.service={service_name}'}
@@ -97,6 +98,9 @@ class LogStreamManager:
                 return log_stream
 
             except Exception as e:
+                # If generator was created but not tracked, close it
+                if log_stream is not None:
+                    self._close_generator(log_stream)
                 logger.error(f"Failed to start log stream: {e}")
                 return None
 
@@ -153,6 +157,9 @@ class LogStreamManager:
     def shutdown(self):
         """Close all streams (graceful shutdown)."""
         with self._streams_lock:
+            # Explicitly close all generators before clearing
+            for session_id, stream in list(self._streams.items()):
+                self._close_generator(stream.get("generator"))
             self._streams.clear()
         logger.info("All log streams shut down")
 
