@@ -901,9 +901,17 @@ async function loadNetworkHistory() {
             totalTx += (point.tx || 0);
         }
 
+        // Calculate peak values
+        let peakRx = 0;
+        let peakTx = 0;
+        for (const bucket of buckets) {
+            if (bucket.rx > peakRx) peakRx = bucket.rx;
+            if (bucket.tx > peakTx) peakTx = bucket.tx;
+        }
+
         // Find max for scaling
         const maxVal = Math.max(...buckets.map(b => Math.max(b.rx, b.tx)), 1);
-        const chartHeight = 120;
+        const chartHeight = 220;
 
         // Render bars
         let html = '';
@@ -914,16 +922,24 @@ async function loadNetworkHistory() {
             html += '<div class="history-bar tx" style="height:' + txHeight + 'px" title="Upload: ' + formatBytes(bucket.tx) + '"></div>';
         }
 
-        // Summary stats
+        // Summary stats (4 stats: total + peak)
         const summaryHtml =
             '<div class="history-summary">' +
                 '<div class="history-stat">' +
-                    '<span class="history-stat-label">Total Download:</span>' +
+                    '<span class="history-stat-label">Total Download</span>' +
                     '<span class="history-stat-value">' + formatBytes(totalRx) + '</span>' +
                 '</div>' +
                 '<div class="history-stat">' +
-                    '<span class="history-stat-label">Total Upload:</span>' +
+                    '<span class="history-stat-label">Peak Download</span>' +
+                    '<span class="history-stat-value">' + formatBytes(peakRx) + '</span>' +
+                '</div>' +
+                '<div class="history-stat">' +
+                    '<span class="history-stat-label">Total Upload</span>' +
                     '<span class="history-stat-value">' + formatBytes(totalTx) + '</span>' +
+                '</div>' +
+                '<div class="history-stat">' +
+                    '<span class="history-stat-label">Peak Upload</span>' +
+                    '<span class="history-stat-value">' + formatBytes(peakTx) + '</span>' +
                 '</div>' +
             '</div>';
 
@@ -940,8 +956,31 @@ async function loadNetworkHistory() {
                 '</div>' +
             '</div>';
 
-        // Chart
-        const chartHtml = '<div class="history-bars-container">' + html + '</div>';
+        // Y-axis scale labels
+        const scaleSteps = 4;
+        let scaleHtml = '<div class="history-scale">';
+        for (let i = scaleSteps; i >= 0; i--) {
+            const value = (maxVal / scaleSteps) * i;
+            const label = formatBytes(value);
+            scaleHtml += '<div class="history-scale-label">' + label + '</div>';
+        }
+        scaleHtml += '</div>';
+
+        // Grid lines (background)
+        let gridHtml = '<div class="history-grid">';
+        for (let i = 1; i <= scaleSteps; i++) {
+            const position = (100 / scaleSteps) * i;
+            gridHtml += '<div class="history-grid-line" style="bottom:' + position + '%"></div>';
+        }
+        gridHtml += '</div>';
+
+        // Bars
+        const barsHtml = '<div class="history-bars">' + html + '</div>';
+
+        // Chart container with scale, grid and bars
+        const chartHtml = '<div class="history-chart-wrapper">' + scaleHtml +
+            '<div class="history-bars-container">' + gridHtml + barsHtml + '</div>' +
+            '</div>';
 
         // Combine all
         monitorCache.historyChart.innerHTML = summaryHtml + legendHtml + chartHtml;

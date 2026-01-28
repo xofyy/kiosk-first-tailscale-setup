@@ -2147,11 +2147,17 @@ body {
 /* History bar chart */
 .history-bar {
     flex: 1;
-    min-width: 2px;
+    min-width: 3px;
     background: var(--color-primary);
     border-radius: 1px 1px 0 0;
-    opacity: 0.7;
-    transition: height 0.3s ease;
+    opacity: 0.85;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    cursor: pointer;
+}
+
+.history-bar:hover {
+    opacity: 1;
+    transform: scaleY(1.02);
 }
 
 .history-bar.tx {
@@ -2160,8 +2166,9 @@ body {
 
 /* Network History - Summary Stats */
 .history-summary {
-    display: flex;
-    gap: var(--spacing-lg);
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--spacing-md);
     margin-bottom: var(--spacing-md);
     padding: var(--spacing-sm) var(--spacing-md);
     background: var(--color-bg-tertiary);
@@ -2221,18 +2228,77 @@ body {
     color: var(--color-text-secondary);
 }
 
-/* History bars container */
-.history-bars-container {
-    height: 120px;
+/* Chart wrapper with scale */
+.history-chart-wrapper {
+    display: flex;
+    gap: var(--spacing-sm);
+    align-items: stretch;
+}
+
+/* Y-axis scale */
+.history-scale {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding-right: var(--spacing-xs);
+    min-width: 60px;
+    text-align: right;
+}
+
+.history-scale-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-family: var(--font-family-mono);
+    line-height: 1;
+    user-select: none;
+}
+
+/* Grid lines */
+.history-grid {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    pointer-events: none;
+}
+
+.history-grid-line {
+    position: absolute;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: var(--color-border);
+    opacity: 0.3;
+}
+
+/* Bars wrapper */
+.history-bars {
     display: flex;
     align-items: flex-end;
-    gap: 1px;
-    overflow: hidden;
+    gap: 2px;
+    height: 100%;
+    flex: 1;
+    position: relative;
+    z-index: 1;
+}
+
+/* History bars container */
+.history-bars-container {
+    height: 220px;
+    display: flex;
+    position: relative;
+    flex: 1;
 }
 
 /* Monitor Responsive */
 @media (max-width: 768px) {
     .monitor-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    /* 2x2 grid for stats on tablet */
+    .history-summary {
         grid-template-columns: repeat(2, 1fr);
     }
 }
@@ -2242,10 +2308,19 @@ body {
         grid-template-columns: 1fr;
     }
 
-    /* Stack summary stats on small screens */
+    /* Stack summary stats vertically on mobile */
     .history-summary {
-        flex-direction: column;
+        grid-template-columns: 1fr;
         gap: var(--spacing-sm);
+    }
+
+    /* Smaller scale labels on mobile */
+    .history-scale {
+        min-width: 50px;
+    }
+
+    .history-scale-label {
+        font-size: 0.65rem;
     }
 }
 
