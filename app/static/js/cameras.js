@@ -60,12 +60,15 @@ function initCameraElements() {
 async function saveNvrConfig() {
     const username = document.getElementById('nvr-username')?.value.trim();
     const password = document.getElementById('nvr-password')?.value.trim();
+    const submitBtn = nvrConfigFormEl?.querySelector('button[type="submit"]');
 
     if (!username || !password) {
         showToast('Username and password required', 'error');
         return;
     }
 
+    // Prevent double-click
+    if (submitBtn) submitBtn.disabled = true;
     if (nvrConfigStatusEl) nvrConfigStatusEl.textContent = 'Saving...';
 
     try {
@@ -79,10 +82,12 @@ async function saveNvrConfig() {
         } else {
             showToast(result.error || 'Save failed', 'error');
             if (nvrConfigStatusEl) nvrConfigStatusEl.textContent = result.error || 'Error';
+            if (submitBtn) submitBtn.disabled = false;
         }
     } catch (error) {
         showToast('Connection error', 'error');
         if (nvrConfigStatusEl) nvrConfigStatusEl.textContent = 'Connection error';
+        if (submitBtn) submitBtn.disabled = false;
     }
 }
 
@@ -212,6 +217,13 @@ async function startCameraStream(channelId, channelName) {
             channelName, channelId
         };
 
+        // Handle unexpected WebSocket disconnection
+        ws.onclose = () => {
+            if (streamName in activeStreams) {
+                handleStreamDisconnect(streamName);
+            }
+        };
+
         // Update UI
         if (btn) {
             btn.disabled = false;
@@ -238,6 +250,13 @@ async function startCameraStream(channelId, channelName) {
 
         // Cleanup on failure
         cleanupStream(streamName);
+
+        // Remove orphaned video cell if created
+        const cell = document.getElementById(`cell-${streamName}`);
+        if (cell) cell.remove();
+
+        updateGridLayout();
+        if (Object.keys(activeStreams).length === 0) hideGrid();
     }
 }
 
@@ -247,19 +266,22 @@ async function stopCameraStream(streamName) {
 
     const channelId = stream.channelId;
     const btn = document.getElementById(`btn-watch-${channelId}`);
+    const { ws, pc } = stream;
 
-    // Close WebRTC
-    cleanupStream(streamName);
+    // Remove from active first (prevents handleStreamDisconnect from firing)
+    delete activeStreams[streamName];
+
+    // Close WebRTC connections
+    if (ws) try { ws.close(); } catch (e) { /* ignore */ }
+    if (pc) try { pc.close(); } catch (e) { /* ignore */ }
 
     // Tell server to remove stream
     try {
         await api.post('/nvr/stream/stop', { stream_name: streamName });
     } catch (error) {
         console.error('Stream stop error:', error);
+        showToast('Stream cleanup failed on server', 'error');
     }
-
-    // Remove from active
-    delete activeStreams[streamName];
 
     // Update UI
     if (btn) {
@@ -284,8 +306,15 @@ async function stopAllCameraStreams() {
 
     // Cleanup all local connections
     for (const name of streamNames) {
-        cleanupStream(name);
+        const stream = activeStreams[name];
+        const { ws, pc } = stream || {};
+
+        // Remove from active first (prevents handleStreamDisconnect)
         delete activeStreams[name];
+
+        // Close connections
+        if (ws) try { ws.close(); } catch (e) { /* ignore */ }
+        if (pc) try { pc.close(); } catch (e) { /* ignore */ }
 
         const cell = document.getElementById(`cell-${name}`);
         if (cell) cell.remove();
@@ -317,6 +346,31 @@ function cleanupStream(streamName) {
     if (stream.pc) {
         try { stream.pc.close(); } catch (e) { /* ignore */ }
     }
+}
+
+function handleStreamDisconnect(streamName) {
+    const stream = activeStreams[streamName];
+    if (!stream) return;
+
+    showToast(`${stream.channelName} disconnected`, 'error');
+
+    if (stream.pc) {
+        try { stream.pc.close(); } catch (e) { /* ignore */ }
+    }
+
+    delete activeStreams[streamName];
+
+    const btn = document.getElementById(`btn-watch-${stream.channelId}`);
+    if (btn) {
+        btn.textContent = 'Watch';
+        btn.classList.remove('active');
+    }
+
+    const cell = document.getElementById(`cell-${streamName}`);
+    if (cell) cell.remove();
+
+    updateGridLayout();
+    if (Object.keys(activeStreams).length === 0) hideGrid();
 }
 
 // =============================================================================

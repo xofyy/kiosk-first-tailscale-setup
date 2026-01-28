@@ -131,52 +131,49 @@ class NvrService:
             return {'success': False, 'error': str(e), 'channels': []}
 
     def _parse_channels_xml(self, xml_text: str) -> List[Dict[str, Any]]:
-        """Parse ISAPI Streaming/channels XML response"""
+        """Parse ISAPI Streaming/channels XML response.
+
+        Raises exceptions on parse errors - caller should handle.
+        """
         channels = []
-        try:
-            root = ElementTree.fromstring(xml_text)
+        root = ElementTree.fromstring(xml_text)
 
-            # Find StreamingChannel elements (may have different namespace than root)
-            channel_elements = root.findall(f'{self._get_namespace(root)}StreamingChannel')
-            if not channel_elements:
-                # Hikvision NVRs use different namespaces for root vs children
-                channel_elements = root.findall('.//{http://www.isapi.org/ver20/XMLSchema}StreamingChannel')
+        # Find StreamingChannel elements (may have different namespace than root)
+        channel_elements = root.findall(f'{self._get_namespace(root)}StreamingChannel')
+        if not channel_elements:
+            # Hikvision NVRs use different namespaces for root vs children
+            channel_elements = root.findall('.//{http://www.isapi.org/ver20/XMLSchema}StreamingChannel')
 
-            for ch in channel_elements:
-                ns = self._get_namespace(ch)
-                ch_id_text = self._xml_find_text(ch, f'{ns}id', '0')
-                ch_id = int(ch_id_text)
-                channel_no = ch_id // 100
-                stream_type = ch_id % 100
+        for ch in channel_elements:
+            ns = self._get_namespace(ch)
+            ch_id_text = self._xml_find_text(ch, f'{ns}id', '0')
+            ch_id = int(ch_id_text)
+            channel_no = ch_id // 100
+            stream_type = ch_id % 100
 
-                # Parse Video element
-                video_info = {}
-                video_el = ch.find(f'{ns}Video')
-                if video_el is not None:
-                    video_info = {
-                        'codec': self._xml_find_text(video_el, f'{ns}videoCodecType', ''),
-                        'width': self._xml_find_int(video_el, f'{ns}videoResolutionWidth', 0),
-                        'height': self._xml_find_int(video_el, f'{ns}videoResolutionHeight', 0),
-                        'fps': self._xml_find_int(video_el, f'{ns}maxFrameRate', 0),
-                        'bitrate': self._xml_find_int(video_el, f'{ns}vbrUpperCap', 0),
-                    }
+            # Parse Video element
+            video_info = {}
+            video_el = ch.find(f'{ns}Video')
+            if video_el is not None:
+                video_info = {
+                    'codec': self._xml_find_text(video_el, f'{ns}videoCodecType', ''),
+                    'width': self._xml_find_int(video_el, f'{ns}videoResolutionWidth', 0),
+                    'height': self._xml_find_int(video_el, f'{ns}videoResolutionHeight', 0),
+                    'fps': self._xml_find_int(video_el, f'{ns}maxFrameRate', 0),
+                    'bitrate': self._xml_find_int(video_el, f'{ns}vbrUpperCap', 0),
+                }
 
-                enabled = self._xml_find_text(ch, f'{ns}enabled', 'false')
-                channel_name = self._xml_find_text(ch, f'{ns}channelName', f'Channel {channel_no}')
+            enabled = self._xml_find_text(ch, f'{ns}enabled', 'false')
+            channel_name = self._xml_find_text(ch, f'{ns}channelName', f'Channel {channel_no}')
 
-                channels.append({
-                    'id': ch_id,
-                    'channel_no': channel_no,
-                    'stream_type': stream_type,
-                    'name': channel_name,
-                    'enabled': enabled.lower() == 'true',
-                    'video': video_info
-                })
-
-        except ElementTree.ParseError as e:
-            logger.error(f"XML parse error: {e}")
-        except Exception as e:
-            logger.error(f"Channel parsing error: {e}")
+            channels.append({
+                'id': ch_id,
+                'channel_no': channel_no,
+                'stream_type': stream_type,
+                'name': channel_name,
+                'enabled': enabled.lower() == 'true',
+                'video': video_info
+            })
 
         return channels
 
