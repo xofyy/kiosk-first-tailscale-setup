@@ -179,8 +179,9 @@ body {
 }
 
 .logo {
-    font-size: 32px;
-    color: var(--color-primary);
+    height: 40px;
+    width: auto;
+    display: block;
 }
 
 .header-brand h1 {
