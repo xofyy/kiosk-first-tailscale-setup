@@ -110,9 +110,8 @@ def container_logs_sse(service_name: str):
         except Exception as e:
             logger.error(f"SSE error for {service_name}: {e}")
             yield f"data: Error: {e}\n\n"
-        finally:
-            # Extra safety - cleanup stream
-            log_process_manager.stop_stream(session_id)
+        # Note: stream cleanup handled by docker_manager.py finally block
+        # Removed duplicate stop_stream() call to prevent race condition
 
     return Response(
         generate(),
