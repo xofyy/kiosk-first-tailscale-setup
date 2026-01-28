@@ -7,7 +7,6 @@
     display: flex;
     flex-direction: column;
     flex: 1;
-    min-height: 0;
 }
 
 /* =============================================================================
@@ -17,8 +16,6 @@
 #services-list {
     display: flex;
     flex-direction: column;
-    flex: 1;
-    min-height: 0;
 }
 
 #services-list.hidden {
@@ -60,9 +57,7 @@
 
 /* Main Content Area */
 .services-content {
-    flex: 1;
     padding: 2rem;
-    overflow-y: auto;
 }
 
 /* Service Cards Grid */
