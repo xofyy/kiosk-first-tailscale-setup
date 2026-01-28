@@ -371,6 +371,7 @@ function connectWebRTC(streamName, videoEl) {
                         type: 'answer',
                         sdp: msg.value
                     }));
+                    clearTimeout(connTimeout);
                     resolve({ ws, pc });
                 } catch (error) {
                     reject(error);
@@ -388,6 +389,7 @@ function connectWebRTC(streamName, videoEl) {
         };
 
         ws.onerror = () => {
+            clearTimeout(connTimeout);
             reject(new Error('WebSocket connection failed'));
         };
 
@@ -396,10 +398,10 @@ function connectWebRTC(streamName, videoEl) {
         };
 
         // Timeout for connection
-        setTimeout(() => {
-            if (pc.connectionState !== 'connected' && pc.connectionState !== 'connecting') {
-                reject(new Error('WebRTC connection timeout'));
-            }
+        const connTimeout = setTimeout(() => {
+            reject(new Error('WebRTC connection timeout'));
+            try { ws.close(); } catch (e) { /* ignore */ }
+            try { pc.close(); } catch (e) { /* ignore */ }
         }, 10000);
     });
 }

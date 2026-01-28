@@ -136,16 +136,16 @@
         <!-- NVR Config Form -->
         <div class="nvr-config-section" id="nvr-config-section">
             {% if not nvr_config_exists %}
-            <div class="nvr-config-form" id="nvr-config-form">
+            <form class="nvr-config-form" id="nvr-config-form" onsubmit="event.preventDefault(); saveNvrConfig()">
                 <h4>NVR Connection</h4>
                 <p>Enter NVR credentials to discover cameras</p>
                 <div class="nvr-form-row">
                     <input type="text" id="nvr-username" placeholder="Username" autocomplete="off">
                     <input type="password" id="nvr-password" placeholder="Password" autocomplete="off">
-                    <button class="nvr-btn-primary" onclick="saveNvrConfig()">Connect</button>
+                    <button type="submit" class="nvr-btn-primary">Connect</button>
                 </div>
                 <div class="nvr-config-status" id="nvr-config-status"></div>
-            </div>
+            </form>
             {% else %}
             <div class="nvr-config-connected" id="nvr-config-connected">
                 <span class="nvr-status-badge connected">
@@ -154,16 +154,16 @@
                 </span>
                 <button class="btn-text" onclick="toggleNvrSettings()">Change Settings</button>
             </div>
-            <div class="nvr-config-form hidden" id="nvr-config-form">
+            <form class="nvr-config-form hidden" id="nvr-config-form" onsubmit="event.preventDefault(); saveNvrConfig()">
                 <h4>NVR Connection</h4>
                 <div class="nvr-form-row">
                     <input type="text" id="nvr-username" placeholder="Username" autocomplete="off">
                     <input type="password" id="nvr-password" placeholder="Password" autocomplete="off">
-                    <button class="nvr-btn-primary" onclick="saveNvrConfig()">Save</button>
-                    <button class="nvr-btn-secondary" onclick="toggleNvrSettings()">Cancel</button>
+                    <button type="submit" class="nvr-btn-primary">Save</button>
+                    <button type="button" class="nvr-btn-secondary" onclick="toggleNvrSettings()">Cancel</button>
                 </div>
                 <div class="nvr-config-status" id="nvr-config-status"></div>
-            </div>
+            </form>
             {% endif %}
         </div>
 
@@ -190,7 +190,7 @@
     </div>
 
     <!-- Fullscreen Camera Overlay -->
-    <div class="fullscreen-overlay hidden" id="fullscreen-overlay">
+    <div class="fullscreen-overlay hidden" id="fullscreen-overlay" role="dialog" aria-modal="true" aria-label="Fullscreen Camera">
         <div class="fullscreen-header">
             <span class="fullscreen-title" id="fullscreen-title">Camera</span>
             <button class="btn-close-fullscreen" onclick="closeFullscreenCamera()">&times;</button>

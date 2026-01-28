@@ -166,135 +166,6 @@ function updateOfflineUI() {
 }
 
 // =============================================================================
-// Form Helpers
-// =============================================================================
-
-function getFormData(form) {
-    const formData = new FormData(form);
-    const data = {};
-    
-    for (const [key, value] of formData.entries()) {
-        // Handle array values (comma-separated)
-        if (value.includes(',')) {
-            data[key] = value.split(',').map(v => v.trim());
-        } else {
-            // Convert numbers
-            if (!isNaN(value) && value !== '') {
-                data[key] = Number(value);
-            } else {
-                data[key] = value;
-            }
-        }
-    }
-    
-    return data;
-}
-
-// =============================================================================
-// RVM ID Form
-// =============================================================================
-
-document.addEventListener('DOMContentLoaded', () => {
-    const rvmIdForm = document.getElementById('rvm-id-form');
-
-    if (rvmIdForm) {
-        rvmIdForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const input = rvmIdForm.querySelector('input[name="rvm_id"]');
-            const rvmId = input.value.toUpperCase().trim();
-
-            if (!rvmId) {
-                showToast('RVM ID required', 'error');
-                return;
-            }
-
-            try {
-                const result = await api.post('/rvm-id', {
-                    'rvm_id': rvmId
-                });
-
-                if (result.success) {
-                    showToast('RVM ID saved: ' + result.rvm_id, 'success');
-                    setTimeout(() => location.reload(), 1000);
-                } else {
-                    showToast(result.error || 'Error occurred', 'error');
-                }
-            } catch (error) {
-                showToast('Save error', 'error');
-            }
-        });
-    }
-});
-
-// =============================================================================
-// Temporary IP Form
-// =============================================================================
-
-document.addEventListener('DOMContentLoaded', () => {
-    const tempIpForm = document.getElementById('temp-ip-form');
-
-    if (tempIpForm) {
-        tempIpForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-
-            const data = getFormData(tempIpForm);
-
-            if (!data.ip || !data.gateway) {
-                showToast('IP and Gateway required', 'error');
-                return;
-            }
-
-            try {
-                const result = await api.post('/network/temporary-ip', data);
-
-                if (result.success) {
-                    showToast('IP set', 'success');
-                    setTimeout(() => location.reload(), 2000);
-                } else {
-                    showToast(result.error || 'Error occurred', 'error');
-                }
-            } catch (error) {
-                showToast('IP setting error', 'error');
-            }
-        });
-    }
-
-    // DHCP Reset Button Handler
-    const dhcpResetBtn = document.getElementById('dhcp-reset-btn');
-    if (dhcpResetBtn) {
-        dhcpResetBtn.addEventListener('click', async () => {
-            const interfaceSelect = document.querySelector('#temp-ip-form select[name="interface"]');
-            const iface = interfaceSelect ? interfaceSelect.value : 'eth0';
-
-            if (!confirm('Are you sure you want to reset to DHCP?\n\nThis will remove current IP settings and get a new IP from DHCP.')) {
-                return;
-            }
-
-            dhcpResetBtn.disabled = true;
-            dhcpResetBtn.textContent = 'Waiting...';
-
-            try {
-                const result = await api.post('/network/reset-dhcp', { interface: iface });
-
-                if (result.success) {
-                    showToast('DHCP enabled, page refreshing...', 'success');
-                    setTimeout(() => location.reload(), 3000);
-                } else {
-                    showToast(result.error || 'DHCP error', 'error');
-                    dhcpResetBtn.disabled = false;
-                    dhcpResetBtn.textContent = 'Reset to DHCP';
-                }
-            } catch (error) {
-                showToast('DHCP error', 'error');
-                dhcpResetBtn.disabled = false;
-                dhcpResetBtn.textContent = 'Reset to DHCP';
-            }
-        });
-    }
-});
-
-// =============================================================================
 // Page Initialization
 // =============================================================================
 
@@ -343,12 +214,10 @@ document.addEventListener('visibilitychange', () => {
 
 // Online/offline event listeners - anında tepki
 window.addEventListener('online', () => {
-    console.log('Network: Online');
     checkInternetStatus();
 });
 
 window.addEventListener('offline', () => {
-    console.log('Network: Offline');
     updateOfflineUI();
 });
 
