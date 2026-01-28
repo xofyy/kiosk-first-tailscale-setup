@@ -142,16 +142,15 @@ class DockerManager:
             logger.error(f"Error checking container status: {e}")
             return "unknown"
 
-    def get_service_version(self, service_name: str) -> str:
+    def get_all_service_versions(self) -> Dict[str, str]:
         """
-        Extract image version/tag from docker compose config.
-        Returns just the tag portion (e.g., "latest", "5", "7").
-        Returns "unknown" if version cannot be determined.
+        Get all service versions from docker compose config in one call.
+        Returns dict mapping service_name -> version tag.
 
-        Handles SHA256 hash case by reading compose config instead of runtime.
+        This is more efficient than calling docker compose config for each service.
         """
         try:
-            # Get merged compose config (yml + override) as JSON
+            # Get merged compose config (yml + override) as JSON - ONE CALL
             result = subprocess.run(
                 ['docker', 'compose', 'config', '--format', 'json'],
                 capture_output=True,
@@ -161,42 +160,45 @@ class DockerManager:
             )
 
             if result.returncode != 0 or not result.stdout.strip():
-                logger.warning(f"Failed to get compose config for version extraction")
-                return "unknown"
+                logger.warning("Failed to get compose config for version extraction")
+                return {}
 
             # Parse JSON
             config_data = json.loads(result.stdout)
-
-            # Get service image definition
             services = config_data.get('services', {})
-            service_config = services.get(service_name, {})
-            image = service_config.get('image', '')
 
-            if not image:
-                logger.warning(f"No image found for service {service_name}")
-                return "unknown"
+            # Build version lookup dictionary
+            versions = {}
+            for service_name, service_config in services.items():
+                image = service_config.get('image', '')
 
-            # Extract tag from image string
-            # Examples:
-            #   "acolinux.azurecr.io/item_recognizer:5" -> "5"
-            #   "mongo:7" -> "7"
-            #   "alexxit/go2rtc:latest" -> "latest"
-            if ':' in image:
-                version = image.split(':')[-1]
-                return version
-            else:
-                # No tag specified, Docker defaults to "latest"
-                return "latest"
+                if not image:
+                    versions[service_name] = "unknown"
+                    continue
+
+                # Extract tag from image string
+                # Examples:
+                #   "acolinux.azurecr.io/item_recognizer:5" -> "5"
+                #   "mongo:7" -> "7"
+                #   "alexxit/go2rtc:latest" -> "latest"
+                if ':' in image:
+                    version = image.split(':')[-1]
+                    versions[service_name] = version
+                else:
+                    # No tag specified, Docker defaults to "latest"
+                    versions[service_name] = "latest"
+
+            return versions
 
         except subprocess.TimeoutExpired:
-            logger.error(f"Timeout getting version for {service_name}")
-            return "unknown"
+            logger.error("Timeout getting compose config for versions")
+            return {}
         except json.JSONDecodeError as e:
             logger.error(f"Failed to parse compose config JSON: {e}")
-            return "unknown"
+            return {}
         except Exception as e:
-            logger.error(f"Error getting version for {service_name}: {e}")
-            return "unknown"
+            logger.error(f"Error getting service versions: {e}")
+            return {}
 
     def get_all_containers(self) -> List[Dict[str, Any]]:
         """
@@ -223,9 +225,12 @@ class DockerManager:
         # Combine: Web UI first, then background
         sorted_services = webui_services + background_services
 
+        # Get all versions in one call (efficient)
+        all_versions = self.get_all_service_versions()
+
         for idx, service_name in enumerate(sorted_services):
             status = self.get_container_status(service_name)
-            version = self.get_service_version(service_name)
+            version = all_versions.get(service_name, "unknown")
 
             # Check if this is a web UI service
             web_ui_config = WEB_UI_SERVICES.get(service_name, {})
