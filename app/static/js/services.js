@@ -261,7 +261,7 @@ function openLogs(serviceName, displayName) {
     startLogStream(serviceName);
 }
 
-async function closeLogs() {
+function closeLogs() {
     initElements();
 
     // Cancel any pending filter change
@@ -276,15 +276,15 @@ async function closeLogs() {
         logUpdateTimer = null;
     }
 
-    // Stop SSE connection with backend cleanup
-    await stopLogStreamWithCleanup();
+    // Stop SSE connection (fire and forget - no await)
+    stopLogStreamWithCleanup();
 
     // Reset all state
     logBuffer = [];
     logLines = [];
     reconnectAttempts = 0;
 
-    // Hide modal
+    // Hide modal immediately
     if (logModal) {
         logModal.classList.remove('visible');
     }
@@ -348,24 +348,20 @@ function stopLogStream() {
 
 /**
  * Stop log stream with backend cleanup notification.
- * Ensures server-side resources are properly released.
+ * Fire and forget - no waiting.
  */
-async function stopLogStreamWithCleanup() {
+function stopLogStreamWithCleanup() {
     // Close EventSource first
     stopLogStream();
 
-    // Notify backend to cleanup resources
-    try {
-        await fetch('/api/docker/containers/logs/stop', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ session_id: PAGE_LOG_SESSION_ID }),
-            signal: AbortSignal.timeout(LOG_CONFIG.STOP_TIMEOUT_MS)
-        });
-    } catch (e) {
-        // Timeout or network error - backend will cleanup via stale detection
-        console.warn('Stop request failed (will auto-cleanup):', e.message);
-    }
+    // Notify backend to cleanup (fire and forget)
+    fetch('/api/docker/containers/logs/stop', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ session_id: PAGE_LOG_SESSION_ID })
+    }).catch(() => {
+        // Ignore errors - backend will auto-cleanup
+    });
 }
 
 /**
@@ -396,11 +392,11 @@ function onLogFilterChange() {
     }
 
     // Debounce the actual stream restart
-    filterDebounceTimer = setTimeout(async () => {
+    filterDebounceTimer = setTimeout(() => {
         filterDebounceTimer = null;
 
-        // Stop existing stream with backend cleanup
-        await stopLogStreamWithCleanup();
+        // Close current EventSource (backend auto-cleans on new request)
+        stopLogStream();
 
         // Clear existing logs and buffers
         logBuffer = [];

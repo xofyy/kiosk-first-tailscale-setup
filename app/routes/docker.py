@@ -97,26 +97,16 @@ def container_logs_sse(service_name: str):
 
     def generate():
         manager = DockerManager()
-        heartbeat_count = 0
         line_count = 0
         try:
             for line in manager.stream_logs(session_id, service_name, tail=tail, since=since):
-                if line == ":heartbeat":
-                    # SSE comment - invisible to client, keeps connection alive
-                    heartbeat_count += 1
-                    yield ": heartbeat\n\n"
-                else:
-                    line_count += 1
-                    yield f"data: {line}\n\n"
+                line_count += 1
+                yield f"data: {line}\n\n"
         except GeneratorExit:
-            # Client disconnected - normal behavior
-            logger.debug(f"SSE client disconnected: {session_id} (sent {line_count} lines, {heartbeat_count} heartbeats)")
+            logger.debug(f"SSE disconnected: {session_id} ({line_count} lines)")
         except Exception as e:
-            logger.error(f"SSE error for {service_name}: {e}")
+            logger.error(f"SSE error {service_name}: {e}")
             yield f"data: Error: {e}\n\n"
-        finally:
-            # Cleanup handled by docker_manager.py finally block
-            logger.debug(f"SSE stream ended: {session_id}")
 
     return Response(
         generate(),

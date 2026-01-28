@@ -284,11 +284,7 @@ class DockerManager:
 
     def stream_logs(self, session_id: str, service_name: str, tail: str = '300', since: str = '') -> Generator[str, None, None]:
         """
-        Stream container logs via Docker Socket API with heartbeat support.
-
-        Performance: 5.3x faster than subprocess (10ms vs 56ms first log).
-        Native container restart detection via Docker API.
-        Non-blocking I/O with periodic heartbeats.
+        Stream container logs via subprocess.
 
         Args:
             session_id: Unique client session identifier
@@ -297,36 +293,27 @@ class DockerManager:
             since: Time filter (e.g., '1h', '6h', '24h', '168h')
 
         Yields:
-            Log lines as strings, or ":heartbeat" for keepalive
+            Log lines as strings
         """
-        stream_gen = log_process_manager.get_or_create_stream(session_id, service_name, tail=tail, since=since)
+        process = log_process_manager.get_or_create_stream(session_id, service_name, tail=tail, since=since)
 
-        if stream_gen is None:
+        if process is None:
             yield "Error: Could not start log stream"
             return
 
         try:
-            for item in stream_gen:
-                # Check for heartbeat marker (bytes)
-                if item == b":heartbeat":
-                    yield ":heartbeat"
-                    continue
-
-                # Docker API returns bytes, decode to UTF-8
-                if isinstance(item, bytes):
-                    line = item.decode('utf-8', errors='replace').strip()
-                else:
-                    line = str(item).strip()
-
+            # Read from subprocess stdout
+            for line in iter(process.stdout.readline, ''):
+                if process.poll() is not None:
+                    # Process ended
+                    break
+                line = line.rstrip('\n\r')
                 if line:
                     yield line
 
         except GeneratorExit:
-            # Client disconnected - normal case
-            logger.debug(f"Client disconnected from log stream: {session_id}")
-        except StopIteration:
-            # Normal stream end
-            pass
+            # Client disconnected
+            logger.debug(f"Client disconnected: {session_id}")
         except Exception as e:
             logger.error(f"Log streaming error: {e}")
             yield f"Error: {e}"
