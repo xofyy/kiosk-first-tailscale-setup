@@ -6,6 +6,22 @@
 /* Font Faces */
 @font-face {
     font-family: 'Montserrat';
+    src: url('../fonts/Montserrat-Regular.woff2') format('woff2');
+    font-weight: 400;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Montserrat';
+    src: url('../fonts/Montserrat-SemiBold.woff2') format('woff2');
+    font-weight: 600;
+    font-style: normal;
+    font-display: swap;
+}
+
+@font-face {
+    font-family: 'Montserrat';
     src: url('../fonts/Montserrat-Bold.woff2') format('woff2');
     font-weight: 700;
     font-style: normal;
@@ -34,7 +50,8 @@
     --color-warning: #f59e0b;
     --color-error: #ef4444;
     --color-info: #3b82f6;
-    --font-family: 'JetBrains Mono', 'SF Mono', 'Fira Code', monospace;
+    --font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --font-family-mono: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
     --font-size-xs: 12px;
     --font-size-sm: 14px;
     --font-size-base: 16px;
@@ -194,7 +211,6 @@ body {
 }
 
 .header-brand h1 {
-    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: var(--font-size-lg);
     font-weight: 700;
     letter-spacing: -0.5px;
@@ -2157,4 +2173,15 @@ body {
     .monitor-card {
         transition: none !important;
     }
+}
+
+/* =============================================================================
+   Utility Classes
+   ============================================================================= */
+
+/* Monospace font for code/logs */
+.font-mono,
+pre,
+code {
+    font-family: var(--font-family-mono) !important;
 }
