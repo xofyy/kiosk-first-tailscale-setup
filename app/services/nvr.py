@@ -85,6 +85,8 @@ class NvrService:
                 }
             elif response.status_code == 401:
                 return {'success': False, 'error': 'Authentication failed (wrong username/password)'}
+            elif response.status_code in (502, 503, 504):
+                return {'success': False, 'error': 'NVR not reachable (check network)'}
             else:
                 return {'success': False, 'error': f'HTTP {response.status_code}'}
 
@@ -113,6 +115,13 @@ class NvrService:
             )
 
             if response.status_code != 200:
+                # Gateway errors (502/503/504) mean NVR is unreachable
+                if response.status_code in (502, 503, 504):
+                    return {
+                        'success': False,
+                        'error': 'NVR not reachable (check network connection)',
+                        'channels': []
+                    }
                 return {
                     'success': False,
                     'error': f'ISAPI error: HTTP {response.status_code}',
