@@ -2172,11 +2172,8 @@ body {
 }
 
 .monitor-history-chart {
-    height: 120px;
-    display: flex;
-    align-items: flex-end;
-    gap: 1px;
-    overflow: hidden;
+    width: 100%;
+    display: block;
 }
 
 .monitor-history-placeholder {
@@ -2212,6 +2209,7 @@ body {
     display: flex;
     gap: var(--spacing-sm);
     align-items: stretch;
+    width: 100%;
 }
 
 /* Y-axis scale */
@@ -2257,7 +2255,7 @@ body {
     align-items: flex-end;
     gap: 2px;
     height: 100%;
-    flex: 1;
+    width: 100%;
     position: relative;
     z-index: 1;
 }
@@ -2268,6 +2266,7 @@ body {
     display: flex;
     position: relative;
     flex: 1;
+    width: 100%;
 }
 
 /* Monitor Responsive */
