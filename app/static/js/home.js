@@ -903,7 +903,7 @@ async function loadNetworkHistory() {
 
         // Find max for scaling
         const maxVal = Math.max(...buckets.map(b => Math.max(b.rx, b.tx)), 1);
-        const chartHeight = 220;
+        const chartHeight = 180;
 
         // Render bars
         let html = '';
