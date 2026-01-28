@@ -8,7 +8,7 @@ Type=simple
 User=root
 WorkingDirectory=/opt/aco-panel
 Environment="PATH=/opt/aco-panel/venv/bin:/usr/local/bin:/usr/bin:/bin"
-ExecStart=/opt/aco-panel/venv/bin/python -m gunicorn -b 0.0.0.0:4444 -w 2 --timeout 120 app.main:app
+ExecStart=/opt/aco-panel/venv/bin/python -m gunicorn -b 0.0.0.0:4444 -w 2 -k gevent --timeout 120 app.main:app
 Restart=always
 RestartSec=5
 
