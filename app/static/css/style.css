@@ -3,6 +3,15 @@
    Modern, touch-friendly UI optimized for kiosk displays
    ============================================================================= */
 
+/* Font Faces */
+@font-face {
+    font-family: 'Montserrat';
+    src: url('../fonts/Montserrat-Bold.woff2') format('woff2');
+    font-weight: 700;
+    font-style: normal;
+    font-display: swap;
+}
+
 /* CSS Variables - Green + Dark Theme */
 :root {
     /* Background */
@@ -185,9 +194,11 @@ body {
 }
 
 .header-brand h1 {
+    font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif;
     font-size: var(--font-size-lg);
-    font-weight: 600;
+    font-weight: 700;
     letter-spacing: -0.5px;
+    color: var(--color-primary);
 }
 
 /* Header Navigation */
