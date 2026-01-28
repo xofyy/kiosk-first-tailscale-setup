@@ -207,7 +207,9 @@ body {
 .logo {
     height: 40px;
     width: auto;
+    max-width: 250px;
     display: block;
+    object-fit: contain;
 }
 
 .header-brand h1 {
