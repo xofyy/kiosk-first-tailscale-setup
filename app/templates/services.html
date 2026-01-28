@@ -51,8 +51,8 @@
 
                     <div class="service-info">
                         <div class="service-info-row">
-                            <span class="label">Type</span>
-                            <span class="value">{{ 'Web UI' if container.type == 'webui' else 'Background' }}</span>
+                            <span class="label">Version</span>
+                            <span class="value">{{ container.version }}</span>
                         </div>
                         {% if container.port %}
                         <div class="service-info-row">

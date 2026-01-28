@@ -6,6 +6,7 @@ Reads compose configuration and manages container lifecycle
 import select
 import subprocess
 import logging
+import json
 from typing import Dict, List, Any, Optional, Generator
 
 from app.services.log_process_manager import log_process_manager
@@ -141,6 +142,62 @@ class DockerManager:
             logger.error(f"Error checking container status: {e}")
             return "unknown"
 
+    def get_service_version(self, service_name: str) -> str:
+        """
+        Extract image version/tag from docker compose config.
+        Returns just the tag portion (e.g., "latest", "5", "7").
+        Returns "unknown" if version cannot be determined.
+
+        Handles SHA256 hash case by reading compose config instead of runtime.
+        """
+        try:
+            # Get merged compose config (yml + override) as JSON
+            result = subprocess.run(
+                ['docker', 'compose', 'config', '--format', 'json'],
+                capture_output=True,
+                text=True,
+                timeout=10,
+                cwd=self.compose_path
+            )
+
+            if result.returncode != 0 or not result.stdout.strip():
+                logger.warning(f"Failed to get compose config for version extraction")
+                return "unknown"
+
+            # Parse JSON
+            config_data = json.loads(result.stdout)
+
+            # Get service image definition
+            services = config_data.get('services', {})
+            service_config = services.get(service_name, {})
+            image = service_config.get('image', '')
+
+            if not image:
+                logger.warning(f"No image found for service {service_name}")
+                return "unknown"
+
+            # Extract tag from image string
+            # Examples:
+            #   "acolinux.azurecr.io/item_recognizer:5" -> "5"
+            #   "mongo:7" -> "7"
+            #   "alexxit/go2rtc:latest" -> "latest"
+            if ':' in image:
+                version = image.split(':')[-1]
+                return version
+            else:
+                # No tag specified, Docker defaults to "latest"
+                return "latest"
+
+        except subprocess.TimeoutExpired:
+            logger.error(f"Timeout getting version for {service_name}")
+            return "unknown"
+        except json.JSONDecodeError as e:
+            logger.error(f"Failed to parse compose config JSON: {e}")
+            return "unknown"
+        except Exception as e:
+            logger.error(f"Error getting version for {service_name}: {e}")
+            return "unknown"
+
     def get_all_containers(self) -> List[Dict[str, Any]]:
         """
         Get all containers merged with web UI config.
@@ -168,6 +225,7 @@ class DockerManager:
 
         for idx, service_name in enumerate(sorted_services):
             status = self.get_container_status(service_name)
+            version = self.get_service_version(service_name)
 
             # Check if this is a web UI service
             web_ui_config = WEB_UI_SERVICES.get(service_name, {})
@@ -176,6 +234,7 @@ class DockerManager:
                 "service_name": service_name,
                 "display_name": web_ui_config.get("display_name", service_name.replace("_", " ").title()),
                 "type": "webui" if service_name in WEB_UI_SERVICES else "background",
+                "version": version,
                 "status": status,
                 "order": idx,
                 "icon": SERVICE_ICONS.get(service_name, DEFAULT_ICON)
