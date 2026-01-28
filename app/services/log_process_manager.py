@@ -52,6 +52,9 @@ class LogStreamManager:
         with self._streams_lock:
             # Always cleanup existing stream first (no reuse)
             existing = self._streams.pop(session_id, None)
+            if existing:
+                # Explicitly close generator to release Docker API connection
+                self._close_generator(existing.get("generator"))
 
             # Find container by service label
             try:
@@ -102,7 +105,8 @@ class LogStreamManager:
         with self._streams_lock:
             stream = self._streams.pop(session_id, None)
             if stream:
-                # Generator stops when reference is lost (no explicit kill needed)
+                # Explicitly close generator to release Docker API connection
+                self._close_generator(stream.get("generator"))
                 logger.debug(f"Stopped log stream: {session_id}")
                 return True
             return False
@@ -131,7 +135,10 @@ class LogStreamManager:
                     stale_sessions.append(session_id)
 
             for session_id in stale_sessions:
-                self._streams.pop(session_id, None)
+                stream = self._streams.pop(session_id, None)
+                if stream:
+                    # Explicitly close generator to release Docker API connection
+                    self._close_generator(stream.get("generator"))
 
         if stale_sessions:
             logger.info(f"Cleaned up {len(stale_sessions)} stale log streams")
@@ -148,6 +155,26 @@ class LogStreamManager:
         with self._streams_lock:
             self._streams.clear()
         logger.info("All log streams shut down")
+
+    def _close_generator(self, generator) -> None:
+        """
+        Safely close Docker API generator and release connection.
+
+        Docker API generators maintain an open socket connection.
+        Must be explicitly closed to prevent resource leaks.
+
+        Args:
+            generator: Docker API log stream generator (or None)
+        """
+        if generator is None:
+            return
+
+        try:
+            generator.close()
+            logger.debug("Docker API generator closed, socket released")
+        except Exception as e:
+            # Generator may already be closed or invalid
+            logger.warning(f"Error closing generator: {e}")
 
     def _parse_since(self, since: str) -> Optional[datetime]:
         """

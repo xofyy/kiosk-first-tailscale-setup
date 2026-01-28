@@ -17,6 +17,9 @@ requests==2.31.0
 # MongoDB Client
 pymongo==4.6.1
 
+# Docker API
+docker==6.1.3
+
 # Process Management
 psutil==5.9.7
 
