@@ -222,6 +222,11 @@ async function startCameraStream(channelId, channelName) {
         showGrid();
         updateGridLayout();
 
+        // Auto-scroll to video grid
+        if (videoGridEl) {
+            videoGridEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
     } catch (error) {
         console.error('Stream start error:', error);
         showToast('Stream connection failed', 'error');
