@@ -9,10 +9,13 @@
 // =============================================================================
 
 const LOG_CONFIG = {
-    MAX_LINES: 1000,        // Maximum lines in DOM
-    MAX_LINE_LENGTH: 5000,  // Truncate lines longer than this (5000 for mechatronic_controller)
-    UPDATE_INTERVAL: 100,   // Batch update interval (ms)
-    TRUNCATE_SUFFIX: '...'  // Suffix for truncated lines
+    MAX_LINES: 1000,            // Maximum lines in DOM
+    MAX_LINE_LENGTH: 5000,      // Truncate lines longer than this (5000 for mechatronic_controller)
+    UPDATE_INTERVAL: 100,       // Batch update interval (ms)
+    TRUNCATE_SUFFIX: '...',     // Suffix for truncated lines
+    FILTER_DEBOUNCE_MS: 500,    // Filter change debounce delay
+    STOP_TIMEOUT_MS: 2000,      // Backend stop request timeout
+    MAX_RECONNECT_ATTEMPTS: 3   // Maximum auto-reconnect attempts
 };
 
 // =============================================================================
@@ -70,6 +73,10 @@ let currentLogService = null;
 let logBuffer = [];
 let logLines = [];
 let logUpdateTimer = null;
+
+// Filter debounce and reconnect state
+let filterDebounceTimer = null;
+let reconnectAttempts = 0;
 
 // Single session ID per page - server auto-kills old process when same session requests new service
 const PAGE_LOG_SESSION_ID = 'log_' + Date.now() + '_' + Math.random().toString(36).substring(2, 11);
@@ -232,12 +239,17 @@ function openLogs(serviceName, displayName) {
     if (logFilterLines) logFilterLines.value = '300';
     if (logFilterSince) logFilterSince.value = '';
 
-    // Reset buffers and clear previous content
+    // Reset all state
     logBuffer = [];
     logLines = [];
+    reconnectAttempts = 0;
     if (logUpdateTimer) {
         clearTimeout(logUpdateTimer);
         logUpdateTimer = null;
+    }
+    if (filterDebounceTimer) {
+        clearTimeout(filterDebounceTimer);
+        filterDebounceTimer = null;
     }
     logContent.textContent = '';
     if (logStatus) logStatus.textContent = 'Connecting...';
@@ -249,19 +261,28 @@ function openLogs(serviceName, displayName) {
     startLogStream(serviceName);
 }
 
-function closeLogs() {
+async function closeLogs() {
     initElements();
 
-    // Stop SSE connection
-    stopLogStream();
+    // Cancel any pending filter change
+    if (filterDebounceTimer) {
+        clearTimeout(filterDebounceTimer);
+        filterDebounceTimer = null;
+    }
 
-    // Cleanup timer and buffers
+    // Cleanup timer
     if (logUpdateTimer) {
         clearTimeout(logUpdateTimer);
         logUpdateTimer = null;
     }
+
+    // Stop SSE connection with backend cleanup
+    await stopLogStreamWithCleanup();
+
+    // Reset all state
     logBuffer = [];
     logLines = [];
+    reconnectAttempts = 0;
 
     // Hide modal
     if (logModal) {
@@ -272,7 +293,7 @@ function closeLogs() {
 }
 
 function startLogStream(serviceName) {
-    // Close existing connection if any
+    // Close existing connection if any (without backend notification - new stream will replace)
     stopLogStream();
 
     // Build URL with filter parameters
@@ -288,6 +309,8 @@ function startLogStream(serviceName) {
     logEventSource = new EventSource(url);
 
     logEventSource.onopen = () => {
+        // Reset reconnect counter on successful connection
+        reconnectAttempts = 0;
         if (logStatus) logStatus.textContent = 'Connected - Streaming';
     };
 
@@ -297,8 +320,22 @@ function startLogStream(serviceName) {
     };
 
     logEventSource.onerror = (error) => {
-        if (logStatus) logStatus.textContent = 'Connection error - Retrying...';
-        console.error('SSE error:', error);
+        reconnectAttempts++;
+
+        if (reconnectAttempts >= LOG_CONFIG.MAX_RECONNECT_ATTEMPTS) {
+            // Too many failures - stop trying
+            stopLogStream();
+            if (logStatus) {
+                logStatus.textContent = 'Connection failed. Close and reopen to retry.';
+            }
+            console.error('SSE max reconnect attempts reached:', error);
+        } else {
+            // Show reconnect status
+            if (logStatus) {
+                logStatus.textContent = `Reconnecting (${reconnectAttempts}/${LOG_CONFIG.MAX_RECONNECT_ATTEMPTS})...`;
+            }
+            console.warn(`SSE reconnect attempt ${reconnectAttempts}:`, error);
+        }
     };
 }
 
@@ -306,6 +343,28 @@ function stopLogStream() {
     if (logEventSource) {
         logEventSource.close();
         logEventSource = null;
+    }
+}
+
+/**
+ * Stop log stream with backend cleanup notification.
+ * Ensures server-side resources are properly released.
+ */
+async function stopLogStreamWithCleanup() {
+    // Close EventSource first
+    stopLogStream();
+
+    // Notify backend to cleanup resources
+    try {
+        await fetch('/api/docker/containers/logs/stop', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: PAGE_LOG_SESSION_ID }),
+            signal: AbortSignal.timeout(LOG_CONFIG.STOP_TIMEOUT_MS)
+        });
+    } catch (e) {
+        // Timeout or network error - backend will cleanup via stale detection
+        console.warn('Stop request failed (will auto-cleanup):', e.message);
     }
 }
 
@@ -320,27 +379,46 @@ function getLogFilters() {
 }
 
 /**
- * Handle filter change - restart stream with new params.
+ * Handle filter change - debounced restart stream with new params.
+ * Debouncing prevents rapid stream creation when user quickly changes filters.
  */
 function onLogFilterChange() {
     if (!currentLogService) return;
 
-    // Clear existing logs and buffers
-    logBuffer = [];
-    logLines = [];
-    if (logUpdateTimer) {
-        clearTimeout(logUpdateTimer);
-        logUpdateTimer = null;
-    }
-    if (logContent) {
-        logContent.textContent = '';
-    }
-    if (logStatus) {
-        logStatus.textContent = 'Reloading...';
+    // Cancel any pending filter change
+    if (filterDebounceTimer) {
+        clearTimeout(filterDebounceTimer);
     }
 
-    // Restart stream with new filters
-    startLogStream(currentLogService);
+    // Show immediate feedback
+    if (logStatus) {
+        logStatus.textContent = 'Applying filter...';
+    }
+
+    // Debounce the actual stream restart
+    filterDebounceTimer = setTimeout(async () => {
+        filterDebounceTimer = null;
+
+        // Stop existing stream with backend cleanup
+        await stopLogStreamWithCleanup();
+
+        // Clear existing logs and buffers
+        logBuffer = [];
+        logLines = [];
+        if (logUpdateTimer) {
+            clearTimeout(logUpdateTimer);
+            logUpdateTimer = null;
+        }
+        if (logContent) {
+            logContent.textContent = '';
+        }
+
+        // Reset reconnect counter for fresh start
+        reconnectAttempts = 0;
+
+        // Start new stream with new filters
+        startLogStream(currentLogService);
+    }, LOG_CONFIG.FILTER_DEBOUNCE_MS);
 }
 
 /**

@@ -284,16 +284,20 @@ class DockerManager:
 
     def stream_logs(self, session_id: str, service_name: str, tail: str = '300', since: str = '') -> Generator[str, None, None]:
         """
-        Stream container logs via Docker Socket API.
+        Stream container logs via Docker Socket API with heartbeat support.
 
         Performance: 5.3x faster than subprocess (10ms vs 56ms first log).
         Native container restart detection via Docker API.
+        Non-blocking I/O with periodic heartbeats.
 
         Args:
             session_id: Unique client session identifier
             service_name: Docker compose service name
             tail: Number of historical lines (default: 300)
             since: Time filter (e.g., '1h', '6h', '24h', '168h')
+
+        Yields:
+            Log lines as strings, or ":heartbeat" for keepalive
         """
         stream_gen = log_process_manager.get_or_create_stream(session_id, service_name, tail=tail, since=since)
 
@@ -302,12 +306,24 @@ class DockerManager:
             return
 
         try:
-            for log_bytes in stream_gen:
+            for item in stream_gen:
+                # Check for heartbeat marker (bytes)
+                if item == b":heartbeat":
+                    yield ":heartbeat"
+                    continue
+
                 # Docker API returns bytes, decode to UTF-8
-                line = log_bytes.decode('utf-8', errors='replace').strip()
+                if isinstance(item, bytes):
+                    line = item.decode('utf-8', errors='replace').strip()
+                else:
+                    line = str(item).strip()
+
                 if line:
                     yield line
 
+        except GeneratorExit:
+            # Client disconnected - normal case
+            logger.debug(f"Client disconnected from log stream: {session_id}")
         except StopIteration:
             # Normal stream end
             pass
