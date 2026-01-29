@@ -36,12 +36,12 @@ echo "$TARGET_MODE" > "$CURRENT_MODE_FILE"
 
 case "$TARGET_MODE" in
     kiosk)
-        /usr/local/bin/chromium-kiosk.sh &
+        /opt/aco-panel/scripts/chromium-kiosk.sh &
         ;;
     panel)
-        /usr/local/bin/chromium-panel.sh &
+        /opt/aco-panel/scripts/chromium-panel.sh &
         ;;
     admin)
-        /usr/local/bin/chromium-admin.sh &
+        /opt/aco-panel/scripts/chromium-admin.sh &
         ;;
 esac

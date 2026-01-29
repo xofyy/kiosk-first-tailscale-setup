@@ -166,7 +166,7 @@ All settings are stored in the `aco.settings` collection in MongoDB:
 /opt/aco-panel/                # Application files
   ├── app/                     # Flask application
   ├── configs/                 # Configuration files
-  ├── scripts/                 # Shell scripts (also in /usr/local/bin/)
+  ├── scripts/                 # Shell scripts
   └── venv/                    # Python virtual environment
 /srv/docker/                   # Docker Compose
   └── docker-compose.yml       # MongoDB + Mongo Express
