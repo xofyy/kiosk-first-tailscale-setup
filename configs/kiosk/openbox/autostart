@@ -8,16 +8,16 @@ xset s noblank
 
 # Apply screen rotation (independent of NVIDIA/MOK status)
 # display-init.sh has its own wait and retry logic
-/usr/local/bin/display-init.sh &
+/opt/aco-panel/scripts/display-init.sh &
 
 # Check if setup is complete
 # NOTE: This file is created by panel based on setup_complete value in MongoDB
 if [ -f /etc/aco-panel/.setup-complete ]; then
     # Start in kiosk mode (installation complete)
     echo "kiosk" > /tmp/kiosk-current-mode
-    /usr/local/bin/chromium-kiosk.sh &
+    /opt/aco-panel/scripts/chromium-kiosk.sh &
 else
     # Start in panel mode (installation in progress)
     echo "panel" > /tmp/kiosk-current-mode
-    /usr/local/bin/chromium-panel.sh &
+    /opt/aco-panel/scripts/chromium-panel.sh &
 fi

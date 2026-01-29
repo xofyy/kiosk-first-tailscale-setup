@@ -1,0 +1,12 @@
+[Unit]
+Description=First boot identity reset (machine-id, SSH keys)
+After=network-pre.target
+ConditionPathExists=/opt/aco-panel/scripts/firstboot-identity.sh
+
+[Service]
+Type=oneshot
+ExecStart=/opt/aco-panel/scripts/firstboot-identity.sh
+RemainAfterExit=no
+
+[Install]
+WantedBy=multi-user.target

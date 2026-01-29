@@ -268,28 +268,10 @@ log "Python environment ready"
 
 info "Copying scripts..."
 
-# Check scripts directory - only copy if changed
 if [[ -d "$SCRIPT_DIR/scripts" ]]; then
-    # Also copy to INSTALL_DIR for upgrade.sh compatibility
     cp -r "$SCRIPT_DIR/scripts" "$INSTALL_DIR/"
-
-    SCRIPTS_UPDATED=0
-    for script in "$SCRIPT_DIR/scripts/"*.sh; do
-        script_name=$(basename "$script")
-        dest="/usr/local/bin/$script_name"
-        
-        if [[ ! -f "$dest" ]] || ! cmp -s "$script" "$dest"; then
-            cp "$script" "$dest"
-            chmod +x "$dest"
-            SCRIPTS_UPDATED=$((SCRIPTS_UPDATED + 1))
-        fi
-    done
-    
-    if [[ $SCRIPTS_UPDATED -gt 0 ]]; then
-        log "$SCRIPTS_UPDATED scripts updated"
-    else
-        log "Scripts already up to date"
-    fi
+    chmod +x "$INSTALL_DIR/scripts/"*.sh
+    log "Scripts copied to $INSTALL_DIR/scripts/"
 fi
 
 # =============================================================================
@@ -376,6 +358,12 @@ log "aco-panel.service created/updated"
 
 # Enable service
 systemctl enable aco-panel.service 2>/dev/null || true
+
+# Firstboot identity service (for cloned images)
+cp "$SCRIPT_DIR/configs/systemd/firstboot-identity.service" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable firstboot-identity.service 2>/dev/null || true
+log "Firstboot identity service enabled"
 
 log "Systemd services ready"
 

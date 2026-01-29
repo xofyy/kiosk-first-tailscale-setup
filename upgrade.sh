@@ -212,17 +212,11 @@ rollback() {
         log_success "Restored app directory"
     fi
 
-    # Restore scripts (with cleanup of removed scripts)
+    # Restore scripts
     if [[ -d "$backup_path/scripts" ]]; then
-        local old_scripts_dir=""
-        if [[ -d "$INSTALL_DIR/scripts" ]]; then
-            old_scripts_dir=$(mktemp -d)
-            cp -r "$INSTALL_DIR/scripts/"*.sh "$old_scripts_dir/" 2>/dev/null || true
-        fi
         rm -rf "$INSTALL_DIR/scripts"
         cp -r "$backup_path/scripts" "$INSTALL_DIR/"
-        update_scripts "$old_scripts_dir"
-        [[ -n "$old_scripts_dir" ]] && rm -rf "$old_scripts_dir"
+        update_scripts
         log_success "Restored scripts"
     fi
 
@@ -269,43 +263,13 @@ rollback() {
 # =============================================================================
 
 update_scripts() {
-    local old_scripts_dir="${1:-}"
-    local scripts_changed=0
+    log_info "Updating scripts..."
 
-    log_info "Updating scripts in /usr/local/bin/..."
+    # Scripts are already copied to $INSTALL_DIR/scripts in perform_upgrade
+    # Just ensure they are executable
+    chmod +x "$INSTALL_DIR/scripts/"*.sh 2>/dev/null || true
 
-    # Step 1: Remove scripts that no longer exist in the new version
-    if [[ -n "$old_scripts_dir" && -d "$old_scripts_dir" ]]; then
-        for old_script in "$old_scripts_dir/"*.sh; do
-            [[ -f "$old_script" ]] || continue
-            local old_name
-            old_name=$(basename "$old_script")
-            if [[ ! -f "$INSTALL_DIR/scripts/$old_name" ]]; then
-                if [[ -f "/usr/local/bin/$old_name" ]]; then
-                    rm -f "/usr/local/bin/$old_name"
-                    log_info "Removed obsolete script: $old_name"
-                    scripts_changed=$((scripts_changed + 1))
-                fi
-            fi
-        done
-    fi
-
-    # Step 2: Deploy new/changed scripts (idempotent)
-    for script in "$INSTALL_DIR/scripts/"*.sh; do
-        [[ -f "$script" ]] || continue
-        local script_name
-        script_name=$(basename "$script")
-        if deploy_config "$script" "/usr/local/bin/$script_name"; then
-            chmod +x "/usr/local/bin/$script_name"
-            scripts_changed=$((scripts_changed + 1))
-        fi
-    done
-
-    if [[ $scripts_changed -gt 0 ]]; then
-        log_success "Scripts updated ($scripts_changed changes)"
-    else
-        log_success "Scripts already up to date"
-    fi
+    log_success "Scripts updated"
 }
 
 deploy_configs() {
@@ -344,6 +308,12 @@ deploy_configs() {
 
     if deploy_config "$INSTALL_DIR/configs/systemd/nvidia-fallback.service" \
                      "/etc/systemd/system/nvidia-fallback.service"; then
+        SYSTEMD_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
+    if deploy_config "$INSTALL_DIR/configs/systemd/firstboot-identity.service" \
+                     "/etc/systemd/system/firstboot-identity.service"; then
         SYSTEMD_CHANGED=true
         total_changes=$((total_changes + 1))
     fi
@@ -523,18 +493,10 @@ perform_upgrade() {
     rm -rf "$INSTALL_DIR/app"
     cp -r "$source_dir/app" "$INSTALL_DIR/"
 
-    # Update scripts (with cleanup of removed scripts)
-    log_info "Updating scripts..."
-    local old_scripts_dir=""
-    if [[ -d "$INSTALL_DIR/scripts" ]]; then
-        old_scripts_dir=$(mktemp -d)
-        cp -r "$INSTALL_DIR/scripts/"*.sh "$old_scripts_dir/" 2>/dev/null || true
-    fi
+    # Update scripts
     rm -rf "$INSTALL_DIR/scripts"
     cp -r "$source_dir/scripts" "$INSTALL_DIR/"
-    chmod +x "$INSTALL_DIR/scripts/"*.sh
-    update_scripts "$old_scripts_dir"
-    [[ -n "$old_scripts_dir" ]] && rm -rf "$old_scripts_dir"
+    update_scripts
 
     # Update templates directory
     if [[ -d "$source_dir/templates" ]]; then

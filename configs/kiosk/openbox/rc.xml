@@ -6,21 +6,21 @@
     <!-- Ctrl+Alt+D: Switch to Kiosk Mode -->
     <keybind key="C-A-d">
       <action name="Execute">
-        <command>/usr/local/bin/switch-mode.sh kiosk</command>
+        <command>/opt/aco-panel/scripts/switch-mode.sh kiosk</command>
       </action>
     </keybind>
 
     <!-- Ctrl+Alt+K: Switch to Panel Mode -->
     <keybind key="C-A-k">
       <action name="Execute">
-        <command>/usr/local/bin/switch-mode.sh panel</command>
+        <command>/opt/aco-panel/scripts/switch-mode.sh panel</command>
       </action>
     </keybind>
 
     <!-- Ctrl+Alt+M: Switch to Admin Mode -->
     <keybind key="C-A-m">
       <action name="Execute">
-        <command>/usr/local/bin/switch-mode.sh admin</command>
+        <command>/opt/aco-panel/scripts/switch-mode.sh admin</command>
       </action>
     </keybind>
 

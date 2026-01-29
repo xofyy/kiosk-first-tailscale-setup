@@ -2,7 +2,7 @@
 # ACO Maintenance Panel - X Init
 
 # Screen settings
-/usr/local/bin/display-init.sh 2>/dev/null || true
+/opt/aco-panel/scripts/display-init.sh 2>/dev/null || true
 
 # Start Openbox
 exec openbox-session
