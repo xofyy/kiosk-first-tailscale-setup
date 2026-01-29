@@ -621,14 +621,24 @@ class BaseModule(ABC):
                 )
                 self.logger.info("GRUB: nvidia-drm.modeset=1 added")
 
-            # 3. fbcon rotation check
+            # 3. fbcon rotation check (validated: 0-3)
             grub_rotation = params.get('grub_rotation')
-            if grub_rotation is not None and 'fbcon=rotate:' not in grub_content:
-                grub_content = grub_content.replace(
-                    'GRUB_CMDLINE_LINUX_DEFAULT="',
-                    f'GRUB_CMDLINE_LINUX_DEFAULT="fbcon=rotate:{grub_rotation} '
-                )
-                self.logger.info(f"GRUB: fbcon=rotate:{grub_rotation} added")
+            if grub_rotation is not None:
+                try:
+                    rotation_val = int(grub_rotation)
+                    if rotation_val not in (0, 1, 2, 3):
+                        self.logger.warning(f"Invalid grub_rotation value: {grub_rotation}, must be 0-3")
+                        rotation_val = None
+                except (ValueError, TypeError):
+                    self.logger.warning(f"Invalid grub_rotation type: {grub_rotation}")
+                    rotation_val = None
+
+                if rotation_val is not None and 'fbcon=rotate:' not in grub_content:
+                    grub_content = grub_content.replace(
+                        'GRUB_CMDLINE_LINUX_DEFAULT="',
+                        f'GRUB_CMDLINE_LINUX_DEFAULT="fbcon=rotate:{rotation_val} '
+                    )
+                    self.logger.info(f"GRUB: fbcon=rotate:{rotation_val} added")
             
             # Any changes?
             if grub_content != original_content:

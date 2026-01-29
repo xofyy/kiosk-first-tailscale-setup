@@ -122,3 +122,4 @@ docker-compose.override.yml
 node_modules/
 npm-debug.log
 yarn-error.log
+GOLANG_MIGRATION_REPORT.md

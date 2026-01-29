@@ -1,0 +1,10 @@
+/var/log/aco-panel/*.log {
+    daily
+    rotate 7
+    compress
+    delaycompress
+    missingok
+    notifempty
+    copytruncate
+    create 644 root root
+}

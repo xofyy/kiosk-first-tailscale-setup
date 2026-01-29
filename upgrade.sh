@@ -440,6 +440,14 @@ deploy_configs() {
     fi
 
     # -------------------------------------------------------------------------
+    # Group 8: Logrotate config
+    # -------------------------------------------------------------------------
+    if deploy_config "$INSTALL_DIR/configs/logrotate/aco-panel" \
+                     "/etc/logrotate.d/aco-panel"; then
+        total_changes=$((total_changes + 1))
+    fi
+
+    # -------------------------------------------------------------------------
     # Summary
     # -------------------------------------------------------------------------
     if [[ $total_changes -gt 0 ]]; then
