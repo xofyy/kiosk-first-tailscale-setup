@@ -170,6 +170,7 @@ PACKAGES=(
     wget
     nano
     git
+    logrotate
     
     # Network tools
     net-tools
