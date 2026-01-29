@@ -693,7 +693,7 @@ const monitorCache = {
     vramCard: null, vramValue: null, vramBar: null, vramDetail: null,
     cpuTemp: null, gpuTemp: null,
     netRx: null, netTx: null,
-    historyChart: null, historyStatus: null,
+    historyChart: null, historyStatus: null, historyTitle: null,
     _initialized: false
 };
 
@@ -727,6 +727,7 @@ function initMonitorCache() {
     monitorCache.netTx = document.getElementById('monitor-net-tx');
     monitorCache.historyChart = document.getElementById('monitor-history-chart');
     monitorCache.historyStatus = document.getElementById('monitor-history-status');
+    monitorCache.historyTitle = document.getElementById('monitor-history-title');
     monitorCache._initialized = true;
 }
 
@@ -878,6 +879,20 @@ async function loadNetworkHistory() {
         const points = data.data;
         const timeRange = points[points.length - 1].time - points[0].time;
         const bucketSize = timeRange / bucketCount || 1;
+
+        // Update title with actual time range
+        if (monitorCache.historyTitle) {
+            if (points.length > 1 && timeRange > 60) {
+                const hours = Math.floor(timeRange / 3600);
+                const minutes = Math.floor((timeRange % 3600) / 60);
+                let rangeStr = '';
+                if (hours > 0) rangeStr += hours + 'H ';
+                if (minutes > 0 || hours === 0) rangeStr += minutes + 'M';
+                monitorCache.historyTitle.textContent = 'Network History (' + rangeStr.trim() + ')';
+            } else {
+                monitorCache.historyTitle.textContent = 'Network History';
+            }
+        }
 
         const buckets = [];
         for (let i = 0; i < bucketCount; i++) {
