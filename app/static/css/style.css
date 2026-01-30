@@ -1775,26 +1775,28 @@ body {
 }
 
 .component-grid {
-    display: grid;
-    grid-template-columns: repeat(5, 1fr);
+    display: flex;
     gap: var(--spacing-md);
 }
 
-@media (max-width: 1100px) {
-    .component-grid {
-        grid-template-columns: repeat(3, 1fr);
-    }
+.component-grid .component-card {
+    flex: 1;
+    min-width: 0;
 }
 
-@media (max-width: 700px) {
+@media (max-width: 800px) {
     .component-grid {
-        grid-template-columns: repeat(2, 1fr);
+        flex-wrap: wrap;
+    }
+    .component-grid .component-card {
+        flex: 1 1 calc(50% - var(--spacing-md));
+        min-width: 140px;
     }
 }
 
 @media (max-width: 500px) {
-    .component-grid {
-        grid-template-columns: 1fr;
+    .component-grid .component-card {
+        flex: 1 1 100%;
     }
 }
 
