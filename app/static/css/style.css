@@ -2575,7 +2575,8 @@ body {
     font-weight: 400;
 }
 
-.detail-process-item .progress-bar {
+.detail-process-item .progress-bar,
+.detail-core-item .progress-bar {
     margin-bottom: 0;
 }
 
