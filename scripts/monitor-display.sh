@@ -30,13 +30,7 @@ set -o pipefail
 # CONFIGURATION
 #------------------------------------------------------------------------------
 
-# Auto-detect display output (supports nouveau "default" and nvidia "DVI-D-0", "HDMI-0", etc.)
-detect_display_output() {
-    local output=$(xrandr 2>/dev/null | grep " connected" | head -1 | awk '{print $1}')
-    echo "${output:-DVI-D-0}"
-}
-
-DISPLAY_OUTPUT=""  # Will be set after X11 env vars
+DISPLAY_OUTPUT="DVI-D-0"
 LOG_FILE="/var/log/aco-panel/display-monitor.log"
 PID_FILE="/var/run/display-monitor.pid"
 MAX_LOG_SIZE_MB=50
@@ -59,12 +53,10 @@ DDC_CHECK_INTERVAL=15     # DDC check (slower to reduce system load)
 export DISPLAY=:0
 export XAUTHORITY=/home/kiosk/.Xauthority
 
-# Now detect display output (requires X11 env vars)
-DISPLAY_OUTPUT=$(detect_display_output)
-
-# Disable DDC for nouveau driver (uses "default" output, DDC unreliable)
-if [ "$DISPLAY_OUTPUT" = "default" ]; then
-    DDC_AVAILABLE=false
+# NVIDIA driver check
+NVIDIA_DRIVER_LOADED=false
+if lsmod | grep -q "^nvidia "; then
+    NVIDIA_DRIVER_LOADED=true
 fi
 
 #------------------------------------------------------------------------------
@@ -140,6 +132,7 @@ write_status_json() {
     "status": "${curr_ddc}",
     "ddc_available": ${DDC_AVAILABLE}
   },
+  "nvidia_driver": ${NVIDIA_DRIVER_LOADED},
   "touchscreen": {
     "status": "${curr_touch}",
     "usb_id": "${TOUCH_USB_ID}"
@@ -553,13 +546,6 @@ main() {
         log_event "WARN" "Screen on/off detection will not work"
         log_event "WARN" "To install: sudo apt install ddcutil"
     fi
-
-    # Disable DDC for nouveau driver (uses "default" output, DDC unreliable)
-    if [ "$DISPLAY_OUTPUT" = "default" ]; then
-        DDC_AVAILABLE=false
-        log_event "WARN" "DDC disabled: nouveau driver detected (output: default)"
-        log_event "WARN" "Install NVIDIA proprietary driver for DDC support"
-    fi
     
     # xinput check
     if ! command -v xinput &> /dev/null; then
@@ -570,14 +556,9 @@ main() {
     PREV_CONNECTION=$(check_connection)
     PREV_TOUCH_STATUS=$(check_touchscreen)
     
-    if [ "$PREV_CONNECTION" = "connected" ]; then
-        if $DDC_AVAILABLE; then
-            PREV_DDC_STATUS=$(check_ddc)
-        else
-            PREV_DDC_STATUS="unknown"
-        fi
+    if [ "$PREV_CONNECTION" = "connected" ] && $DDC_AVAILABLE; then
+        PREV_DDC_STATUS=$(check_ddc)
     else
-        # Cable disconnected - screen is off (no signal)
         PREV_DDC_STATUS="off"
     fi
     
@@ -611,18 +592,8 @@ status_check() {
     local size=$(get_physical_size)
     local ddc="n/a"
     local touch=$(check_touchscreen)
-
-    # Set DDC_AVAILABLE for status check (normally set in main())
-    if command -v ddcutil &> /dev/null; then
-        DDC_AVAILABLE=true
-    fi
-
-    # Disable DDC for nouveau driver (uses "default" output, DDC unreliable)
-    if [ "$DISPLAY_OUTPUT" = "default" ]; then
-        DDC_AVAILABLE=false
-    fi
-
-    if $DDC_AVAILABLE && [ "$conn" = "connected" ]; then
+    
+    if command -v ddcutil &> /dev/null && [ "$conn" = "connected" ]; then
         ddc=$(check_ddc)
     fi
     

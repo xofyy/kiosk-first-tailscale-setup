@@ -1807,6 +1807,20 @@ class SystemService:
             screen = data.get('screen', {}).get('status', 'unknown')
             touch = data.get('touchscreen', {}).get('status', 'unknown')
             ddc_available = data.get('screen', {}).get('ddc_available', False)
+            nvidia_driver = data.get('nvidia_driver', False)
+
+            # Check NVIDIA driver first - required for proper display monitoring
+            if not nvidia_driver:
+                return {
+                    'status': 'driver_required',
+                    'ok': False,
+                    'cable': cable,
+                    'screen': screen,
+                    'touch': touch,
+                    'nvidia_driver': False,
+                    'ddc_available': ddc_available,
+                    'label': 'Display'
+                }
 
             # Determine OK status
             # OK if: cable connected AND (screen on OR ddc not available) AND touch connected
@@ -1838,6 +1852,7 @@ class SystemService:
                 'touch': touch,
                 'resolution': data.get('cable', {}).get('resolution'),
                 'ddc_available': ddc_available,
+                'nvidia_driver': nvidia_driver,
                 'label': 'Display'
             }
 

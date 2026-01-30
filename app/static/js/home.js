@@ -617,6 +617,7 @@ const COMPONENT_STATES = {
         'touch_error': { dot: 'error', text: 'Touch Error', cardClass: 'component-error' },
         'power_off': { dot: 'warning', text: 'Power Off', cardClass: 'component-warning' },
         'touch_disconnected': { dot: 'error', text: 'Touch Disconnected', cardClass: 'component-error' },
+        'driver_required': { dot: 'warning', text: 'Driver Required', cardClass: 'component-warning' },
         'not_running': { dot: 'pending', text: 'Not Running', cardClass: 'component-pending' },
         'stale': { dot: 'error', text: 'Stale', cardClass: 'component-error' },
         'error': { dot: 'error', text: 'Error', cardClass: 'component-error' }

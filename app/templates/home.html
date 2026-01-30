@@ -321,7 +321,7 @@
             </div>
 
             <!-- Display -->
-            <div class="component-card {% if components.display.ok %}component-ok{% elif components.display.status == 'not_running' %}component-pending{% elif components.display.status == 'screen_off' or components.display.status == 'power_off' %}component-warning{% else %}component-error{% endif %}" id="component-display">
+            <div class="component-card {% if components.display.ok %}component-ok{% elif components.display.status == 'not_running' %}component-pending{% elif components.display.status == 'screen_off' or components.display.status == 'power_off' or components.display.status == 'driver_required' %}component-warning{% else %}component-error{% endif %}" id="component-display">
                 <div class="component-header">
                     <span class="component-icon">
                         <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -353,6 +353,9 @@
                     {% elif components.display.status == 'power_off' %}
                     <span class="component-status-dot warning"></span>
                     <span>Power Off</span>
+                    {% elif components.display.status == 'driver_required' %}
+                    <span class="component-status-dot warning"></span>
+                    <span>Driver Required</span>
                     {% elif components.display.status == 'touch_disconnected' %}
                     <span class="component-status-dot error"></span>
                     <span>Touch Disconnected</span>
