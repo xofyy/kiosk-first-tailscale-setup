@@ -225,7 +225,7 @@ mkdir -p "$KIOSK_LOG_DIR"
 chmod 755 "$KIOSK_LOG_DIR"
 
 # Log rotation config
-cp "$INSTALL_DIR/configs/logrotate/aco-panel" /etc/logrotate.d/aco-panel
+cp "$SCRIPT_DIR/configs/logrotate/aco-panel" /etc/logrotate.d/aco-panel
 chmod 644 /etc/logrotate.d/aco-panel
 
 log "Directories created"
