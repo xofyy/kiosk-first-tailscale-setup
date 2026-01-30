@@ -497,6 +497,15 @@ monitor_loop() {
             "disconnected")
                 log_event "ERROR" "TOUCHSCREEN DISCONNECTED - USB device not found!"
                 ((STAT_TOUCH_DISCONNECT++))
+                # Touch is powered by display - immediately check if display power was lost
+                if $DDC_AVAILABLE && [ "$curr_conn" = "connected" ]; then
+                    local immediate_ddc=$(check_ddc)
+                    if [ "$immediate_ddc" = "off" ] && [ "$PREV_DDC_STATUS" != "off" ]; then
+                        log_event "WARN" "SCREEN OFF - DDC/CI not responding (power loss detected)"
+                        ((STAT_SCREEN_OFF++))
+                        PREV_DDC_STATUS="off"
+                    fi
+                fi
                 ;;
         esac
         PREV_TOUCH_STATUS="$curr_touch"
