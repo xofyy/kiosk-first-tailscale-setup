@@ -489,21 +489,43 @@ monitor_loop() {
     
     # Touchscreen status changed?
     if [ "$curr_touch" != "$PREV_TOUCH_STATUS" ]; then
-        case "$curr_touch" in
-            "connected")
-                log_event "INFO" "TOUCHSCREEN CONNECTED - USB and input device OK"
-                ((STAT_TOUCH_CONNECT++))
-                ;;
-            "error")
-                log_event "WARN" "TOUCHSCREEN ERROR - USB present but input device not found"
-                ((STAT_TOUCH_ERROR++))
-                ;;
-            "disconnected")
-                log_event "ERROR" "TOUCHSCREEN DISCONNECTED - USB device not found!"
-                ((STAT_TOUCH_DISCONNECT++))
-                ;;
-        esac
-        PREV_TOUCH_STATUS="$curr_touch"
+        # Race condition check: USB disconnects faster than xrandr detects cable loss
+        # If touch just disconnected while cable appears connected, verify cable status
+        if [ "$curr_touch" = "disconnected" ] && [ "$curr_conn" = "connected" ]; then
+            sleep 0.5  # Brief delay for xrandr to catch up
+            local verify_conn=$(check_connection)
+            if [ "$verify_conn" != "connected" ]; then
+                # Cable actually disconnected - this is power-off scenario
+                log_event "DEBUG" "Touch disconnect detected as power-off (cable verify failed)"
+                # Handle cable disconnection immediately
+                log_event "ERROR" "CABLE DISCONNECTED - Connection lost!"
+                ((STAT_CABLE_DISCONNECT++))
+                PREV_DDC_STATUS="off"
+                PREV_TOUCH_STATUS="n/a"
+                PREV_CONNECTION="$verify_conn"
+                curr_touch="n/a"
+                curr_conn="$verify_conn"
+            fi
+        fi
+
+        # Now check if we still need to log touch change
+        if [ "$curr_touch" != "$PREV_TOUCH_STATUS" ]; then
+            case "$curr_touch" in
+                "connected")
+                    log_event "INFO" "TOUCHSCREEN CONNECTED - USB and input device OK"
+                    ((STAT_TOUCH_CONNECT++))
+                    ;;
+                "error")
+                    log_event "WARN" "TOUCHSCREEN ERROR - USB present but input device not found"
+                    ((STAT_TOUCH_ERROR++))
+                    ;;
+                "disconnected")
+                    log_event "ERROR" "TOUCHSCREEN DISCONNECTED - USB device not found!"
+                    ((STAT_TOUCH_DISCONNECT++))
+                    ;;
+            esac
+            PREV_TOUCH_STATUS="$curr_touch"
+        fi
     fi
 
     # Write current status to JSON file for panel integration
