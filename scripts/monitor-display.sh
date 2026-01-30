@@ -30,7 +30,13 @@ set -o pipefail
 # CONFIGURATION
 #------------------------------------------------------------------------------
 
-DISPLAY_OUTPUT="DVI-D-0"
+# Auto-detect display output (supports nouveau "default" and nvidia "DVI-D-0", "HDMI-0", etc.)
+detect_display_output() {
+    local output=$(xrandr 2>/dev/null | grep " connected" | head -1 | awk '{print $1}')
+    echo "${output:-DVI-D-0}"
+}
+
+DISPLAY_OUTPUT=""  # Will be set after X11 env vars
 LOG_FILE="/var/log/aco-panel/display-monitor.log"
 PID_FILE="/var/run/display-monitor.pid"
 MAX_LOG_SIZE_MB=50
@@ -52,6 +58,9 @@ DDC_CHECK_INTERVAL=15     # DDC check (slower to reduce system load)
 # X11 environment variables
 export DISPLAY=:0
 export XAUTHORITY=/home/kiosk/.Xauthority
+
+# Now detect display output (requires X11 env vars)
+DISPLAY_OUTPUT=$(detect_display_output)
 
 #------------------------------------------------------------------------------
 # COLOR CODES
