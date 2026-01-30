@@ -594,8 +594,13 @@ status_check() {
     local size=$(get_physical_size)
     local ddc="n/a"
     local touch=$(check_touchscreen)
-    
-    if command -v ddcutil &> /dev/null && [ "$conn" = "connected" ]; then
+
+    # Set DDC_AVAILABLE for status check (normally set in main())
+    if command -v ddcutil &> /dev/null; then
+        DDC_AVAILABLE=true
+    fi
+
+    if $DDC_AVAILABLE && [ "$conn" = "connected" ]; then
         ddc=$(check_ddc)
     fi
     
