@@ -580,6 +580,9 @@ main() {
     # Write initial status JSON for panel integration
     write_status_json "$PREV_CONNECTION" "$PREV_DDC_STATUS" "$PREV_TOUCH_STATUS" "$curr_res" "$curr_size"
 
+    # Reset DDC counter so first loop check happens after full interval (DDC needs time to stabilize)
+    DDC_CHECK_COUNTER=0
+
     echo -e "${CYAN}Monitoring active... Press Ctrl+C to stop${NC}"
     echo ""
     
