@@ -2600,6 +2600,161 @@ body {
     font-size: var(--font-size-sm);
 }
 
+/* Disk I/O Stats */
+.detail-io-stats {
+    display: flex;
+    gap: var(--spacing-lg);
+}
+
+.detail-io-stat {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-io-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.detail-io-value {
+    font-size: var(--font-size-md);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+/* Partition Items */
+.detail-partitions-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-sm);
+}
+
+.detail-partition-item {
+    padding: var(--spacing-sm);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--border-radius);
+}
+
+.detail-partition-header {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-xs);
+    margin-bottom: var(--spacing-xs);
+    font-size: var(--font-size-sm);
+}
+
+.detail-partition-device {
+    font-family: var(--font-family-mono);
+    color: var(--color-text);
+}
+
+.detail-partition-arrow {
+    color: var(--color-text-muted);
+}
+
+.detail-partition-mount {
+    font-family: var(--font-family-mono);
+    color: var(--color-primary);
+}
+
+.detail-partition-fstype {
+    margin-left: auto;
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    background: var(--color-bg-secondary);
+    padding: 2px 6px;
+    border-radius: var(--border-radius-sm);
+}
+
+.detail-partition-bar {
+    display: grid;
+    grid-template-columns: 1fr 50px 90px;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.detail-partition-bar .progress-bar {
+    margin-bottom: 0;
+}
+
+.detail-partition-percent {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    text-align: right;
+}
+
+.detail-partition-size {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    text-align: right;
+}
+
+/* Directory Items */
+.detail-dirs-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-dir-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--border-radius);
+}
+
+.detail-dir-path {
+    font-size: var(--font-size-sm);
+    font-family: var(--font-family-mono);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.detail-dir-size {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    margin-left: var(--spacing-sm);
+}
+
+/* I/O Process Items */
+.detail-io-processes {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-io-process-item {
+    display: grid;
+    grid-template-columns: 1fr 80px 80px;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--border-radius);
+}
+
+.detail-io-process-name {
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.detail-io-process-rw {
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-mono);
+    color: var(--color-text-muted);
+    text-align: right;
+}
+
 /* Memory breakdown */
 .detail-memory-breakdown {
     display: flex;

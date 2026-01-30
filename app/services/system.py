@@ -1025,6 +1025,134 @@ class SystemService:
             logger.error(f"Could not get VRAM details: {e}")
             return {'available': False, 'error': str(e)}
 
+    def _get_top_io_processes(self, limit: int = 5) -> list:
+        """Get top I/O consuming processes from /proc/[pid]/io"""
+        processes = []
+
+        for proc in psutil.process_iter(['pid', 'name', 'cmdline']):
+            try:
+                pid = proc.info['pid']
+                io_path = f'/proc/{pid}/io'
+                if not os.path.exists(io_path):
+                    continue
+
+                with open(io_path, 'r') as f:
+                    io_data = {}
+                    for line in f:
+                        parts = line.strip().split(': ')
+                        if len(parts) == 2:
+                            io_data[parts[0]] = int(parts[1])
+
+                read_bytes = io_data.get('read_bytes', 0)
+                write_bytes = io_data.get('write_bytes', 0)
+
+                if read_bytes > 0 or write_bytes > 0:
+                    processes.append({
+                        'pid': pid,
+                        'name': self._get_process_display_name(
+                            proc.info['name'],
+                            proc.info.get('cmdline')
+                        )[:30],
+                        'read_bytes': read_bytes,
+                        'write_bytes': write_bytes
+                    })
+            except (PermissionError, FileNotFoundError, psutil.NoSuchProcess,
+                    psutil.AccessDenied, ValueError, KeyError):
+                continue
+
+        processes.sort(key=lambda x: x['read_bytes'] + x['write_bytes'], reverse=True)
+        return processes[:limit]
+
+    def _get_largest_directories(self, path: str = '/', limit: int = 5) -> list:
+        """Get largest directories using du command"""
+        try:
+            result = subprocess.run(
+                ['du', '-b', '--max-depth=1', path],
+                capture_output=True,
+                text=True,
+                timeout=30
+            )
+
+            directories = []
+            for line in result.stdout.strip().split('\n'):
+                if not line:
+                    continue
+                parts = line.split('\t')
+                if len(parts) == 2:
+                    try:
+                        size_bytes = int(parts[0])
+                        dir_path = parts[1]
+                        # Skip root path and very small directories
+                        if dir_path != path and size_bytes > 1024 * 1024:
+                            directories.append({
+                                'path': dir_path,
+                                'size_bytes': size_bytes,
+                                'size_gb': round(size_bytes / (1024**3), 1)
+                            })
+                    except ValueError:
+                        continue
+
+            directories.sort(key=lambda x: x['size_bytes'], reverse=True)
+            return directories[:limit]
+
+        except (subprocess.TimeoutExpired, Exception) as e:
+            logger.warning(f"Could not get directory sizes: {e}")
+            return []
+
+    def get_disk_details(self) -> Dict[str, Any]:
+        """Get detailed disk information for modal view"""
+        try:
+            partitions = []
+            total_size = 0
+            total_used = 0
+
+            for part in psutil.disk_partitions(all=False):
+                if part.fstype in ('squashfs', 'overlay', 'tmpfs', 'devtmpfs'):
+                    continue
+                try:
+                    usage = psutil.disk_usage(part.mountpoint)
+                    total_size += usage.total
+                    total_used += usage.used
+                    partitions.append({
+                        'device': part.device,
+                        'mountpoint': part.mountpoint,
+                        'fstype': part.fstype,
+                        'total_gb': round(usage.total / (1024**3), 1),
+                        'used_gb': round(usage.used / (1024**3), 1),
+                        'free_gb': round(usage.free / (1024**3), 1),
+                        'percent': usage.percent
+                    })
+                except (PermissionError, OSError):
+                    continue
+
+            partitions.sort(key=lambda x: x['percent'], reverse=True)
+
+            io = psutil.disk_io_counters()
+            io_stats = {
+                'read_bytes': io.read_bytes if io else 0,
+                'write_bytes': io.write_bytes if io else 0,
+                'read_count': io.read_count if io else 0,
+                'write_count': io.write_count if io else 0,
+            }
+
+            io_processes = self._get_top_io_processes()
+            largest_dirs = self._get_largest_directories('/')
+            overall_percent = round((total_used / total_size * 100), 1) if total_size > 0 else 0
+
+            return {
+                'overall_percent': overall_percent,
+                'total_gb': round(total_size / (1024**3), 1),
+                'used_gb': round(total_used / (1024**3), 1),
+                'free_gb': round((total_size - total_used) / (1024**3), 1),
+                'partitions': partitions,
+                'io_stats': io_stats,
+                'largest_directories': largest_dirs,
+                'top_processes': io_processes
+            }
+        except Exception as e:
+            logger.error(f"Could not get disk details: {e}")
+            return {'error': str(e)}
+
     # =========================================================================
     # HOSTNAME MANAGEMENT
     # =========================================================================

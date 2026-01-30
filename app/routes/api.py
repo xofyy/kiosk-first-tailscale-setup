@@ -171,6 +171,13 @@ def vram_details():
     return jsonify(system.get_vram_details())
 
 
+@api_bp.route('/system/monitor/disk/details')
+def disk_details():
+    """Return detailed disk info: partitions, I/O stats, top processes"""
+    system = SystemService()
+    return jsonify(system.get_disk_details())
+
+
 @api_bp.route('/system/network-history')
 def network_history():
     """Return network traffic history from netmon database"""

@@ -1045,7 +1045,8 @@ function openMonitorDetail(type) {
         'cpu': 'CPU Details',
         'memory': 'Memory Details',
         'gpu': 'GPU Details',
-        'vram': 'VRAM Details'
+        'vram': 'VRAM Details',
+        'disk': 'Disk Details'
     };
     if (monitorDetailTitle) {
         monitorDetailTitle.textContent = titles[type] || 'Details';
@@ -1109,6 +1110,9 @@ async function loadDetailContent(type) {
                 break;
             case 'vram':
                 renderVramDetails(data);
+                break;
+            case 'disk':
+                renderDiskDetails(data);
                 break;
         }
     } catch (error) {
@@ -1423,13 +1427,126 @@ function renderVramDetails(data) {
     `;
 }
 
+function renderDiskDetails(data) {
+    if (!monitorDetailBody) return;
+
+    if (data.error) {
+        monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + data.error + '</span></div>';
+        return;
+    }
+
+    function formatBytes(bytes) {
+        const gb = bytes / (1024 * 1024 * 1024);
+        return gb >= 1 ? gb.toFixed(1) + ' GB' : (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+
+    // Partitions
+    const partitionHtml = data.partitions.map(p => `
+        <div class="detail-partition-item">
+            <div class="detail-partition-header">
+                <span class="detail-partition-device">${p.device}</span>
+                <span class="detail-partition-arrow">→</span>
+                <span class="detail-partition-mount">${p.mountpoint}</span>
+                <span class="detail-partition-fstype">${p.fstype}</span>
+            </div>
+            <div class="detail-partition-bar">
+                <div class="progress-bar progress-bar-sm">
+                    <div class="progress-fill ${getLevel(p.percent)}" style="width: ${p.percent}%"></div>
+                </div>
+                <span class="detail-partition-percent ${getLevel(p.percent)}">${p.percent}%</span>
+                <span class="detail-partition-size">${p.used_gb}/${p.total_gb} GB</span>
+            </div>
+        </div>
+    `).join('');
+
+    // Largest directories
+    const dirsHtml = data.largest_directories && data.largest_directories.length > 0
+        ? data.largest_directories.map(dir => `
+            <div class="detail-dir-item">
+                <span class="detail-dir-path">${dir.path}</span>
+                <span class="detail-dir-size">${dir.size_gb} GB</span>
+            </div>
+        `).join('')
+        : '<div class="detail-empty">No data available</div>';
+
+    // Top I/O processes
+    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
+        <div class="detail-io-process-item">
+            <span class="detail-io-process-name">${proc.name}</span>
+            <span class="detail-io-process-rw">R: ${formatBytes(proc.read_bytes)}</span>
+            <span class="detail-io-process-rw">W: ${formatBytes(proc.write_bytes)}</span>
+        </div>
+    `).join('') : '<div class="detail-empty">No I/O data available</div>';
+
+    monitorDetailBody.innerHTML = `
+        <div class="detail-section">
+            <h4 class="detail-section-title">Summary</h4>
+            <div class="detail-summary">
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Overall Usage</span>
+                    <span class="detail-summary-value ${getLevel(data.overall_percent)}">${data.overall_percent}%</span>
+                </div>
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Total</span>
+                    <span class="detail-summary-value">${data.total_gb} GB</span>
+                </div>
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Used</span>
+                    <span class="detail-summary-value">${data.used_gb} GB</span>
+                </div>
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Free</span>
+                    <span class="detail-summary-value">${data.free_gb} GB</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">I/O Since Boot</h4>
+            <div class="detail-io-stats">
+                <div class="detail-io-stat">
+                    <span class="detail-io-label">Read</span>
+                    <span class="detail-io-value">${formatBytes(data.io_stats.read_bytes)}</span>
+                </div>
+                <div class="detail-io-stat">
+                    <span class="detail-io-label">Write</span>
+                    <span class="detail-io-value">${formatBytes(data.io_stats.write_bytes)}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Partitions</h4>
+            <div class="detail-partitions-list">
+                ${partitionHtml}
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Largest Directories</h4>
+            <div class="detail-dirs-list">
+                ${dirsHtml}
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Top I/O Processes</h4>
+            <div class="detail-io-processes">
+                ${processHtml}
+            </div>
+        </div>
+    `;
+}
+
 // Add click handlers to monitor cards
 function initMonitorCardClickHandlers() {
     const clickableCards = [
         { id: 'monitor-cpu', type: 'cpu' },
         { id: 'monitor-memory', type: 'memory' },
         { id: 'monitor-gpu', type: 'gpu' },
-        { id: 'monitor-vram', type: 'vram' }
+        { id: 'monitor-vram', type: 'vram' },
+        { id: 'monitor-disk-root', type: 'disk' },
+        { id: 'monitor-disk-data', type: 'disk' }
     ];
 
     clickableCards.forEach(({ id, type }) => {
