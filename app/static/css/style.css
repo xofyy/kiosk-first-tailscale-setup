@@ -2755,6 +2755,67 @@ body {
     text-align: right;
 }
 
+/* Network Details */
+.detail-net-time-range {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    margin-bottom: var(--spacing-sm);
+}
+
+.detail-net-totals {
+    display: flex;
+    gap: var(--spacing-lg);
+}
+
+.detail-net-total {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-net-total-label {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+}
+
+.detail-net-total-value {
+    font-size: var(--font-size-lg);
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.detail-net-apps {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-xs);
+}
+
+.detail-net-app-item {
+    display: grid;
+    grid-template-columns: 1fr 80px 80px;
+    align-items: center;
+    gap: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--border-radius);
+}
+
+.detail-net-app-name {
+    font-size: var(--font-size-sm);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.detail-net-app-rx,
+.detail-net-app-tx {
+    font-size: var(--font-size-xs);
+    font-family: var(--font-family-mono);
+    color: var(--color-text-muted);
+    text-align: right;
+}
+
 /* Memory breakdown */
 .detail-memory-breakdown {
     display: flex;

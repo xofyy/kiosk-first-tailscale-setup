@@ -178,6 +178,13 @@ def disk_details():
     return jsonify(system.get_disk_details())
 
 
+@api_bp.route('/system/monitor/network/details')
+def network_details():
+    """Return detailed network usage by application"""
+    system = SystemService()
+    return jsonify(system.get_network_details())
+
+
 @api_bp.route('/system/network-history')
 def network_history():
     """Return network traffic history from netmon database"""

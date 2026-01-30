@@ -702,6 +702,99 @@ class SystemService:
 
         return result
 
+    def get_network_details(self, hours: int = 24) -> Dict[str, Any]:
+        """Get detailed network usage by application from netmon database"""
+        result = {
+            'available': False,
+            'time_range': None,
+            'total_rx': 0,
+            'total_tx': 0,
+            'top_apps': [],
+            'error': None
+        }
+
+        if not os.path.exists(NETMON_DB_PATH):
+            result['error'] = 'netmon database not found'
+            return result
+
+        try:
+            conn = sqlite3.connect(NETMON_DB_PATH, timeout=3)
+            cursor = conn.cursor()
+
+            # Get time range of available data (max 24 hours)
+            cursor.execute(
+                "SELECT MIN(timestamp), MAX(timestamp) FROM traffic "
+                "WHERE timestamp > datetime('now', ? || ' hours')",
+                (str(-hours),)
+            )
+            min_ts, max_ts = cursor.fetchone()
+
+            if not min_ts or not max_ts:
+                result['error'] = 'No data available'
+                conn.close()
+                return result
+
+            # Calculate actual hours of data
+            cursor.execute(
+                "SELECT (julianday(?) - julianday(?)) * 24",
+                (max_ts, min_ts)
+            )
+            actual_hours = cursor.fetchone()[0] or 0
+            actual_hours = min(round(actual_hours, 1), hours)
+
+            # Format time range string
+            if actual_hours < 1:
+                result['time_range'] = f"Last {int(actual_hours * 60)} minutes"
+            elif actual_hours >= 24:
+                result['time_range'] = "Last 24 hours"
+            else:
+                result['time_range'] = f"Last {int(actual_hours)} hours"
+
+            # Get totals
+            cursor.execute(
+                "SELECT SUM(bytes_recv), SUM(bytes_sent) FROM traffic "
+                "WHERE timestamp > datetime('now', ? || ' hours')",
+                (str(-hours),)
+            )
+            total_rx, total_tx = cursor.fetchone()
+            result['total_rx'] = total_rx or 0
+            result['total_tx'] = total_tx or 0
+
+            # Get top apps by usage
+            cursor.execute(
+                "SELECT app_name, "
+                "       SUM(bytes_recv) as rx, "
+                "       SUM(bytes_sent) as tx "
+                "FROM traffic "
+                "WHERE timestamp > datetime('now', ? || ' hours') "
+                "AND app_name IS NOT NULL AND app_name != '' "
+                "GROUP BY app_name "
+                "ORDER BY (rx + tx) DESC "
+                "LIMIT 10",
+                (str(-hours),)
+            )
+
+            top_apps = []
+            for row in cursor.fetchall():
+                app_name, rx, tx = row
+                if rx or tx:
+                    top_apps.append({
+                        'name': app_name[:30] if app_name else 'unknown',
+                        'rx': rx or 0,
+                        'tx': tx or 0
+                    })
+
+            result['top_apps'] = top_apps
+            result['available'] = len(top_apps) > 0
+            conn.close()
+
+        except sqlite3.Error as e:
+            result['error'] = f'Database error: {str(e)}'
+        except Exception as e:
+            result['error'] = f'Error: {str(e)}'
+
+        return result
+
     def get_system_monitor(self) -> Dict[str, Any]:
         """Collect all system monitor data for the dashboard"""
         disk_data = {'root': self.get_disk_info('/')}

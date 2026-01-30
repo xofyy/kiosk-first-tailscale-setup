@@ -1046,7 +1046,8 @@ function openMonitorDetail(type) {
         'memory': 'Memory Details',
         'gpu': 'GPU Details',
         'vram': 'VRAM Details',
-        'disk': 'Disk Details'
+        'disk': 'Disk Details',
+        'network': 'Network Details'
     };
     if (monitorDetailTitle) {
         monitorDetailTitle.textContent = titles[type] || 'Details';
@@ -1113,6 +1114,9 @@ async function loadDetailContent(type) {
                 break;
             case 'disk':
                 renderDiskDetails(data);
+                break;
+            case 'network':
+                renderNetworkDetails(data);
                 break;
         }
     } catch (error) {
@@ -1538,6 +1542,63 @@ function renderDiskDetails(data) {
     `;
 }
 
+function renderNetworkDetails(data) {
+    if (!monitorDetailBody) return;
+
+    if (data.error) {
+        monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + data.error + '</span></div>';
+        return;
+    }
+
+    if (!data.available || !data.top_apps || data.top_apps.length === 0) {
+        monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>No network data available</span></div>';
+        return;
+    }
+
+    function formatBytes(bytes) {
+        if (bytes >= 1024 * 1024 * 1024) {
+            return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+        } else if (bytes >= 1024 * 1024) {
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        } else if (bytes >= 1024) {
+            return (bytes / 1024).toFixed(1) + ' KB';
+        }
+        return bytes + ' B';
+    }
+
+    const appsHtml = data.top_apps.map(app => `
+        <div class="detail-net-app-item">
+            <span class="detail-net-app-name">${app.name}</span>
+            <span class="detail-net-app-rx">↓ ${formatBytes(app.rx)}</span>
+            <span class="detail-net-app-tx">↑ ${formatBytes(app.tx)}</span>
+        </div>
+    `).join('');
+
+    monitorDetailBody.innerHTML = `
+        <div class="detail-section">
+            <h4 class="detail-section-title">Total Usage</h4>
+            <div class="detail-net-time-range">${data.time_range || 'Last 24 hours'}</div>
+            <div class="detail-net-totals">
+                <div class="detail-net-total">
+                    <span class="detail-net-total-label">↓ Received</span>
+                    <span class="detail-net-total-value">${formatBytes(data.total_rx)}</span>
+                </div>
+                <div class="detail-net-total">
+                    <span class="detail-net-total-label">↑ Sent</span>
+                    <span class="detail-net-total-value">${formatBytes(data.total_tx)}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Top Applications</h4>
+            <div class="detail-net-apps">
+                ${appsHtml}
+            </div>
+        </div>
+    `;
+}
+
 // Add click handlers to monitor cards
 function initMonitorCardClickHandlers() {
     const clickableCards = [
@@ -1546,7 +1607,8 @@ function initMonitorCardClickHandlers() {
         { id: 'monitor-gpu', type: 'gpu' },
         { id: 'monitor-vram', type: 'vram' },
         { id: 'monitor-disk-root', type: 'disk' },
-        { id: 'monitor-disk-data', type: 'disk' }
+        { id: 'monitor-disk-data', type: 'disk' },
+        { id: 'monitor-network', type: 'network' }
     ];
 
     clickableCards.forEach(({ id, type }) => {
