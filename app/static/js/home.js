@@ -1279,14 +1279,21 @@ function renderGpuDetails(data) {
         return;
     }
 
-    // Process list
-    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
-        <div class="detail-process-item">
-            <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
-            <span class="detail-process-pid">PID: ${proc.pid}</span>
-            <span class="detail-process-value">${proc.gpu_memory_mb} MB</span>
-        </div>
-    `).join('') : '<div class="detail-empty">No GPU processes</div>';
+    // Process list with GPU utilization
+    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => {
+        const percent = proc.gpu_percent ?? 0;
+        const displayValue = proc.gpu_percent !== null ? `${percent}%` : '-';
+        return `
+            <div class="detail-process-item">
+                <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
+                <span class="detail-process-pid">PID: ${proc.pid}</span>
+                <div class="progress-bar progress-bar-sm">
+                    <div class="progress-fill ${getLevel(percent)}" style="width: ${percent}%"></div>
+                </div>
+                <span class="detail-process-value">${displayValue}</span>
+            </div>
+        `;
+    }).join('') : '<div class="detail-empty">No GPU processes</div>';
 
     monitorDetailBody.innerHTML = `
         <div class="detail-section">
