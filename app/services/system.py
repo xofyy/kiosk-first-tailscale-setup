@@ -1815,11 +1815,14 @@ class SystemService:
             touch_ok = touch == 'connected'
             is_ok = cable_ok and screen_ok and touch_ok
 
-            # Determine status string
+            # Determine status string (with power-off correlation)
             if not cable_ok:
                 status = 'cable_disconnected'
             elif touch == 'error':
                 status = 'touch_error'
+            elif touch == 'disconnected' and screen == 'off':
+                # Touch USB powered by display - if both off, it's power loss
+                status = 'power_off'
             elif not touch_ok:
                 status = 'touch_disconnected'
             elif screen == 'off':

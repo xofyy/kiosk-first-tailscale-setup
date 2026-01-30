@@ -615,6 +615,7 @@ const COMPONENT_STATES = {
         'cable_disconnected': { dot: 'error', text: 'Cable Disconnected', cardClass: 'component-error' },
         'screen_off': { dot: 'warning', text: 'Screen Off', cardClass: 'component-warning' },
         'touch_error': { dot: 'error', text: 'Touch Error', cardClass: 'component-error' },
+        'power_off': { dot: 'warning', text: 'Power Off', cardClass: 'component-warning' },
         'touch_disconnected': { dot: 'error', text: 'Touch Disconnected', cardClass: 'component-error' },
         'not_running': { dot: 'pending', text: 'Not Running', cardClass: 'component-pending' },
         'stale': { dot: 'error', text: 'Stale', cardClass: 'component-error' },
