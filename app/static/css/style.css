@@ -2427,13 +2427,30 @@ body {
 /* Clickable monitor cards */
 .monitor-card-clickable {
     cursor: pointer;
+    position: relative;
     transition: border-color 0.2s ease, transform 0.2s ease;
+}
+
+.monitor-expand-icon {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    width: 14px;
+    height: 14px;
+    color: var(--color-text-secondary);
+    opacity: 0.5;
+    transition: opacity 0.2s ease, color 0.2s ease;
 }
 
 @media (hover: hover) {
     .monitor-card-clickable:hover {
         border-color: var(--color-primary);
         transform: translateY(-2px);
+    }
+
+    .monitor-card-clickable:hover .monitor-expand-icon {
+        opacity: 1;
+        color: var(--color-primary);
     }
 }
 
