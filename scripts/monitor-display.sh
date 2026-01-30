@@ -430,15 +430,8 @@ print_status_report() {
 
 monitor_loop() {
     local curr_conn=$(check_connection)
-
-    # Only check touchscreen if cable is connected (touch depends on display power)
-    local curr_touch
-    if [ "$curr_conn" = "connected" ]; then
-        curr_touch=$(check_touchscreen)
-    else
-        curr_touch="n/a"
-    fi
-
+    local curr_touch=$(check_touchscreen)
+    
     # Cable connection status changed?
     if [ "$curr_conn" != "$PREV_CONNECTION" ]; then
         if [ "$curr_conn" = "connected" ]; then
@@ -446,19 +439,15 @@ monitor_loop() {
             local res=$(get_resolution)
             log_event "INFO" "CABLE CONNECTED - Connection established (Size: $size, Resolution: $res)"
             ((STAT_CABLE_CONNECT++))
-
+            
             # Cable just connected, check DDC immediately
             DDC_CHECK_COUNTER=$((DDC_CHECK_INTERVAL / CHECK_INTERVAL))
-
-            # Reset touch status so first check reports current state
-            PREV_TOUCH_STATUS=""
         else
             log_event "ERROR" "CABLE DISCONNECTED - Connection lost!"
             ((STAT_CABLE_DISCONNECT++))
-
-            # Cable disconnected, reset DDC and touch status
+            
+            # Cable disconnected, reset DDC status (prevents unnecessary log)
             PREV_DDC_STATUS="off"
-            PREV_TOUCH_STATUS="n/a"
         fi
         PREV_CONNECTION="$curr_conn"
     fi
@@ -489,43 +478,21 @@ monitor_loop() {
     
     # Touchscreen status changed?
     if [ "$curr_touch" != "$PREV_TOUCH_STATUS" ]; then
-        # Race condition check: USB disconnects faster than xrandr detects cable loss
-        # If touch just disconnected while cable appears connected, verify cable status
-        if [ "$curr_touch" = "disconnected" ] && [ "$curr_conn" = "connected" ]; then
-            sleep 0.5  # Brief delay for xrandr to catch up
-            local verify_conn=$(check_connection)
-            if [ "$verify_conn" != "connected" ]; then
-                # Cable actually disconnected - this is power-off scenario
-                log_event "DEBUG" "Touch disconnect detected as power-off (cable verify failed)"
-                # Handle cable disconnection immediately
-                log_event "ERROR" "CABLE DISCONNECTED - Connection lost!"
-                ((STAT_CABLE_DISCONNECT++))
-                PREV_DDC_STATUS="off"
-                PREV_TOUCH_STATUS="n/a"
-                PREV_CONNECTION="$verify_conn"
-                curr_touch="n/a"
-                curr_conn="$verify_conn"
-            fi
-        fi
-
-        # Now check if we still need to log touch change
-        if [ "$curr_touch" != "$PREV_TOUCH_STATUS" ]; then
-            case "$curr_touch" in
-                "connected")
-                    log_event "INFO" "TOUCHSCREEN CONNECTED - USB and input device OK"
-                    ((STAT_TOUCH_CONNECT++))
-                    ;;
-                "error")
-                    log_event "WARN" "TOUCHSCREEN ERROR - USB present but input device not found"
-                    ((STAT_TOUCH_ERROR++))
-                    ;;
-                "disconnected")
-                    log_event "ERROR" "TOUCHSCREEN DISCONNECTED - USB device not found!"
-                    ((STAT_TOUCH_DISCONNECT++))
-                    ;;
-            esac
-            PREV_TOUCH_STATUS="$curr_touch"
-        fi
+        case "$curr_touch" in
+            "connected")
+                log_event "INFO" "TOUCHSCREEN CONNECTED - USB and input device OK"
+                ((STAT_TOUCH_CONNECT++))
+                ;;
+            "error")
+                log_event "WARN" "TOUCHSCREEN ERROR - USB present but input device not found"
+                ((STAT_TOUCH_ERROR++))
+                ;;
+            "disconnected")
+                log_event "ERROR" "TOUCHSCREEN DISCONNECTED - USB device not found!"
+                ((STAT_TOUCH_DISCONNECT++))
+                ;;
+        esac
+        PREV_TOUCH_STATUS="$curr_touch"
     fi
 
     # Write current status to JSON file for panel integration
@@ -580,14 +547,8 @@ main() {
     
     # Get initial values
     PREV_CONNECTION=$(check_connection)
-
-    # Only check touchscreen if cable is connected (touch depends on display power)
-    if [ "$PREV_CONNECTION" = "connected" ]; then
-        PREV_TOUCH_STATUS=$(check_touchscreen)
-    else
-        PREV_TOUCH_STATUS="n/a"
-    fi
-
+    PREV_TOUCH_STATUS=$(check_touchscreen)
+    
     if [ "$PREV_CONNECTION" = "connected" ] && $DDC_AVAILABLE; then
         PREV_DDC_STATUS=$(check_ddc)
     else
@@ -623,13 +584,8 @@ status_check() {
     local res=$(get_resolution)
     local size=$(get_physical_size)
     local ddc="n/a"
-
-    # Only check touchscreen if cable is connected (touch depends on display power)
-    local touch="n/a"
-    if [ "$conn" = "connected" ]; then
-        touch=$(check_touchscreen)
-    fi
-
+    local touch=$(check_touchscreen)
+    
     if command -v ddcutil &> /dev/null && [ "$conn" = "connected" ]; then
         ddc=$(check_ddc)
     fi
