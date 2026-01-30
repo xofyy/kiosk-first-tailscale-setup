@@ -2569,6 +2569,16 @@ body {
     white-space: nowrap;
 }
 
+.detail-process-type {
+    font-size: var(--font-size-xs);
+    color: var(--color-text-muted);
+    font-weight: 400;
+}
+
+.detail-process-item .progress-bar {
+    margin-bottom: 0;
+}
+
 .detail-process-pid {
     font-size: var(--font-size-xs);
     color: var(--color-text-muted);

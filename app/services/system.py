@@ -857,15 +857,14 @@ class SystemService:
             name = parts[4].strip()
             driver = parts[5].strip()
 
-            # Get per-process GPU utilization with pmon
+            # Get all GPU processes (Compute + Graphics) with pmon
+            # Format: # gpu  pid  type  sm  mem  enc  dec  jpg  ofa  command
             pmon_result = subprocess.run(
                 ['nvidia-smi', 'pmon', '-c', '1', '-s', 'u'],
                 capture_output=True, text=True, timeout=5
             )
 
-            # Parse pmon output to get PID -> GPU% mapping
-            # Format: # gpu  pid  type  sm  mem  enc  dec  fb  command
-            pid_gpu_util = {}
+            processes = []
             if pmon_result.returncode == 0:
                 for line in pmon_result.stdout.strip().split('\n'):
                     if line.startswith('#') or not line.strip():
@@ -874,34 +873,22 @@ class SystemService:
                     if len(pmon_parts) >= 4:
                         try:
                             pid = int(pmon_parts[1])
+                            proc_type = pmon_parts[2]  # C=Compute, G=Graphics
                             sm_util = pmon_parts[3]
-                            if sm_util != '-':
-                                pid_gpu_util[pid] = int(sm_util)
+                            command = pmon_parts[-1] if len(pmon_parts) > 4 else 'unknown'
+
+                            processes.append({
+                                'pid': pid,
+                                'name': command[:30],
+                                'type': proc_type,
+                                'gpu_percent': int(sm_util) if sm_util != '-' else None
+                            })
                         except (ValueError, IndexError):
                             continue
 
-            # Get process list (still need this for process names)
-            proc_result = subprocess.run(
-                ['nvidia-smi',
-                 '--query-compute-apps=pid,process_name',
-                 '--format=csv,noheader,nounits'],
-                capture_output=True, text=True, timeout=5
-            )
-
-            processes = []
-            if proc_result.returncode == 0 and proc_result.stdout.strip():
-                for line in proc_result.stdout.strip().split('\n')[:5]:
-                    line_parts = line.split(',')
-                    if len(line_parts) >= 2:
-                        try:
-                            pid = int(line_parts[0].strip())
-                            processes.append({
-                                'pid': pid,
-                                'name': line_parts[1].strip()[:30],
-                                'gpu_percent': pid_gpu_util.get(pid)
-                            })
-                        except ValueError:
-                            continue
+            # Sort by gpu_percent descending (None values at end)
+            processes.sort(key=lambda x: (x['gpu_percent'] is None, -(x['gpu_percent'] or 0)))
+            processes = processes[:5]
 
             return {
                 'available': True,

@@ -1283,9 +1283,10 @@ function renderGpuDetails(data) {
     const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => {
         const percent = proc.gpu_percent ?? 0;
         const displayValue = proc.gpu_percent !== null ? `${percent}%` : '-';
+        const typeLabel = proc.type === 'C' ? 'Compute' : 'Graphics';
         return `
             <div class="detail-process-item">
-                <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
+                <span class="detail-process-name" title="${proc.name} (${typeLabel})">${proc.name} <span class="detail-process-type">[${proc.type}]</span></span>
                 <span class="detail-process-pid">PID: ${proc.pid}</span>
                 <div class="progress-bar progress-bar-sm">
                     <div class="progress-fill ${getLevel(percent)}" style="width: ${percent}%"></div>
