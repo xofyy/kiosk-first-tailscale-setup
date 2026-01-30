@@ -558,8 +558,14 @@ main() {
     
     # Get initial values
     PREV_CONNECTION=$(check_connection)
-    PREV_TOUCH_STATUS=$(check_touchscreen)
-    
+
+    # Only check touchscreen if cable is connected (touch depends on display power)
+    if [ "$PREV_CONNECTION" = "connected" ]; then
+        PREV_TOUCH_STATUS=$(check_touchscreen)
+    else
+        PREV_TOUCH_STATUS="n/a"
+    fi
+
     if [ "$PREV_CONNECTION" = "connected" ] && $DDC_AVAILABLE; then
         PREV_DDC_STATUS=$(check_ddc)
     else
@@ -595,8 +601,13 @@ status_check() {
     local res=$(get_resolution)
     local size=$(get_physical_size)
     local ddc="n/a"
-    local touch=$(check_touchscreen)
-    
+
+    # Only check touchscreen if cable is connected (touch depends on display power)
+    local touch="n/a"
+    if [ "$conn" = "connected" ]; then
+        touch=$(check_touchscreen)
+    fi
+
     if command -v ddcutil &> /dev/null && [ "$conn" = "connected" ]; then
         ddc=$(check_ddc)
     fi
