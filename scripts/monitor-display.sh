@@ -430,8 +430,15 @@ print_status_report() {
 
 monitor_loop() {
     local curr_conn=$(check_connection)
-    local curr_touch=$(check_touchscreen)
-    
+
+    # Only check touchscreen if cable is connected (touch depends on display power)
+    local curr_touch
+    if [ "$curr_conn" = "connected" ]; then
+        curr_touch=$(check_touchscreen)
+    else
+        curr_touch="n/a"
+    fi
+
     # Cable connection status changed?
     if [ "$curr_conn" != "$PREV_CONNECTION" ]; then
         if [ "$curr_conn" = "connected" ]; then
@@ -439,15 +446,19 @@ monitor_loop() {
             local res=$(get_resolution)
             log_event "INFO" "CABLE CONNECTED - Connection established (Size: $size, Resolution: $res)"
             ((STAT_CABLE_CONNECT++))
-            
+
             # Cable just connected, check DDC immediately
             DDC_CHECK_COUNTER=$((DDC_CHECK_INTERVAL / CHECK_INTERVAL))
+
+            # Reset touch status so first check reports current state
+            PREV_TOUCH_STATUS=""
         else
             log_event "ERROR" "CABLE DISCONNECTED - Connection lost!"
             ((STAT_CABLE_DISCONNECT++))
-            
-            # Cable disconnected, reset DDC status (prevents unnecessary log)
+
+            # Cable disconnected, reset DDC and touch status
             PREV_DDC_STATUS="off"
+            PREV_TOUCH_STATUS="n/a"
         fi
         PREV_CONNECTION="$curr_conn"
     fi
