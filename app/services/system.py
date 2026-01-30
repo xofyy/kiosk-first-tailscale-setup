@@ -736,6 +736,40 @@ class SystemService:
     # MONITOR DETAIL METHODS
     # =========================================================================
 
+    # Generic process names that need cmdline for better identification
+    GENERIC_PROCESS_NAMES = {
+        'MainThread', 'python', 'python3', 'python3.10', 'python3.11', 'python3.12',
+        'node', 'ruby', 'perl', 'java', 'php'
+    }
+
+    def _get_process_display_name(self, name: str, cmdline: list) -> str:
+        """Get a meaningful display name for a process.
+
+        For generic names like 'MainThread' or 'python3', extract a better name
+        from cmdline. For specific names like 'chrome', return as-is.
+        """
+        name = name or 'unknown'
+
+        # If name is specific enough, use it
+        if name not in self.GENERIC_PROCESS_NAMES:
+            return name
+
+        # Try to get better name from cmdline
+        if not cmdline or len(cmdline) < 1:
+            return name
+
+        # Get executable name from first element
+        exe = os.path.basename(cmdline[0])
+
+        # If there's a second argument (script/file), include it
+        if len(cmdline) >= 2:
+            script = os.path.basename(cmdline[1])
+            # Skip flags (starts with -)
+            if not script.startswith('-'):
+                return f"{exe} ({script})"
+
+        return exe
+
     def get_cpu_details(self) -> Dict[str, Any]:
         """Get detailed CPU information for modal view"""
         try:
@@ -755,13 +789,16 @@ class SystemService:
 
             # Top 5 CPU consuming processes
             processes = []
-            for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'cpu_percent']):
                 try:
                     cpu_pct = proc.info.get('cpu_percent') or 0
                     if cpu_pct > 0:
                         processes.append({
                             'pid': proc.info['pid'],
-                            'name': (proc.info['name'] or 'unknown')[:30],
+                            'name': self._get_process_display_name(
+                                proc.info['name'],
+                                proc.info.get('cmdline')
+                            )[:30],
                             'cpu_percent': round(cpu_pct, 1)
                         })
                 except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
@@ -796,7 +833,7 @@ class SystemService:
 
             # Top 5 memory consuming processes
             processes = []
-            for proc in psutil.process_iter(['pid', 'name', 'memory_percent', 'memory_info']):
+            for proc in psutil.process_iter(['pid', 'name', 'cmdline', 'memory_percent', 'memory_info']):
                 try:
                     mem_pct = proc.info.get('memory_percent') or 0
                     if mem_pct > 0:
@@ -804,7 +841,10 @@ class SystemService:
                         rss_mb = round(mem_info.rss / (1024 * 1024), 1) if mem_info else 0
                         processes.append({
                             'pid': proc.info['pid'],
-                            'name': (proc.info['name'] or 'unknown')[:30],
+                            'name': self._get_process_display_name(
+                                proc.info['name'],
+                                proc.info.get('cmdline')
+                            )[:30],
                             'memory_percent': round(mem_pct, 1),
                             'memory_mb': rss_mb
                         })
