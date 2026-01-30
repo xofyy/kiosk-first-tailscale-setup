@@ -553,6 +553,13 @@ main() {
         log_event "WARN" "Screen on/off detection will not work"
         log_event "WARN" "To install: sudo apt install ddcutil"
     fi
+
+    # Disable DDC for nouveau driver (uses "default" output, DDC unreliable)
+    if [ "$DISPLAY_OUTPUT" = "default" ]; then
+        DDC_AVAILABLE=false
+        log_event "WARN" "DDC disabled: nouveau driver detected (output: default)"
+        log_event "WARN" "Install NVIDIA proprietary driver for DDC support"
+    fi
     
     # xinput check
     if ! command -v xinput &> /dev/null; then
