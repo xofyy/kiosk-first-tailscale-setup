@@ -570,9 +570,14 @@ main() {
     PREV_CONNECTION=$(check_connection)
     PREV_TOUCH_STATUS=$(check_touchscreen)
     
-    if [ "$PREV_CONNECTION" = "connected" ] && $DDC_AVAILABLE; then
-        PREV_DDC_STATUS=$(check_ddc)
+    if [ "$PREV_CONNECTION" = "connected" ]; then
+        if $DDC_AVAILABLE; then
+            PREV_DDC_STATUS=$(check_ddc)
+        else
+            PREV_DDC_STATUS="unknown"
+        fi
     else
+        # Cable disconnected - screen is off (no signal)
         PREV_DDC_STATUS="off"
     fi
     
