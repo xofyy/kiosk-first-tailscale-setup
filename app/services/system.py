@@ -930,10 +930,10 @@ class SystemService:
             free = int(parts[2].strip())
             name = parts[3].strip()
 
-            # Get all GPU processes (Compute + Graphics) with pmon
-            # Format: # gpu  pid  type  sm  mem  enc  dec  jpg  ofa  fb  command
+            # Get all GPU processes (Compute + Graphics) with pmon -s m for memory info
+            # Format: # gpu  pid  type  fb  ccpm  command
             pmon_result = subprocess.run(
-                ['nvidia-smi', 'pmon', '-c', '1'],
+                ['nvidia-smi', 'pmon', '-c', '1', '-s', 'm'],
                 capture_output=True, text=True, timeout=5
             )
 
@@ -943,21 +943,15 @@ class SystemService:
                     if line.startswith('#') or not line.strip():
                         continue
                     pmon_parts = line.split()
-                    # Need at least: gpu, pid, type, and command
-                    if len(pmon_parts) >= 4:
+                    # Format: gpu, pid, type, fb, ccpm, command
+                    if len(pmon_parts) >= 6:
                         try:
                             pid = int(pmon_parts[1])
                             proc_type = pmon_parts[2]  # C=Compute, G=Graphics
+                            fb_val = pmon_parts[3]     # fb (VRAM) in MB
                             command = pmon_parts[-1]
 
-                            # fb (framebuffer/VRAM) is typically at index 9 (before command)
-                            # but position varies, find it by checking second-to-last numeric field
-                            fb_mb = None
-                            if len(pmon_parts) >= 5:
-                                fb_val = pmon_parts[-2]  # Usually fb is second to last
-                                if fb_val != '-' and fb_val.isdigit():
-                                    fb_mb = int(fb_val)
-
+                            fb_mb = int(fb_val) if fb_val != '-' else None
                             mem_percent = round((fb_mb / total) * 100, 1) if fb_mb and total > 0 else 0
 
                             processes.append({
