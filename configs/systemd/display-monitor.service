@@ -6,6 +6,10 @@ Wants=graphical.target
 [Service]
 Type=simple
 User=root
+
+# Wait for X11 to be ready (kiosk uses getty autologin + startx, not display-manager)
+ExecStartPre=/bin/bash -c 'for i in $(seq 1 30); do DISPLAY=:0 XAUTHORITY=/home/kiosk/.Xauthority xrandr &>/dev/null && exit 0; sleep 1; done; exit 0'
+
 ExecStart=/opt/aco-panel/scripts/monitor-display.sh
 Restart=always
 RestartSec=10
