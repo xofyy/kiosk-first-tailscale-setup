@@ -514,16 +514,12 @@ class SystemService:
     def get_disk_info(self, path: str = '/') -> Dict[str, Any]:
         """Get disk info for a given mount point"""
         try:
-            stat = os.statvfs(path)
-            total = (stat.f_blocks * stat.f_frsize) / (1024 ** 3)  # GB
-            free = (stat.f_bavail * stat.f_frsize) / (1024 ** 3)  # GB
-            used = total - free
-
+            usage = psutil.disk_usage(path)
             return {
-                'total_gb': round(total, 1),
-                'used_gb': round(used, 1),
-                'free_gb': round(free, 1),
-                'percent': int((used / total) * 100) if total > 0 else 0
+                'total_gb': round(usage.total / (1024 ** 3), 1),
+                'used_gb': round(usage.used / (1024 ** 3), 1),
+                'free_gb': round(usage.free / (1024 ** 3), 1),
+                'percent': round(usage.percent, 1)
             }
 
         except Exception as e:
@@ -1073,6 +1069,9 @@ class SystemService:
                 timeout=30
             )
 
+            # Virtual/special directories to skip
+            skip_dirs = {'/proc', '/sys', '/dev', '/run', '/snap', '/tmp', '/lost+found'}
+
             directories = []
             for line in result.stdout.strip().split('\n'):
                 if not line:
@@ -1082,8 +1081,8 @@ class SystemService:
                     try:
                         size_bytes = int(parts[0])
                         dir_path = parts[1]
-                        # Skip root path and very small directories
-                        if dir_path != path and size_bytes > 1024 * 1024:
+                        # Skip root path, virtual dirs, and very small directories
+                        if dir_path != path and dir_path not in skip_dirs and size_bytes > 1024 * 1024:
                             directories.append({
                                 'path': dir_path,
                                 'size_bytes': size_bytes,
