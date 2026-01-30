@@ -555,9 +555,17 @@ main() {
     # Get initial values
     PREV_CONNECTION=$(check_connection)
     PREV_TOUCH_STATUS=$(check_touchscreen)
-    
+
     if [ "$PREV_CONNECTION" = "connected" ] && $DDC_AVAILABLE; then
-        PREV_DDC_STATUS=$(check_ddc)
+        # Retry DDC check until "on" or max attempts (DDC may need time after X11 start)
+        PREV_DDC_STATUS="off"
+        for i in {1..5}; do
+            PREV_DDC_STATUS=$(check_ddc)
+            if [ "$PREV_DDC_STATUS" = "on" ]; then
+                break
+            fi
+            sleep 1
+        done
     else
         PREV_DDC_STATUS="off"
     fi
