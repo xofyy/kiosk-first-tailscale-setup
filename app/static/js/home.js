@@ -1025,6 +1025,29 @@ let monitorDetailTitle = null;
 let monitorDetailInterval = null;
 let currentMonitorType = null;
 
+// Utility functions for monitor detail modals
+function formatBytes(bytes) {
+    if (bytes >= 1024 * 1024 * 1024) {
+        return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+    } else if (bytes >= 1024 * 1024) {
+        return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    } else if (bytes >= 1024) {
+        return (bytes / 1024).toFixed(1) + ' KB';
+    }
+    return bytes + ' B';
+}
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str).replace(/[&<>"']/g, c => ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+        "'": '&#39;'
+    }[c]));
+}
+
 function initMonitorDetailModal() {
     if (!monitorDetailModal) {
         monitorDetailModal = document.getElementById('monitor-detail-modal');
@@ -1130,7 +1153,7 @@ async function loadDetailContent(type) {
 function renderCpuDetails(data) {
     if (!monitorDetailBody || data.error) {
         if (monitorDetailBody) {
-            monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + (data.error || 'Error loading data') + '</span></div>';
+            monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + escapeHtml(data.error || 'Error loading data') + '</span></div>';
         }
         return;
     }
@@ -1149,7 +1172,7 @@ function renderCpuDetails(data) {
     // Process list
     const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
         <div class="detail-process-item">
-            <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
+            <span class="detail-process-name" title="${escapeHtml(proc.name)}">${escapeHtml(proc.name)}</span>
             <span class="detail-process-pid">PID: ${proc.pid}</span>
             <div class="progress-bar progress-bar-sm">
                 <div class="progress-fill ${getLevel(proc.cpu_percent)}" style="width: ${Math.min(proc.cpu_percent, 100)}%"></div>
@@ -1206,7 +1229,7 @@ function renderCpuDetails(data) {
 function renderMemoryDetails(data) {
     if (!monitorDetailBody || data.error) {
         if (monitorDetailBody) {
-            monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + (data.error || 'Error loading data') + '</span></div>';
+            monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + escapeHtml(data.error || 'Error loading data') + '</span></div>';
         }
         return;
     }
@@ -1214,7 +1237,7 @@ function renderMemoryDetails(data) {
     // Process list
     const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
         <div class="detail-process-item">
-            <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
+            <span class="detail-process-name" title="${escapeHtml(proc.name)}">${escapeHtml(proc.name)}</span>
             <span class="detail-process-pid">PID: ${proc.pid}</span>
             <div class="progress-bar progress-bar-sm">
                 <div class="progress-fill ${getLevel(proc.memory_percent)}" style="width: ${proc.memory_percent}%"></div>
@@ -1281,7 +1304,7 @@ function renderGpuDetails(data) {
         monitorDetailBody.innerHTML = `
             <div class="detail-not-available">
                 <span>NVIDIA GPU not available</span>
-                <small>${data.error || ''}</small>
+                <small>${escapeHtml(data.error || '')}</small>
             </div>
         `;
         return;
@@ -1294,7 +1317,7 @@ function renderGpuDetails(data) {
         const typeLabel = proc.type === 'C' ? 'Compute' : 'Graphics';
         return `
             <div class="detail-process-item">
-                <span class="detail-process-name" title="${proc.name} (${typeLabel})">${proc.name} <span class="detail-process-type">[${proc.type}]</span></span>
+                <span class="detail-process-name" title="${escapeHtml(proc.name)} (${typeLabel})">${escapeHtml(proc.name)} <span class="detail-process-type">[${proc.type}]</span></span>
                 <span class="detail-process-pid">PID: ${proc.pid}</span>
                 <div class="progress-bar progress-bar-sm">
                     <div class="progress-fill ${getLevel(percent)}" style="width: ${percent}%"></div>
@@ -1309,11 +1332,11 @@ function renderGpuDetails(data) {
             <div class="detail-summary">
                 <div class="detail-summary-item">
                     <span class="detail-summary-label">GPU</span>
-                    <span class="detail-summary-value">${data.name}</span>
+                    <span class="detail-summary-value">${escapeHtml(data.name)}</span>
                 </div>
                 <div class="detail-summary-item">
                     <span class="detail-summary-label">Driver</span>
-                    <span class="detail-summary-value">${data.driver_version}</span>
+                    <span class="detail-summary-value">${escapeHtml(data.driver_version)}</span>
                 </div>
             </div>
         </div>
@@ -1370,7 +1393,7 @@ function renderVramDetails(data) {
         monitorDetailBody.innerHTML = `
             <div class="detail-not-available">
                 <span>NVIDIA GPU not available</span>
-                <small>${data.error || ''}</small>
+                <small>${escapeHtml(data.error || '')}</small>
             </div>
         `;
         return;
@@ -1384,7 +1407,7 @@ function renderVramDetails(data) {
         const typeLabel = proc.type === 'C' ? 'Compute' : 'Graphics';
         return `
             <div class="detail-process-item">
-                <span class="detail-process-name" title="${proc.name} (${typeLabel})">${proc.name} <span class="detail-process-type">[${proc.type}]</span></span>
+                <span class="detail-process-name" title="${escapeHtml(proc.name)} (${typeLabel})">${escapeHtml(proc.name)} <span class="detail-process-type">[${proc.type}]</span></span>
                 <span class="detail-process-pid">PID: ${proc.pid}</span>
                 <div class="progress-bar progress-bar-sm">
                     <div class="progress-fill ${getLevel(memPercent)}" style="width: ${memPercent}%"></div>
@@ -1399,7 +1422,7 @@ function renderVramDetails(data) {
             <div class="detail-summary">
                 <div class="detail-summary-item">
                     <span class="detail-summary-label">GPU</span>
-                    <span class="detail-summary-value">${data.gpu_name}</span>
+                    <span class="detail-summary-value">${escapeHtml(data.gpu_name)}</span>
                 </div>
                 <div class="detail-summary-item">
                     <span class="detail-summary-label">Total VRAM</span>
@@ -1435,23 +1458,18 @@ function renderDiskDetails(data) {
     if (!monitorDetailBody) return;
 
     if (data.error) {
-        monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + data.error + '</span></div>';
+        monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + escapeHtml(data.error) + '</span></div>';
         return;
-    }
-
-    function formatBytes(bytes) {
-        const gb = bytes / (1024 * 1024 * 1024);
-        return gb >= 1 ? gb.toFixed(1) + ' GB' : (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
     // Partitions
     const partitionHtml = data.partitions.map(p => `
         <div class="detail-partition-item">
             <div class="detail-partition-header">
-                <span class="detail-partition-device">${p.device}</span>
+                <span class="detail-partition-device">${escapeHtml(p.device)}</span>
                 <span class="detail-partition-arrow">→</span>
-                <span class="detail-partition-mount">${p.mountpoint}</span>
-                <span class="detail-partition-fstype">${p.fstype}</span>
+                <span class="detail-partition-mount">${escapeHtml(p.mountpoint)}</span>
+                <span class="detail-partition-fstype">${escapeHtml(p.fstype)}</span>
             </div>
             <div class="detail-partition-bar">
                 <div class="progress-bar progress-bar-sm">
@@ -1467,7 +1485,7 @@ function renderDiskDetails(data) {
     const dirsHtml = data.largest_directories && data.largest_directories.length > 0
         ? data.largest_directories.map(dir => `
             <div class="detail-dir-item">
-                <span class="detail-dir-path">${dir.path}</span>
+                <span class="detail-dir-path">${escapeHtml(dir.path)}</span>
                 <span class="detail-dir-size">${dir.size_gb} GB</span>
             </div>
         `).join('')
@@ -1476,7 +1494,7 @@ function renderDiskDetails(data) {
     // Top I/O processes
     const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
         <div class="detail-io-process-item">
-            <span class="detail-io-process-name">${proc.name}</span>
+            <span class="detail-io-process-name">${escapeHtml(proc.name)}</span>
             <span class="detail-io-process-rw">R: ${formatBytes(proc.read_bytes)}</span>
             <span class="detail-io-process-rw">W: ${formatBytes(proc.write_bytes)}</span>
         </div>
@@ -1546,7 +1564,7 @@ function renderNetworkDetails(data) {
     if (!monitorDetailBody) return;
 
     if (data.error) {
-        monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + data.error + '</span></div>';
+        monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + escapeHtml(data.error) + '</span></div>';
         return;
     }
 
@@ -1555,20 +1573,9 @@ function renderNetworkDetails(data) {
         return;
     }
 
-    function formatBytes(bytes) {
-        if (bytes >= 1024 * 1024 * 1024) {
-            return (bytes / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
-        } else if (bytes >= 1024 * 1024) {
-            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
-        } else if (bytes >= 1024) {
-            return (bytes / 1024).toFixed(1) + ' KB';
-        }
-        return bytes + ' B';
-    }
-
     const appsHtml = data.top_apps.map(app => `
         <div class="detail-net-app-item">
-            <span class="detail-net-app-name">${app.name}</span>
+            <span class="detail-net-app-name">${escapeHtml(app.name)}</span>
             <span class="detail-net-app-rx">↓ ${formatBytes(app.rx)}</span>
             <span class="detail-net-app-tx">↑ ${formatBytes(app.tx)}</span>
         </div>

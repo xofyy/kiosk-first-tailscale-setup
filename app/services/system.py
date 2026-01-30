@@ -663,6 +663,7 @@ class SystemService:
             result['error'] = 'netmon database not found'
             return result
 
+        conn = None
         try:
             conn = sqlite3.connect(NETMON_DB_PATH, timeout=3)
             cursor = conn.cursor()
@@ -693,12 +694,14 @@ class SystemService:
 
             result['available'] = len(data_points) > 0
             result['data'] = data_points
-            conn.close()
 
         except sqlite3.Error as e:
             result['error'] = f'Database error: {str(e)}'
         except Exception as e:
             result['error'] = f'Error: {str(e)}'
+        finally:
+            if conn:
+                conn.close()
 
         return result
 
@@ -717,6 +720,7 @@ class SystemService:
             result['error'] = 'netmon database not found'
             return result
 
+        conn = None
         try:
             conn = sqlite3.connect(NETMON_DB_PATH, timeout=3)
             cursor = conn.cursor()
@@ -731,7 +735,6 @@ class SystemService:
 
             if not min_ts or not max_ts:
                 result['error'] = 'No data available'
-                conn.close()
                 return result
 
             # Calculate actual hours of data
@@ -744,7 +747,8 @@ class SystemService:
 
             # Format time range string
             if actual_hours < 1:
-                result['time_range'] = f"Last {int(actual_hours * 60)} minutes"
+                minutes = max(1, int(actual_hours * 60))
+                result['time_range'] = f"Last {minutes} minute{'s' if minutes > 1 else ''}"
             elif actual_hours >= 24:
                 result['time_range'] = "Last 24 hours"
             else:
@@ -786,12 +790,14 @@ class SystemService:
 
             result['top_apps'] = top_apps
             result['available'] = len(top_apps) > 0
-            conn.close()
 
         except sqlite3.Error as e:
             result['error'] = f'Database error: {str(e)}'
         except Exception as e:
             result['error'] = f'Error: {str(e)}'
+        finally:
+            if conn:
+                conn.close()
 
         return result
 
