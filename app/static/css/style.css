@@ -2527,7 +2527,7 @@ body {
     grid-template-columns: 50px 1fr 40px;
     align-items: center;
     gap: var(--spacing-xs);
-    padding: var(--spacing-xs);
+    padding: var(--spacing-xs) var(--spacing-sm);
     background: var(--color-bg-tertiary);
     border-radius: var(--border-radius);
 }
@@ -2547,7 +2547,7 @@ body {
 .detail-process-list {
     display: flex;
     flex-direction: column;
-    gap: var(--spacing-sm);
+    gap: var(--spacing-xs);
 }
 
 .detail-process-item {
@@ -2555,7 +2555,7 @@ body {
     grid-template-columns: 1fr auto 80px 60px;
     align-items: center;
     gap: var(--spacing-sm);
-    padding: var(--spacing-sm);
+    padding: var(--spacing-xs) var(--spacing-sm);
     background: var(--color-bg-tertiary);
     border-radius: var(--border-radius);
 }
@@ -2708,6 +2708,7 @@ body {
 
 .detail-dir-path {
     font-size: var(--font-size-sm);
+    font-weight: 500;
     font-family: var(--font-family-mono);
     color: var(--color-text);
     white-space: nowrap;
@@ -2742,6 +2743,7 @@ body {
 
 .detail-io-process-name {
     font-size: var(--font-size-sm);
+    font-weight: 500;
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -2802,6 +2804,7 @@ body {
 
 .detail-net-app-name {
     font-size: var(--font-size-sm);
+    font-weight: 500;
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -2812,8 +2815,24 @@ body {
 .detail-net-app-tx {
     font-size: var(--font-size-xs);
     font-family: var(--font-family-mono);
-    color: var(--color-text-muted);
     text-align: right;
+}
+
+.detail-net-app-rx {
+    color: var(--color-success);
+}
+
+.detail-net-app-tx {
+    color: var(--color-warning);
+}
+
+/* Network total label colors */
+.detail-net-rx-label {
+    color: var(--color-success);
+}
+
+.detail-net-tx-label {
+    color: var(--color-warning);
 }
 
 /* Memory breakdown */
@@ -2959,6 +2978,17 @@ body {
 
     .detail-process-item .progress-bar {
         display: none;
+    }
+}
+
+@media (max-width: 400px) {
+    .detail-io-process-item,
+    .detail-net-app-item {
+        grid-template-columns: 1fr 70px 70px;
+    }
+
+    .detail-partition-bar {
+        grid-template-columns: 1fr 40px 70px;
     }
 }
 

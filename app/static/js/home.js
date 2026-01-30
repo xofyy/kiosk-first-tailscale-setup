@@ -1587,11 +1587,11 @@ function renderNetworkDetails(data) {
             <div class="detail-net-time-range">${data.time_range || 'Last 24 hours'}</div>
             <div class="detail-net-totals">
                 <div class="detail-net-total">
-                    <span class="detail-net-total-label">↓ Received</span>
+                    <span class="detail-net-total-label detail-net-rx-label">↓ Received</span>
                     <span class="detail-net-total-value">${formatBytes(data.total_rx)}</span>
                 </div>
                 <div class="detail-net-total">
-                    <span class="detail-net-total-label">↑ Sent</span>
+                    <span class="detail-net-total-label detail-net-tx-label">↑ Sent</span>
                     <span class="detail-net-total-value">${formatBytes(data.total_tx)}</span>
                 </div>
             </div>
