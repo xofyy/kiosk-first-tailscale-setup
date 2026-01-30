@@ -62,6 +62,11 @@ export XAUTHORITY=/home/kiosk/.Xauthority
 # Now detect display output (requires X11 env vars)
 DISPLAY_OUTPUT=$(detect_display_output)
 
+# Disable DDC for nouveau driver (uses "default" output, DDC unreliable)
+if [ "$DISPLAY_OUTPUT" = "default" ]; then
+    DDC_AVAILABLE=false
+fi
+
 #------------------------------------------------------------------------------
 # COLOR CODES
 #------------------------------------------------------------------------------
@@ -598,6 +603,11 @@ status_check() {
     # Set DDC_AVAILABLE for status check (normally set in main())
     if command -v ddcutil &> /dev/null; then
         DDC_AVAILABLE=true
+    fi
+
+    # Disable DDC for nouveau driver (uses "default" output, DDC unreliable)
+    if [ "$DISPLAY_OUTPUT" = "default" ]; then
+        DDC_AVAILABLE=false
     fi
 
     if $DDC_AVAILABLE && [ "$conn" = "connected" ]; then
