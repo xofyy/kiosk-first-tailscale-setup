@@ -171,6 +171,7 @@ PACKAGES=(
     nano
     git
     logrotate
+    ddcutil
     
     # Network tools
     net-tools
