@@ -1762,11 +1762,11 @@ class SystemService:
                 'ok': ok,
                 'ip': tailscale_ip,
                 'module_status': module_status,
-                'label': 'Remote Connection'
+                'label': 'Remote Conn.'
             }
         except Exception as e:
             logger.debug(f"Tailscale check error: {e}")
-            return {'status': 'not_installed', 'ok': False, 'ip': None, 'label': 'Remote Connection'}
+            return {'status': 'not_installed', 'ok': False, 'ip': None, 'label': 'Remote Conn.'}
 
     def _check_display_status(self) -> Dict[str, Any]:
         """Check display monitor status from JSON file written by monitor-display.sh"""
