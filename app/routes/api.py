@@ -143,6 +143,34 @@ def system_monitor():
     return jsonify(system.get_system_monitor())
 
 
+@api_bp.route('/system/monitor/cpu/details')
+def cpu_details():
+    """Return detailed CPU info: per-core usage, top processes, load avg"""
+    system = SystemService()
+    return jsonify(system.get_cpu_details())
+
+
+@api_bp.route('/system/monitor/memory/details')
+def memory_details():
+    """Return detailed memory info: breakdown, top processes, swap"""
+    system = SystemService()
+    return jsonify(system.get_memory_details())
+
+
+@api_bp.route('/system/monitor/gpu/details')
+def gpu_details():
+    """Return detailed GPU info: utilization, top processes"""
+    system = SystemService()
+    return jsonify(system.get_gpu_details())
+
+
+@api_bp.route('/system/monitor/vram/details')
+def vram_details():
+    """Return detailed VRAM info: per-process memory usage"""
+    system = SystemService()
+    return jsonify(system.get_vram_details())
+
+
 @api_bp.route('/system/network-history')
 def network_history():
     """Return network traffic history from netmon database"""

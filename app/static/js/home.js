@@ -1015,6 +1015,426 @@ function stopHistoryRefresh() {
 }
 
 // =============================================================================
+// Monitor Detail Modal
+// =============================================================================
+
+let monitorDetailModal = null;
+let monitorDetailBody = null;
+let monitorDetailStatus = null;
+let monitorDetailTitle = null;
+let monitorDetailInterval = null;
+let currentMonitorType = null;
+
+function initMonitorDetailModal() {
+    if (!monitorDetailModal) {
+        monitorDetailModal = document.getElementById('monitor-detail-modal');
+        monitorDetailBody = document.getElementById('monitor-modal-body');
+        monitorDetailStatus = document.getElementById('monitor-modal-status');
+        monitorDetailTitle = document.getElementById('monitor-modal-title');
+    }
+}
+
+function openMonitorDetail(type) {
+    initMonitorDetailModal();
+    if (!monitorDetailModal) return;
+
+    currentMonitorType = type;
+
+    // Set title based on type
+    const titles = {
+        'cpu': 'CPU Details',
+        'memory': 'Memory Details',
+        'gpu': 'GPU Details',
+        'vram': 'VRAM Details'
+    };
+    if (monitorDetailTitle) {
+        monitorDetailTitle.textContent = titles[type] || 'Details';
+    }
+
+    // Show loading state
+    if (monitorDetailBody) {
+        monitorDetailBody.innerHTML = '<div class="monitor-modal-loading">Loading...</div>';
+    }
+
+    // Show modal
+    monitorDetailModal.classList.add('visible');
+
+    // Load content immediately
+    loadDetailContent(type);
+
+    // Start auto-refresh (5 seconds)
+    if (monitorDetailInterval) clearInterval(monitorDetailInterval);
+    monitorDetailInterval = setInterval(() => {
+        if (!document.hidden && currentMonitorType) {
+            loadDetailContent(currentMonitorType);
+        }
+    }, 5000);
+}
+
+function closeMonitorDetail() {
+    // Stop auto-refresh
+    if (monitorDetailInterval) {
+        clearInterval(monitorDetailInterval);
+        monitorDetailInterval = null;
+    }
+
+    currentMonitorType = null;
+
+    // Hide modal
+    if (monitorDetailModal) {
+        monitorDetailModal.classList.remove('visible');
+    }
+}
+
+async function loadDetailContent(type) {
+    try {
+        const data = await api.get(`/system/monitor/${type}/details`, 5000);
+
+        // Update status with timestamp
+        if (monitorDetailStatus) {
+            const now = new Date();
+            monitorDetailStatus.textContent = 'Updated: ' + now.toLocaleTimeString();
+        }
+
+        // Render based on type
+        switch (type) {
+            case 'cpu':
+                renderCpuDetails(data);
+                break;
+            case 'memory':
+                renderMemoryDetails(data);
+                break;
+            case 'gpu':
+                renderGpuDetails(data);
+                break;
+            case 'vram':
+                renderVramDetails(data);
+                break;
+        }
+    } catch (error) {
+        console.error('Failed to load monitor details:', error);
+        if (monitorDetailBody) {
+            monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>Failed to load data</span></div>';
+        }
+    }
+}
+
+function renderCpuDetails(data) {
+    if (!monitorDetailBody || data.error) {
+        if (monitorDetailBody) {
+            monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + (data.error || 'Error loading data') + '</span></div>';
+        }
+        return;
+    }
+
+    // Per-core progress bars
+    const coreHtml = data.per_cpu.map((percent, i) => `
+        <div class="detail-core-item">
+            <span class="detail-core-label">Core ${i}</span>
+            <div class="progress-bar progress-bar-sm">
+                <div class="progress-fill ${getLevel(percent)}" style="width: ${percent}%"></div>
+            </div>
+            <span class="detail-core-value ${getLevel(percent)}">${percent}%</span>
+        </div>
+    `).join('');
+
+    // Process list
+    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
+        <div class="detail-process-item">
+            <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
+            <span class="detail-process-pid">PID: ${proc.pid}</span>
+            <div class="progress-bar progress-bar-sm">
+                <div class="progress-fill ${getLevel(proc.cpu_percent)}" style="width: ${Math.min(proc.cpu_percent, 100)}%"></div>
+            </div>
+            <span class="detail-process-value">${proc.cpu_percent}%</span>
+        </div>
+    `).join('') : '<div class="detail-empty">No active processes</div>';
+
+    monitorDetailBody.innerHTML = `
+        <div class="detail-section">
+            <div class="detail-summary">
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Overall Usage</span>
+                    <span class="detail-summary-value ${getLevel(data.overall_percent)}">${data.overall_percent}%</span>
+                </div>
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Cores</span>
+                    <span class="detail-summary-value">${data.physical_cores} Physical / ${data.core_count} Logical</span>
+                </div>
+                ${data.frequency && data.frequency.current ? `
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Frequency</span>
+                    <span class="detail-summary-value">${data.frequency.current} MHz</span>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Load Average</h4>
+            <div class="detail-load-avg">
+                <span>1m: <strong>${data.load_avg['1min']}</strong></span>
+                <span>5m: <strong>${data.load_avg['5min']}</strong></span>
+                <span>15m: <strong>${data.load_avg['15min']}</strong></span>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Per-Core Usage</h4>
+            <div class="detail-cores-grid">
+                ${coreHtml}
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Top 5 Processes</h4>
+            <div class="detail-process-list">
+                ${processHtml}
+            </div>
+        </div>
+    `;
+}
+
+function renderMemoryDetails(data) {
+    if (!monitorDetailBody || data.error) {
+        if (monitorDetailBody) {
+            monitorDetailBody.innerHTML = '<div class="monitor-modal-error"><span>' + (data.error || 'Error loading data') + '</span></div>';
+        }
+        return;
+    }
+
+    // Process list
+    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
+        <div class="detail-process-item">
+            <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
+            <span class="detail-process-pid">PID: ${proc.pid}</span>
+            <div class="progress-bar progress-bar-sm">
+                <div class="progress-fill ${getLevel(proc.memory_percent)}" style="width: ${proc.memory_percent}%"></div>
+            </div>
+            <span class="detail-process-value">${proc.memory_mb} MB</span>
+        </div>
+    `).join('') : '<div class="detail-empty">No active processes</div>';
+
+    monitorDetailBody.innerHTML = `
+        <div class="detail-section">
+            <div class="detail-summary">
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Total</span>
+                    <span class="detail-summary-value">${data.total_mb} MB</span>
+                </div>
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Used</span>
+                    <span class="detail-summary-value ${getLevel(data.percent)}">${data.used_mb} MB (${data.percent}%)</span>
+                </div>
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Available</span>
+                    <span class="detail-summary-value">${data.available_mb} MB</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Memory Breakdown</h4>
+            <div class="detail-memory-breakdown">
+                <div class="detail-breakdown-item">
+                    <span>Buffers:</span>
+                    <strong>${data.buffers_mb} MB</strong>
+                </div>
+                <div class="detail-breakdown-item">
+                    <span>Cached:</span>
+                    <strong>${data.cached_mb} MB</strong>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Swap</h4>
+            <div class="detail-swap">
+                <div class="progress-bar">
+                    <div class="progress-fill ${getLevel(data.swap.percent)}" style="width: ${data.swap.percent}%"></div>
+                </div>
+                <span class="detail-swap-info">${data.swap.used_mb} / ${data.swap.total_mb} MB (${data.swap.percent}%)</span>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Top 5 Processes</h4>
+            <div class="detail-process-list">
+                ${processHtml}
+            </div>
+        </div>
+    `;
+}
+
+function renderGpuDetails(data) {
+    if (!monitorDetailBody) return;
+
+    if (!data.available) {
+        monitorDetailBody.innerHTML = `
+            <div class="detail-not-available">
+                <span>NVIDIA GPU not available</span>
+                <small>${data.error || ''}</small>
+            </div>
+        `;
+        return;
+    }
+
+    // Process list
+    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
+        <div class="detail-process-item">
+            <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
+            <span class="detail-process-pid">PID: ${proc.pid}</span>
+            <span class="detail-process-value">${proc.gpu_memory_mb} MB</span>
+        </div>
+    `).join('') : '<div class="detail-empty">No GPU processes</div>';
+
+    monitorDetailBody.innerHTML = `
+        <div class="detail-section">
+            <div class="detail-summary">
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">GPU</span>
+                    <span class="detail-summary-value">${data.name}</span>
+                </div>
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Driver</span>
+                    <span class="detail-summary-value">${data.driver_version}</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">GPU Utilization</h4>
+            <div class="detail-gpu-metrics">
+                <div class="detail-metric-item">
+                    <span class="detail-metric-label">Compute</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${getLevel(data.utilization)}" style="width: ${data.utilization}%"></div>
+                    </div>
+                    <span class="detail-metric-value ${getLevel(data.utilization)}">${data.utilization}%</span>
+                </div>
+                <div class="detail-metric-item">
+                    <span class="detail-metric-label">Memory I/O</span>
+                    <div class="progress-bar">
+                        <div class="progress-fill ${getLevel(data.memory_utilization)}" style="width: ${data.memory_utilization}%"></div>
+                    </div>
+                    <span class="detail-metric-value">${data.memory_utilization}%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Status</h4>
+            <div class="detail-status-grid">
+                <div class="detail-status-item">
+                    <span>Temperature</span>
+                    <strong class="${data.temperature >= 80 ? 'level-critical' : data.temperature >= 70 ? 'level-warning' : ''}">${data.temperature}°C</strong>
+                </div>
+                ${data.power_draw ? `
+                <div class="detail-status-item">
+                    <span>Power Draw</span>
+                    <strong>${data.power_draw} W</strong>
+                </div>
+                ` : ''}
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">GPU Processes</h4>
+            <div class="detail-process-list">
+                ${processHtml}
+            </div>
+        </div>
+    `;
+}
+
+function renderVramDetails(data) {
+    if (!monitorDetailBody) return;
+
+    if (!data.available) {
+        monitorDetailBody.innerHTML = `
+            <div class="detail-not-available">
+                <span>NVIDIA GPU not available</span>
+                <small>${data.error || ''}</small>
+            </div>
+        `;
+        return;
+    }
+
+    // Process list with VRAM usage
+    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
+        <div class="detail-process-item">
+            <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
+            <span class="detail-process-pid">PID: ${proc.pid}</span>
+            <div class="progress-bar progress-bar-sm">
+                <div class="progress-fill ${getLevel(proc.memory_percent)}" style="width: ${proc.memory_percent}%"></div>
+            </div>
+            <span class="detail-process-value">${proc.memory_mb} MB</span>
+        </div>
+    `).join('') : '<div class="detail-empty">No GPU processes</div>';
+
+    monitorDetailBody.innerHTML = `
+        <div class="detail-section">
+            <div class="detail-summary">
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">GPU</span>
+                    <span class="detail-summary-value">${data.gpu_name}</span>
+                </div>
+                <div class="detail-summary-item">
+                    <span class="detail-summary-label">Total VRAM</span>
+                    <span class="detail-summary-value">${data.total_mb} MB</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">VRAM Usage</h4>
+            <div class="detail-vram-usage">
+                <div class="progress-bar progress-bar-lg">
+                    <div class="progress-fill ${getLevel(data.percent)}" style="width: ${data.percent}%"></div>
+                </div>
+                <div class="detail-vram-info">
+                    <span>Used: <strong>${data.used_mb} MB</strong></span>
+                    <span>Free: <strong>${data.free_mb} MB</strong></span>
+                    <span class="${getLevel(data.percent)}">${data.percent}%</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="detail-section">
+            <h4 class="detail-section-title">Per-Process VRAM</h4>
+            <div class="detail-process-list">
+                ${processHtml}
+            </div>
+        </div>
+    `;
+}
+
+// Add click handlers to monitor cards
+function initMonitorCardClickHandlers() {
+    const clickableCards = [
+        { id: 'monitor-cpu', type: 'cpu' },
+        { id: 'monitor-memory', type: 'memory' },
+        { id: 'monitor-gpu', type: 'gpu' },
+        { id: 'monitor-vram', type: 'vram' }
+    ];
+
+    clickableCards.forEach(({ id, type }) => {
+        const card = document.getElementById(id);
+        if (card) {
+            card.classList.add('monitor-card-clickable');
+            card.onclick = () => openMonitorDetail(type);
+        }
+    });
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && monitorDetailModal && monitorDetailModal.classList.contains('visible')) {
+        closeMonitorDetail();
+    }
+});
+
+// =============================================================================
 // Initialization
 // =============================================================================
 
@@ -1039,6 +1459,9 @@ document.addEventListener('DOMContentLoaded', () => {
     startMonitorPolling();
     loadNetworkHistory();
     startHistoryRefresh();
+
+    // Monitor detail modal click handlers
+    initMonitorCardClickHandlers();
 });
 
 // Handle visibility changes

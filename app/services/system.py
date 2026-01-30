@@ -733,6 +733,234 @@ class SystemService:
         }
 
     # =========================================================================
+    # MONITOR DETAIL METHODS
+    # =========================================================================
+
+    def get_cpu_details(self) -> Dict[str, Any]:
+        """Get detailed CPU information for modal view"""
+        try:
+            # Per-core usage
+            per_cpu = psutil.cpu_percent(interval=None, percpu=True)
+
+            # Load average (1, 5, 15 min)
+            load_avg = os.getloadavg()
+
+            # CPU frequency
+            freq = psutil.cpu_freq()
+            frequency = {
+                'current': round(freq.current, 0) if freq else None,
+                'min': round(freq.min, 0) if freq and freq.min else None,
+                'max': round(freq.max, 0) if freq and freq.max else None,
+            }
+
+            # Top 5 CPU consuming processes
+            processes = []
+            for proc in psutil.process_iter(['pid', 'name', 'cpu_percent']):
+                try:
+                    cpu_pct = proc.info.get('cpu_percent') or 0
+                    if cpu_pct > 0:
+                        processes.append({
+                            'pid': proc.info['pid'],
+                            'name': (proc.info['name'] or 'unknown')[:30],
+                            'cpu_percent': round(cpu_pct, 1)
+                        })
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+
+            # Sort by CPU and take top 5
+            processes.sort(key=lambda x: x['cpu_percent'], reverse=True)
+            processes = processes[:5]
+
+            return {
+                'overall_percent': round(psutil.cpu_percent(interval=None), 1),
+                'per_cpu': [round(p, 1) for p in per_cpu],
+                'core_count': psutil.cpu_count(logical=True) or 0,
+                'physical_cores': psutil.cpu_count(logical=False) or 0,
+                'load_avg': {
+                    '1min': round(load_avg[0], 2),
+                    '5min': round(load_avg[1], 2),
+                    '15min': round(load_avg[2], 2),
+                },
+                'frequency': frequency,
+                'top_processes': processes
+            }
+        except Exception as e:
+            logger.error(f"Could not get CPU details: {e}")
+            return {'error': str(e)}
+
+    def get_memory_details(self) -> Dict[str, Any]:
+        """Get detailed memory information for modal view"""
+        try:
+            mem = psutil.virtual_memory()
+            swap = psutil.swap_memory()
+
+            # Top 5 memory consuming processes
+            processes = []
+            for proc in psutil.process_iter(['pid', 'name', 'memory_percent', 'memory_info']):
+                try:
+                    mem_pct = proc.info.get('memory_percent') or 0
+                    if mem_pct > 0:
+                        mem_info = proc.info.get('memory_info')
+                        rss_mb = round(mem_info.rss / (1024 * 1024), 1) if mem_info else 0
+                        processes.append({
+                            'pid': proc.info['pid'],
+                            'name': (proc.info['name'] or 'unknown')[:30],
+                            'memory_percent': round(mem_pct, 1),
+                            'memory_mb': rss_mb
+                        })
+                except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
+                    continue
+
+            # Sort by memory and take top 5
+            processes.sort(key=lambda x: x['memory_percent'], reverse=True)
+            processes = processes[:5]
+
+            return {
+                'total_mb': round(mem.total / (1024 * 1024)),
+                'used_mb': round(mem.used / (1024 * 1024)),
+                'available_mb': round(mem.available / (1024 * 1024)),
+                'percent': round(mem.percent, 1),
+                'buffers_mb': round(getattr(mem, 'buffers', 0) / (1024 * 1024)),
+                'cached_mb': round(getattr(mem, 'cached', 0) / (1024 * 1024)),
+                'swap': {
+                    'total_mb': round(swap.total / (1024 * 1024)),
+                    'used_mb': round(swap.used / (1024 * 1024)),
+                    'percent': round(swap.percent, 1)
+                },
+                'top_processes': processes
+            }
+        except Exception as e:
+            logger.error(f"Could not get memory details: {e}")
+            return {'error': str(e)}
+
+    def get_gpu_details(self) -> Dict[str, Any]:
+        """Get detailed GPU utilization information for modal view"""
+        try:
+            # Basic GPU info
+            result = subprocess.run(
+                ['nvidia-smi',
+                 '--query-gpu=utilization.gpu,utilization.memory,temperature.gpu,power.draw,name,driver_version',
+                 '--format=csv,noheader,nounits'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode != 0:
+                return {'available': False, 'error': 'nvidia-smi failed'}
+
+            parts = result.stdout.strip().split(',')
+            if len(parts) < 6:
+                return {'available': False, 'error': 'Invalid nvidia-smi output'}
+
+            gpu_util = int(parts[0].strip())
+            mem_util = int(parts[1].strip())
+            temp = int(parts[2].strip())
+            power = parts[3].strip()
+            name = parts[4].strip()
+            driver = parts[5].strip()
+
+            # Top GPU processes
+            proc_result = subprocess.run(
+                ['nvidia-smi',
+                 '--query-compute-apps=pid,process_name,used_gpu_memory',
+                 '--format=csv,noheader,nounits'],
+                capture_output=True, text=True, timeout=5
+            )
+
+            processes = []
+            if proc_result.returncode == 0 and proc_result.stdout.strip():
+                for line in proc_result.stdout.strip().split('\n')[:5]:
+                    line_parts = line.split(',')
+                    if len(line_parts) >= 3:
+                        try:
+                            processes.append({
+                                'pid': int(line_parts[0].strip()),
+                                'name': line_parts[1].strip()[:30],
+                                'gpu_memory_mb': int(line_parts[2].strip())
+                            })
+                        except ValueError:
+                            continue
+
+            return {
+                'available': True,
+                'name': name,
+                'driver_version': driver,
+                'utilization': gpu_util,
+                'memory_utilization': mem_util,
+                'temperature': temp,
+                'power_draw': power if power not in ('[N/A]', 'N/A', '') else None,
+                'top_processes': processes
+            }
+        except FileNotFoundError:
+            return {'available': False, 'error': 'NVIDIA GPU not available'}
+        except subprocess.TimeoutExpired:
+            return {'available': False, 'error': 'nvidia-smi timeout'}
+        except Exception as e:
+            logger.error(f"Could not get GPU details: {e}")
+            return {'available': False, 'error': str(e)}
+
+    def get_vram_details(self) -> Dict[str, Any]:
+        """Get detailed VRAM usage information for modal view"""
+        try:
+            # VRAM totals
+            result = subprocess.run(
+                ['nvidia-smi',
+                 '--query-gpu=memory.total,memory.used,memory.free,name',
+                 '--format=csv,noheader,nounits'],
+                capture_output=True, text=True, timeout=5
+            )
+            if result.returncode != 0:
+                return {'available': False, 'error': 'nvidia-smi failed'}
+
+            parts = result.stdout.strip().split(',')
+            if len(parts) < 4:
+                return {'available': False, 'error': 'Invalid nvidia-smi output'}
+
+            total = int(parts[0].strip())
+            used = int(parts[1].strip())
+            free = int(parts[2].strip())
+            name = parts[3].strip()
+
+            # Per-process VRAM usage
+            proc_result = subprocess.run(
+                ['nvidia-smi',
+                 '--query-compute-apps=pid,process_name,used_gpu_memory',
+                 '--format=csv,noheader,nounits'],
+                capture_output=True, text=True, timeout=5
+            )
+
+            processes = []
+            if proc_result.returncode == 0 and proc_result.stdout.strip():
+                for line in proc_result.stdout.strip().split('\n')[:5]:
+                    line_parts = line.split(',')
+                    if len(line_parts) >= 3:
+                        try:
+                            mem_mb = int(line_parts[2].strip())
+                            processes.append({
+                                'pid': int(line_parts[0].strip()),
+                                'name': line_parts[1].strip()[:30],
+                                'memory_mb': mem_mb,
+                                'memory_percent': round((mem_mb / total) * 100, 1) if total > 0 else 0
+                            })
+                        except ValueError:
+                            continue
+
+            return {
+                'available': True,
+                'gpu_name': name,
+                'total_mb': total,
+                'used_mb': used,
+                'free_mb': free,
+                'percent': round((used / total) * 100, 1) if total > 0 else 0,
+                'top_processes': processes
+            }
+        except FileNotFoundError:
+            return {'available': False, 'error': 'NVIDIA GPU not available'}
+        except subprocess.TimeoutExpired:
+            return {'available': False, 'error': 'nvidia-smi timeout'}
+        except Exception as e:
+            logger.error(f"Could not get VRAM details: {e}")
+            return {'available': False, 'error': str(e)}
+
+    # =========================================================================
     # HOSTNAME MANAGEMENT
     # =========================================================================
 

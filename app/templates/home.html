@@ -490,6 +490,24 @@
             </div>
         </div>
     </section>
+
+    <!-- Monitor Detail Modal -->
+    <div class="monitor-modal" id="monitor-detail-modal">
+        <div class="monitor-modal-overlay" onclick="closeMonitorDetail()"></div>
+        <div class="monitor-modal-content">
+            <div class="monitor-modal-header">
+                <h3 id="monitor-modal-title">Details</h3>
+                <button class="btn-close" onclick="closeMonitorDetail()">&times;</button>
+            </div>
+            <div class="monitor-modal-body" id="monitor-modal-body">
+                <div class="monitor-modal-loading">Loading...</div>
+            </div>
+            <div class="monitor-modal-footer">
+                <span id="monitor-modal-status"></span>
+                <span>Auto-refresh: 5s</span>
+            </div>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
