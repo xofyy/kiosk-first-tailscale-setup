@@ -930,29 +930,49 @@ class SystemService:
             free = int(parts[2].strip())
             name = parts[3].strip()
 
-            # Per-process VRAM usage
-            proc_result = subprocess.run(
-                ['nvidia-smi',
-                 '--query-compute-apps=pid,process_name,used_gpu_memory',
-                 '--format=csv,noheader,nounits'],
+            # Get all GPU processes (Compute + Graphics) with pmon
+            # Format: # gpu  pid  type  sm  mem  enc  dec  jpg  ofa  fb  command
+            pmon_result = subprocess.run(
+                ['nvidia-smi', 'pmon', '-c', '1'],
                 capture_output=True, text=True, timeout=5
             )
 
             processes = []
-            if proc_result.returncode == 0 and proc_result.stdout.strip():
-                for line in proc_result.stdout.strip().split('\n')[:5]:
-                    line_parts = line.split(',')
-                    if len(line_parts) >= 3:
+            if pmon_result.returncode == 0:
+                for line in pmon_result.stdout.strip().split('\n'):
+                    if line.startswith('#') or not line.strip():
+                        continue
+                    pmon_parts = line.split()
+                    # Need at least: gpu, pid, type, and command
+                    if len(pmon_parts) >= 4:
                         try:
-                            mem_mb = int(line_parts[2].strip())
+                            pid = int(pmon_parts[1])
+                            proc_type = pmon_parts[2]  # C=Compute, G=Graphics
+                            command = pmon_parts[-1]
+
+                            # fb (framebuffer/VRAM) is typically at index 9 (before command)
+                            # but position varies, find it by checking second-to-last numeric field
+                            fb_mb = None
+                            if len(pmon_parts) >= 5:
+                                fb_val = pmon_parts[-2]  # Usually fb is second to last
+                                if fb_val != '-' and fb_val.isdigit():
+                                    fb_mb = int(fb_val)
+
+                            mem_percent = round((fb_mb / total) * 100, 1) if fb_mb and total > 0 else 0
+
                             processes.append({
-                                'pid': int(line_parts[0].strip()),
-                                'name': line_parts[1].strip()[:30],
-                                'memory_mb': mem_mb,
-                                'memory_percent': round((mem_mb / total) * 100, 1) if total > 0 else 0
+                                'pid': pid,
+                                'name': command[:30],
+                                'type': proc_type,
+                                'memory_mb': fb_mb,
+                                'memory_percent': mem_percent
                             })
-                        except ValueError:
+                        except (ValueError, IndexError):
                             continue
+
+            # Sort by memory_mb descending (None values at end)
+            processes.sort(key=lambda x: (x['memory_mb'] is None, -(x['memory_mb'] or 0)))
+            processes = processes[:5]
 
             return {
                 'available': True,

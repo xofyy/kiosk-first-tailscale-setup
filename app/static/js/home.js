@@ -1369,16 +1369,22 @@ function renderVramDetails(data) {
     }
 
     // Process list with VRAM usage
-    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => `
-        <div class="detail-process-item">
-            <span class="detail-process-name" title="${proc.name}">${proc.name}</span>
-            <span class="detail-process-pid">PID: ${proc.pid}</span>
-            <div class="progress-bar progress-bar-sm">
-                <div class="progress-fill ${getLevel(proc.memory_percent)}" style="width: ${proc.memory_percent}%"></div>
+    const processHtml = data.top_processes.length > 0 ? data.top_processes.map(proc => {
+        const memMb = proc.memory_mb ?? 0;
+        const memPercent = proc.memory_percent ?? 0;
+        const displayValue = proc.memory_mb !== null ? `${memMb} MB` : '-';
+        const typeLabel = proc.type === 'C' ? 'Compute' : 'Graphics';
+        return `
+            <div class="detail-process-item">
+                <span class="detail-process-name" title="${proc.name} (${typeLabel})">${proc.name} <span class="detail-process-type">[${proc.type}]</span></span>
+                <span class="detail-process-pid">PID: ${proc.pid}</span>
+                <div class="progress-bar progress-bar-sm">
+                    <div class="progress-fill ${getLevel(memPercent)}" style="width: ${memPercent}%"></div>
+                </div>
+                <span class="detail-process-value">${displayValue}</span>
             </div>
-            <span class="detail-process-value">${proc.memory_mb} MB</span>
-        </div>
-    `).join('') : '<div class="detail-empty">No GPU processes</div>';
+        `;
+    }).join('') : '<div class="detail-empty">No GPU processes</div>';
 
     monitorDetailBody.innerHTML = `
         <div class="detail-section">
