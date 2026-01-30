@@ -1584,6 +1584,7 @@ class SystemService:
             'mongodb': self._check_mongodb_status(),
             'nvidia': self._check_nvidia_status(),
             'tailscale': self._check_tailscale_status(),
+            'display': self._check_display_status(),
         }
 
     def _check_docker_status(self) -> Dict[str, Any]:
@@ -1766,3 +1767,80 @@ class SystemService:
         except Exception as e:
             logger.debug(f"Tailscale check error: {e}")
             return {'status': 'not_installed', 'ok': False, 'ip': None, 'label': 'Remote Connection'}
+
+    def _check_display_status(self) -> Dict[str, Any]:
+        """Check display monitor status from JSON file written by monitor-display.sh"""
+        STATUS_FILE = '/var/run/display-monitor.json'
+        STALE_THRESHOLD = 30  # seconds
+
+        try:
+            # Check if file exists
+            if not os.path.exists(STATUS_FILE):
+                return {
+                    'status': 'not_running',
+                    'ok': False,
+                    'cable': None,
+                    'screen': None,
+                    'touch': None,
+                    'label': 'Display'
+                }
+
+            # Check file age for staleness
+            file_age = time.time() - os.path.getmtime(STATUS_FILE)
+            if file_age > STALE_THRESHOLD:
+                return {
+                    'status': 'stale',
+                    'ok': False,
+                    'cable': None,
+                    'screen': None,
+                    'touch': None,
+                    'label': 'Display',
+                    'error': f'Status file stale ({int(file_age)}s old)'
+                }
+
+            # Read and parse JSON
+            with open(STATUS_FILE, 'r') as f:
+                data = json.load(f)
+
+            # Extract status info
+            cable = data.get('cable', {}).get('status', 'unknown')
+            screen = data.get('screen', {}).get('status', 'unknown')
+            touch = data.get('touchscreen', {}).get('status', 'unknown')
+            ddc_available = data.get('screen', {}).get('ddc_available', False)
+
+            # Determine OK status
+            # OK if: cable connected AND (screen on OR ddc not available) AND touch connected
+            cable_ok = cable == 'connected'
+            screen_ok = screen == 'on' or not ddc_available
+            touch_ok = touch == 'connected'
+            is_ok = cable_ok and screen_ok and touch_ok
+
+            # Determine status string
+            if not cable_ok:
+                status = 'cable_disconnected'
+            elif touch == 'error':
+                status = 'touch_error'
+            elif not touch_ok:
+                status = 'touch_disconnected'
+            elif screen == 'off':
+                status = 'screen_off'
+            else:
+                status = 'ok'
+
+            return {
+                'status': status,
+                'ok': is_ok,
+                'cable': cable,
+                'screen': screen,
+                'touch': touch,
+                'resolution': data.get('cable', {}).get('resolution'),
+                'ddc_available': ddc_available,
+                'label': 'Display'
+            }
+
+        except json.JSONDecodeError as e:
+            logger.debug(f"Display status JSON parse error: {e}")
+            return {'status': 'error', 'ok': False, 'label': 'Display', 'error': 'JSON parse error'}
+        except Exception as e:
+            logger.debug(f"Display status check error: {e}")
+            return {'status': 'error', 'ok': False, 'label': 'Display', 'error': str(e)}

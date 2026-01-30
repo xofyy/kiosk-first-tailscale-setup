@@ -370,6 +370,13 @@ systemctl daemon-reload
 systemctl enable firstboot-identity.service 2>/dev/null || true
 log "Firstboot identity service enabled"
 
+# Display monitor service (display cable + touchscreen monitoring)
+cp "$SCRIPT_DIR/configs/systemd/display-monitor.service" /etc/systemd/system/
+systemctl daemon-reload
+systemctl enable display-monitor.service 2>/dev/null || true
+# Not started - will auto-start after X11 starts (graphical.target)
+log "Display monitor service enabled"
+
 log "Systemd services ready"
 
 # =============================================================================
@@ -1152,6 +1159,7 @@ check_service "nginx" "Nginx (NVR Proxy)"
 echo ""
 echo -e "${CYAN}Application Services:${NC}"
 check_service "x11vnc" "VNC Server"
+check_service "display-monitor" "Display Monitor"
 check_service "netmon" "Netmon"
 check_service "collector-agent" "Collector Agent"
 check_service "prometheus-node-exporter" "Node Exporter"

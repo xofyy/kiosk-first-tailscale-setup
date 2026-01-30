@@ -319,6 +319,48 @@
                 </div>
                 <div class="component-detail" id="component-nvidia-detail">{% if components.nvidia.version %}Driver {{ components.nvidia.version }}{% endif %}</div>
             </div>
+
+            <!-- Display -->
+            <div class="component-card {% if components.display.ok %}component-ok{% elif components.display.status == 'not_running' %}component-pending{% elif components.display.status == 'screen_off' %}component-warning{% else %}component-error{% endif %}" id="component-display">
+                <div class="component-header">
+                    <span class="component-icon">
+                        <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                            <line x1="8" y1="21" x2="16" y2="21"/>
+                            <line x1="12" y1="17" x2="12" y2="21"/>
+                        </svg>
+                    </span>
+                    <span class="component-name">{{ components.display.label }}</span>
+                </div>
+                <div class="component-status" id="component-display-status">
+                    {% if components.display.ok %}
+                    <span class="component-status-dot ok"></span>
+                    <span>OK</span>
+                    {% elif components.display.status == 'not_running' %}
+                    <span class="component-status-dot pending"></span>
+                    <span>Not Running</span>
+                    {% elif components.display.status == 'cable_disconnected' %}
+                    <span class="component-status-dot error"></span>
+                    <span>Cable Disconnected</span>
+                    {% elif components.display.status == 'screen_off' %}
+                    <span class="component-status-dot warning"></span>
+                    <span>Screen Off</span>
+                    {% elif components.display.status == 'touch_error' %}
+                    <span class="component-status-dot error"></span>
+                    <span>Touch Error</span>
+                    {% elif components.display.status == 'touch_disconnected' %}
+                    <span class="component-status-dot error"></span>
+                    <span>Touch Disconnected</span>
+                    {% elif components.display.status == 'stale' %}
+                    <span class="component-status-dot error"></span>
+                    <span>Stale</span>
+                    {% else %}
+                    <span class="component-status-dot error"></span>
+                    <span>Error</span>
+                    {% endif %}
+                </div>
+                <div class="component-detail" id="component-display-detail">{{ components.display.resolution or '' }}</div>
+            </div>
         </div>
     </section>
 

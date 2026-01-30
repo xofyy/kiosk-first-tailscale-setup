@@ -318,6 +318,12 @@ deploy_configs() {
         total_changes=$((total_changes + 1))
     fi
 
+    if deploy_config "$INSTALL_DIR/configs/systemd/display-monitor.service" \
+                     "/etc/systemd/system/display-monitor.service"; then
+        SYSTEMD_CHANGED=true
+        total_changes=$((total_changes + 1))
+    fi
+
     if [[ "$SYSTEMD_CHANGED" == "true" ]]; then
         systemctl daemon-reload
         log_info "systemd daemon-reload (unit files changed)"

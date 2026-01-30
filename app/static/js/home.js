@@ -581,12 +581,13 @@ const componentCache = {
     mongodb: { card: null, status: null, detail: null },
     tailscale: { card: null, status: null, detail: null },
     nvidia: { card: null, status: null, detail: null },
+    display: { card: null, status: null, detail: null },
     _initialized: false
 };
 
 function initComponentCache() {
     if (componentCache._initialized) return;
-    ['docker', 'mongodb', 'tailscale', 'nvidia'].forEach(name => {
+    ['docker', 'mongodb', 'tailscale', 'nvidia', 'display'].forEach(name => {
         componentCache[name].card = document.getElementById(`component-${name}`);
         componentCache[name].status = document.getElementById(`component-${name}-status`);
         componentCache[name].detail = document.getElementById(`component-${name}-detail`);
@@ -608,6 +609,16 @@ const COMPONENT_STATES = {
         'mok_pending': { dot: 'warning', text: 'MOK Pending', cardClass: 'component-warning' },
         'reboot_required': { dot: 'warning', text: 'Reboot Required', cardClass: 'component-warning' },
         'not_installed': { dot: 'pending', text: 'Not Installed', cardClass: 'component-pending' }
+    },
+    display: {
+        'ok': { dot: 'ok', text: 'OK', cardClass: 'component-ok' },
+        'cable_disconnected': { dot: 'error', text: 'Cable Disconnected', cardClass: 'component-error' },
+        'screen_off': { dot: 'warning', text: 'Screen Off', cardClass: 'component-warning' },
+        'touch_error': { dot: 'error', text: 'Touch Error', cardClass: 'component-error' },
+        'touch_disconnected': { dot: 'error', text: 'Touch Disconnected', cardClass: 'component-error' },
+        'not_running': { dot: 'pending', text: 'Not Running', cardClass: 'component-pending' },
+        'stale': { dot: 'error', text: 'Stale', cardClass: 'component-error' },
+        'error': { dot: 'error', text: 'Error', cardClass: 'component-error' }
     }
 };
 
@@ -629,6 +640,10 @@ async function updateComponentStatuses() {
         // Update NVIDIA (multiple states)
         const nvState = COMPONENT_STATES.nvidia[data.nvidia.status] || COMPONENT_STATES.nvidia['not_installed'];
         updateComplexComponent('nvidia', nvState, data.nvidia.version ? `Driver ${data.nvidia.version}` : '');
+
+        // Update Display (multiple states)
+        const dispState = COMPONENT_STATES.display[data.display.status] || COMPONENT_STATES.display['error'];
+        updateComplexComponent('display', dispState, data.display.resolution || '');
 
     } catch (error) {
         console.warn('Component status update failed:', error.message || error);
