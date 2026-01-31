@@ -30,6 +30,7 @@ SERVICE_ICONS = {
     "mongo-express": "table-2",
     "main_server": "server",
     "go2rtc": "cast",
+    "tr_gateway": "globe",
 }
 
 # Background service ports
@@ -40,6 +41,7 @@ SERVICE_PORTS = {
     "item_recognizer": 3003,
     "login_controller": 3005,
     "reward_controller": 3004,
+    "tr_gateway": 4321,
     "yolo_dimension": 8090,
     "local_database": 27017,
 }

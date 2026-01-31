@@ -770,11 +770,12 @@ if [[ -f "$GRUB_FILE" ]]; then
     CURRENT_CMDLINE=$(grep "^GRUB_CMDLINE_LINUX_DEFAULT" "$GRUB_FILE" | cut -d'"' -f2)
 
     # Add fbcon and nvidia parameters (if missing)
+    # Using ${VAR:+ } syntax: adds space only if VAR is non-empty
     NEW_CMDLINE="$CURRENT_CMDLINE"
-    [[ "$NEW_CMDLINE" != *"fbcon=rotate:1"* ]] && NEW_CMDLINE="$NEW_CMDLINE fbcon=rotate:1"
-    [[ "$NEW_CMDLINE" != *"nvidia-drm.modeset=1"* ]] && NEW_CMDLINE="$NEW_CMDLINE nvidia-drm.modeset=1"
-    [[ "$NEW_CMDLINE" != *"quiet"* ]] && NEW_CMDLINE="quiet $NEW_CMDLINE"
-    [[ "$NEW_CMDLINE" != *"splash"* ]] && NEW_CMDLINE="$NEW_CMDLINE splash"
+    [[ "$NEW_CMDLINE" != *"fbcon=rotate:1"* ]] && NEW_CMDLINE="${NEW_CMDLINE}${NEW_CMDLINE:+ }fbcon=rotate:1"
+    [[ "$NEW_CMDLINE" != *"nvidia-drm.modeset=1"* ]] && NEW_CMDLINE="${NEW_CMDLINE}${NEW_CMDLINE:+ }nvidia-drm.modeset=1"
+    [[ "$NEW_CMDLINE" != *"quiet"* ]] && NEW_CMDLINE="quiet${NEW_CMDLINE:+ }${NEW_CMDLINE}"
+    [[ "$NEW_CMDLINE" != *"splash"* ]] && NEW_CMDLINE="${NEW_CMDLINE}${NEW_CMDLINE:+ }splash"
 
     # Update
     sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$NEW_CMDLINE\"|" "$GRUB_FILE"
